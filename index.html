@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
@@ -38,6 +39,9 @@
         </div>
       </div>
       <nav class="flex-1 p-4">
+        <a href="#" onclick="showAnalytics()" class="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-800 text-sm">
+          <i class="fas fa-chart-line"></i> Analytics
+        </a>
         <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600 text-white">
           <i class="fas fa-map-marker-alt"></i> Plots
         </a>
@@ -82,6 +86,41 @@
       </div>
 
       <div class="flex-1 p-4 md:p-8">
+        <!-- ANALYTICS DASHBOARD -->
+        <div id="analyticsView" class="hidden mb-8">
+          <h3 class="text-2xl font-bold mb-6">Real Estate Analytics</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="text-sm text-gray-400">Total Plots</div>
+              <div id="totalPlots" class="text-4xl font-bold mt-2">0</div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="text-sm text-gray-400">Total Portfolio Value</div>
+              <div id="totalValue" class="text-4xl font-bold mt-2 text-green-400">AED 0</div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="text-sm text-gray-400">Available Plots</div>
+              <div id="availablePlots" class="text-4xl font-bold mt-2">0</div>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="text-sm text-gray-400">Avg Price / GFA</div>
+              <div id="avgPrice" class="text-4xl font-bold mt-2">AED 0</div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="font-bold mb-4">Status Distribution</div>
+              <canvas id="statusChart" height="120"></canvas>
+            </div>
+            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+              <div class="font-bold mb-4">Portfolio by Development</div>
+              <canvas id="devChart" height="120"></canvas>
+            </div>
+          </div>
+        </div>
+
         <!-- SEARCH -->
         <div class="mb-6">
           <div class="flex flex-col md:flex-row gap-4 items-center">
@@ -99,49 +138,10 @@
           </div>
         </div>
 
-        <!-- GIS TOOLS -->
-        <div class="mb-4 flex flex-wrap gap-2">
-          <div class="relative">
-            <button onclick="toggleGisDropdown()" class="px-5 py-3 bg-gray-900 border border-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
-              <i class="fas fa-tools text-blue-400"></i>
-              <span>GIS Tools</span>
-              <i class="fas fa-chevron-down text-xs ml-1"></i>
-            </button>
-            
-            <div id="gisDropdown" class="hidden absolute top-14 left-0 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl w-72 p-2 z-[1000]">
-              <div class="grid grid-cols-2 gap-2">
-                <button onclick="startDistanceCalculator(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-ruler text-blue-400 w-4"></i> Distance</button>
-                <button onclick="startAreaCalculator(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-draw-polygon text-green-400 w-4"></i> Area</button>
-                <button onclick="toggleDrawingMode(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-pencil-alt text-purple-400 w-4"></i> Draw</button>
-                <button onclick="createBufferZone(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-circle text-purple-400 w-4"></i> Buffer</button>
-                <button onclick="showElevationProfile(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-mountain text-indigo-400 w-4"></i> Elevation</button>
-                <button onclick="findShortestPath(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-route text-pink-400 w-4"></i> Route</button>
-                <button onclick="toggleAdvancedHeatmap(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-fire text-red-400 w-4"></i> Heatmap</button>
-                <button onclick="show3DTerrain(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm"><i class="fas fa-cube text-white w-4"></i> 3D View</button>
-                <button onclick="clearAllDrawings(); toggleGisDropdown()" class="px-4 py-3 hover:bg-gray-800 rounded-xl flex items-center gap-2 text-sm col-span-2"><i class="fas fa-trash text-red-400 w-4"></i> Clear All</button>
-              </div>
-            </div>
-          </div>
-
-          <button onclick="toggleMapLayers()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2">
-            <i class="fas fa-layer-group"></i> <span class="hidden md:inline">Layers</span>
-          </button>
-          <button onclick="enableMeasurementTool()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2">
-            <i class="fas fa-ruler-combined"></i> <span class="hidden md:inline">Measure</span>
-          </button>
-        </div>
-
         <!-- MAP VIEW -->
         <div id="mapView">
           <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
             <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
-            
-            <div class="absolute top-4 right-4 z-[1000]">
-              <div class="flex bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl overflow-hidden">
-                <input type="text" id="mapSearch" placeholder="Search location..." class="px-4 py-2 text-sm w-48 focus:outline-none" onkeypress="if (event.key === 'Enter') searchOnMap()">
-                <button onclick="searchOnMap()" class="px-4 bg-blue-600 hover:bg-blue-700"><i class="fas fa-search"></i></button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -176,25 +176,68 @@
     </div>
   </div>
 
-  <!-- REFINED PRINT AREA -->
-  <div id="printArea" class="hidden p-8 max-w-[850px] mx-auto bg-white text-black">
-    <div style="text-align: center; margin-bottom: 30px; border-bottom: 4px solid #1e40af; padding-bottom: 25px;">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
-        <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #1e40af, #3b82f6); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-          <i class="fas fa-map-marked" style="color: white; font-size: 32px;"></i>
-        </div>
+  <!-- NEW PLOT MODAL -->
+  <div id="plotModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[750px] border border-gray-700 shadow-2xl max-h-[95vh] overflow-auto">
+      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
         <div>
-          <h1 style="color: #1e40af; font-size: 36px; font-weight: 800; margin: 0;">AI Plot Portal</h1>
-          <p style="color: #64748b; font-size: 14px; margin: 0;">Professional Real Estate Intelligence</p>
+          <h3 class="text-2xl font-bold" id="modalTitle">Add New Plot</h3>
+          <p class="text-sm text-gray-400" id="modalSubtitle">Enter complete plot information</p>
+        </div>
+        <button onclick="closePlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+      </div>
+      
+      <div class="p-8 space-y-6">
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label><input type="text" id="plotNo" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Development *</label><input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Country</label><input type="text" id="plotCountry" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="UAE"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">City</label><input type="text" id="plotCity" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Area</label><input type="text" id="plotArea" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai Hills"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="School">School</option><option value="Camp">Camp</option><option value="Other">Other</option></select></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
+        </div>
+
+        <div class="border border-gray-700 rounded-2xl p-5">
+          <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
+          <div class="grid grid-cols-4 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="plotGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="2500"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Height (m)</label><input type="number" id="plotHeight" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="12"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Price/GFA</label><input type="number" id="plotPricePerGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="1800"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Price/sqf</label><input type="number" id="plotPricePerSqf" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="167"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Total Price (AED) *</label><input type="number" id="plotPrice" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="4500000"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Payment Type</label><select id="plotPaymentType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Cash">Cash</option><option value="Payment Plan">Payment Plan</option><option value="Barter">Barter</option><option value="JV">Joint Venture</option></select></div>
+        </div>
+
+        <div class="border border-red-900/50 bg-red-950/30 rounded-2xl p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-lock text-red-400"></i>
+            <div class="text-xs text-red-400 font-semibold">OWNER INFORMATION (INTERNAL ONLY)</div>
+          </div>
+          <div class="grid grid-cols-1 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="Ahmed Al Maktoum"></div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="block text-xs text-gray-400 mb-1.5">Phone</label><input type="text" id="plotPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="+971 50 123 4567"></div>
+              <div><label class="block text-xs text-gray-400 mb-1.5">Email</label><input type="email" id="plotEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="owner@email.com"></div>
+            </div>
+          </div>
         </div>
       </div>
-      <p style="color: #64748b; font-size: 13px; margin-top: 10px;">Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}</p>
-    </div>
-    
-    <div id="printContent"></div>
-    
-    <div style="margin-top: 50px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 15px;">
-      Confidential Document • AI Plot Portal • All Rights Reserved
+
+      <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
+        <button onclick="closePlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="savePlot()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium" id="saveBtn">Add Plot</button>
+      </div>
     </div>
   </div>
 
@@ -209,11 +252,128 @@
     let currentDrawing = null;
     let drawingPoints = [];
     let currentLayer = null;
+    let statusChart = null;
+    let devChart = null;
 
-    function toggleMobileMenu() {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.toggle('hidden');
-      sidebar.classList.toggle('flex');
+    // ==================== LOCAL STORAGE + WEB SYNC ====================
+    function saveToLocalStorage() {
+      localStorage.setItem('aiPlotPortalData', JSON.stringify(plots));
+    }
+
+    function loadFromLocalStorage() {
+      const savedData = localStorage.getItem('aiPlotPortalData');
+      if (savedData) {
+        plots = JSON.parse(savedData);
+      } else {
+        plots = [
+          { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com", country: "UAE", city: "Dubai", area: "Dubai Hills", height: "12", measurement: "sqm", currency: "AED", pricePerGFA: "1750", pricePerSqf: "162", paymentType: "Cash", sale: true, lease: false, jv: false, musataha: false }
+        ];
+        saveToLocalStorage();
+      }
+    }
+
+    // ==================== WEB SYNC (JSON EXPORT/IMPORT) ====================
+    function exportToWeb() {
+      const dataStr = JSON.stringify(plots, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ai-plot-portal-backup-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      
+      alert('✅ Backup downloaded!\n\nUpload this file to GitHub, Google Drive, or Dropbox to sync across devices.');
+    }
+
+    function importFromWeb() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          try {
+            const importedData = JSON.parse(ev.target.result);
+            
+            if (confirm(`Import ${importedData.length} plots from web backup?`)) {
+              plots = importedData;
+              saveToLocalStorage();
+              addMarkers();
+              renderTable();
+              alert('✅ Data imported successfully from web!');
+            }
+          } catch (error) {
+            alert('Invalid backup file!');
+          }
+        };
+        reader.readAsText(file);
+      };
+      
+      input.click();
+    }
+
+    // ==================== ANALYTICS ====================
+    function showAnalytics() {
+      document.getElementById('mapView').classList.add('hidden');
+      document.getElementById('tableView').classList.add('hidden');
+      document.getElementById('analyticsView').classList.remove('hidden');
+      
+      updateAnalytics();
+    }
+
+    function updateAnalytics() {
+      const totalPlots = plots.length;
+      const totalValue = plots.reduce((sum, p) => sum + parseFloat(p.price || 0), 0);
+      const available = plots.filter(p => p.status === 'Available').length;
+      const avgPrice = totalPlots > 0 ? Math.round(totalValue / totalPlots) : 0;
+
+      document.getElementById('totalPlots').textContent = totalPlots;
+      document.getElementById('totalValue').textContent = `AED ${totalValue.toLocaleString()}`;
+      document.getElementById('availablePlots').textContent = available;
+      document.getElementById('avgPrice').textContent = `AED ${avgPrice.toLocaleString()}`;
+
+      const statusCounts = {
+        Available: plots.filter(p => p.status === 'Available').length,
+        Reserved: plots.filter(p => p.status === 'Reserved').length,
+        Sold: plots.filter(p => p.status === 'Sold').length
+      };
+
+      if (statusChart) statusChart.destroy();
+      statusChart = new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Available', 'Reserved', 'Sold'],
+          datasets: [{
+            data: [statusCounts.Available, statusCounts.Reserved, statusCounts.Sold],
+            backgroundColor: ['#22c55e', '#f59e0b', '#ef4444']
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      const devCounts = {};
+      plots.forEach(p => {
+        devCounts[p.dev] = (devCounts[p.dev] || 0) + 1;
+      });
+
+      if (devChart) devChart.destroy();
+      devChart = new Chart(document.getElementById('devChart'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(devCounts),
+          datasets: [{
+            label: 'Number of Plots',
+            data: Object.values(devCounts),
+            backgroundColor: '#3b82f6'
+          }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } } }
+      });
     }
 
     // ==================== MAP ====================
@@ -257,20 +417,9 @@
         <div class="space-y-4">
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">LOCATION</div><div class="font-bold">${plot.country || 'UAE'} - ${plot.city || 'Dubai'} - ${plot.area || 'N/A'}</div></div>
           
-          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">DIMENSIONS</div><div class="grid grid-cols-2 gap-4 text-sm"><div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div><div><div class="text-gray-400">Height</div><div class="font-bold">${plot.height || 'N/A'} m</div></div><div><div class="text-gray-400">Price/GFA</div><div class="font-bold">AED ${plot.pricePerGFA || 'N/A'}</div></div><div><div class="text-gray-400">Price/sqf</div><div class="font-bold">AED ${plot.pricePerSqf || 'N/A'}</div></div><div><div class="text-gray-400">Payment</div><div class="font-bold">${plot.paymentType || 'N/A'}</div></div></div></div>
-
-          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">TRANSACTION TYPES</div><div class="flex flex-wrap gap-2">${plot.sale ? '<span class="px-3 py-1 bg-green-600 rounded-full text-xs">Sale</span>' : ''}${plot.lease ? '<span class="px-3 py-1 bg-blue-600 rounded-full text-xs">Lease</span>' : ''}${plot.jv ? '<span class="px-3 py-1 bg-purple-600 rounded-full text-xs">JV</span>' : ''}${plot.musataha ? '<span class="px-3 py-1 bg-orange-600 rounded-full text-xs">Musataha</span>' : ''}</div></div>
+          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">DIMENSIONS</div><div class="grid grid-cols-2 gap-4 text-sm"><div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div><div><div class="text-gray-400">Height</div><div class="font-bold">${plot.height || 'N/A'} m</div></div><div><div class="text-gray-400">Price/GFA</div><div class="font-bold">AED ${plot.pricePerGFA || 'N/A'}</div></div><div><div class="text-gray-400">Price/sqf</div><div class="font-bold">AED ${plot.pricePerSqf || 'N/A'}</div></div></div></div>
 
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">PRICING</div><div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div></div>
-        </div>
-
-        <div class="mt-6">
-          <div class="text-xs text-gray-400 mb-3">SHARE & CONTACT</div>
-          <div class="grid grid-cols-3 gap-3">
-            <button onclick="sendToWhatsApp(${plot.id})" class="py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fab fa-whatsapp"></i> WhatsApp</button>
-            <button onclick="sendEmail(${plot.id})" class="py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-envelope"></i> Email</button>
-            <button onclick="startVideoCall(${plot.id})" class="py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-video"></i> Video Call</button>
-          </div>
         </div>
 
         <div class="mt-6 flex gap-3">
@@ -284,12 +433,14 @@
     function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
 
     function showMapView() {
+      document.getElementById('analyticsView').classList.add('hidden');
       document.getElementById('mapView').classList.remove('hidden');
       document.getElementById('tableView').classList.add('hidden');
       setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     }
 
     function showTableView() {
+      document.getElementById('analyticsView').classList.add('hidden');
       document.getElementById('mapView').classList.add('hidden');
       document.getElementById('tableView').classList.remove('hidden');
       renderTable();
@@ -319,110 +470,138 @@
       return text.toString().replace(regex, '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>');
     }
 
-    // ==================== REFINED PRINT ====================
-    function printPlot(id) {
+    // ==================== NEW PLOT MODAL (FIXED) ====================
+    function showNewPlotModal() {
+      currentEditId = null;
+      document.getElementById('modalTitle').textContent = 'Add New Plot';
+      document.getElementById('modalSubtitle').textContent = 'Enter complete plot information';
+      document.getElementById('saveBtn').textContent = 'Add Plot';
+      
+      document.getElementById('plotNo').value = `D-${Date.now().toString().slice(-4)}`;
+      document.getElementById('plotDev').value = 'New Development';
+      document.getElementById('plotCountry').value = 'UAE';
+      document.getElementById('plotCity').value = 'Dubai';
+      document.getElementById('plotArea').value = 'Dubai Hills';
+      document.getElementById('plotType').value = 'Residential';
+      document.getElementById('plotStatus').value = 'Available';
+      document.getElementById('plotGFA').value = '2500';
+      document.getElementById('plotHeight').value = '12';
+      document.getElementById('plotPricePerGFA').value = '1800';
+      document.getElementById('plotPricePerSqf').value = '167';
+      document.getElementById('plotPrice').value = '4500000';
+      document.getElementById('plotPaymentType').value = 'Cash';
+      document.getElementById('plotOwner').value = 'New Owner';
+      document.getElementById('plotPhone').value = '+971 50 000 0000';
+      document.getElementById('plotEmail').value = 'owner@email.com';
+      
+      document.getElementById('plotModal').classList.remove('hidden');
+    }
+
+    function editPlot(id) {
       const plot = plots.find(p => p.id === id);
       if (!plot) return;
-
-      const printContent = document.getElementById('printContent');
-      printContent.innerHTML = `
-        <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px;">
-            <div>
-              <div style="font-size: 28px; font-weight: 700; color: #1e40af;">Plot ${plot.no}</div>
-              <div style="font-size: 18px; color: #334155; margin-top: 4px;">${plot.dev}</div>
-            </div>
-            <div style="text-align: right;">
-              <div style="font-size: 13px; color: #64748b;">Report Date</div>
-              <div style="font-weight: 600; color: #334155;">${new Date().toLocaleDateString()}</div>
-            </div>
-          </div>
-
-          <div style="margin-bottom: 25px;">
-            <span style="background: ${plot.status === 'Available' ? '#dcfce7' : plot.status === 'Reserved' ? '#fef3c7' : '#fee2e2'}; color: ${plot.status === 'Available' ? '#166534' : plot.status === 'Reserved' ? '#854d0e' : '#991b1b'}; padding: 6px 16px; border-radius: 9999px; font-size: 14px; font-weight: 600;">
-              ${plot.status}
-            </span>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px;">
-            <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
-              <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">TOTAL PRICE</div>
-              <div style="font-size: 32px; font-weight: 800; color: #166534;">AED ${Number(plot.price).toLocaleString()}</div>
-            </div>
-            <div style="background: #f8fafc; padding: 20px; border-radius: 12px;">
-              <div style="font-size: 13px; color: #64748b; margin-bottom: 4px;">PRICE PER GFA / sqf</div>
-              <div style="font-size: 28px; font-weight: 800; color: #1e40af;">AED ${plot.pricePerGFA || 'N/A'} / ${plot.pricePerSqf || 'N/A'}</div>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;">
-            <div><strong style="color: #334155;">Location:</strong><br>${plot.country || 'UAE'} - ${plot.city || 'Dubai'} - ${plot.area || 'N/A'}</div>
-            <div><strong style="color: #334155;">GFA / Height:</strong><br>${plot.gfa || 'N/A'} sqm / ${plot.height || 'N/A'} m</div>
-            <div><strong style="color: #334155;">Payment Type:</strong><br>${plot.paymentType || 'Cash'}</div>
-            <div><strong style="color: #334155;">Transaction Types:</strong><br>${plot.sale ? 'Sale ' : ''}${plot.lease ? 'Lease ' : ''}${plot.jv ? 'JV ' : ''}${plot.musataha ? 'Musataha' : ''}</div>
-          </div>
-
-          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; text-align: center;">
-            This document is confidential and intended for internal use only.
-          </div>
-        </div>
-      `;
-
-      const printArea = document.getElementById('printArea');
-      printArea.classList.remove('hidden');
       
-      setTimeout(() => {
-        window.print();
-        printArea.classList.add('hidden');
-      }, 300);
+      currentEditId = id;
+      document.getElementById('modalTitle').textContent = 'Edit Plot';
+      document.getElementById('modalSubtitle').textContent = `Editing Plot ${plot.no}`;
+      document.getElementById('saveBtn').textContent = 'Save Changes';
+      
+      document.getElementById('plotNo').value = plot.no;
+      document.getElementById('plotDev').value = plot.dev;
+      document.getElementById('plotCountry').value = plot.country || 'UAE';
+      document.getElementById('plotCity').value = plot.city || 'Dubai';
+      document.getElementById('plotArea').value = plot.area || 'Dubai Hills';
+      document.getElementById('plotType').value = plot.type || 'Residential';
+      document.getElementById('plotStatus').value = plot.status;
+      document.getElementById('plotGFA').value = plot.gfa || '2500';
+      document.getElementById('plotHeight').value = plot.height || '12';
+      document.getElementById('plotPricePerGFA').value = plot.pricePerGFA || '1800';
+      document.getElementById('plotPricePerSqf').value = plot.pricePerSqf || '167';
+      document.getElementById('plotPrice').value = plot.price;
+      document.getElementById('plotPaymentType').value = plot.paymentType || 'Cash';
+      document.getElementById('plotOwner').value = plot.owner || '';
+      document.getElementById('plotPhone').value = plot.phone || '';
+      document.getElementById('plotEmail').value = plot.email || '';
+      
+      document.getElementById('plotModal').classList.remove('hidden');
     }
 
-    // ==================== EXPORT PDF REPORT ====================
-    function exportPDFReport() {
-      const printArea = document.getElementById('printArea');
-      const printContent = document.getElementById('printContent');
-      
-      let html = `<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 4px solid #1e40af; padding-bottom: 25px;">
-          <h1 style="color: #1e40af; font-size: 36px; font-weight: 800;">AI Plot Portal</h1>
-          <p style="color: #64748b;">Full Portfolio Report • ${new Date().toLocaleDateString()}</p>
-        </div>`;
-
-      plots.forEach(plot => {
-        html += `
-          <div style="margin-bottom: 40px; page-break-inside: avoid;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
-              <div>
-                <div style="font-size: 24px; font-weight: 700; color: #1e40af;">Plot ${plot.no}</div>
-                <div style="font-size: 16px; color: #334155;">${plot.dev}</div>
-              </div>
-              <span style="background: ${plot.status === 'Available' ? '#dcfce7' : plot.status === 'Reserved' ? '#fef3c7' : '#fee2e2'}; color: ${plot.status === 'Available' ? '#166534' : plot.status === 'Reserved' ? '#854d0e' : '#991b1b'}; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 600;">
-                ${plot.status}
-              </span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
-              <div><strong>Location:</strong> ${plot.country || 'UAE'} - ${plot.city || 'Dubai'}</div>
-              <div><strong>GFA:</strong> ${plot.gfa} sqm</div>
-              <div><strong>Total Price:</strong> AED ${Number(plot.price).toLocaleString()}</div>
-              <div><strong>Price/GFA:</strong> AED ${plot.pricePerGFA || 'N/A'}</div>
-            </div>
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-
-      printContent.innerHTML = html;
-      printArea.classList.remove('hidden');
-      
-      setTimeout(() => {
-        window.print();
-        printArea.classList.add('hidden');
-      }, 300);
+    function closePlotModal() {
+      document.getElementById('plotModal').classList.add('hidden');
     }
 
-    // ==================== IMPROVED IMPORT (PDF Fixed) ====================
+    function savePlot() {
+      const no = document.getElementById('plotNo').value.trim();
+      const dev = document.getElementById('plotDev').value.trim();
+      const country = document.getElementById('plotCountry').value.trim();
+      const city = document.getElementById('plotCity').value.trim();
+      const area = document.getElementById('plotArea').value.trim();
+      const type = document.getElementById('plotType').value;
+      const status = document.getElementById('plotStatus').value;
+      const gfa = document.getElementById('plotGFA').value;
+      const height = document.getElementById('plotHeight').value;
+      const pricePerGFA = document.getElementById('plotPricePerGFA').value;
+      const pricePerSqf = document.getElementById('plotPricePerSqf').value;
+      const price = document.getElementById('plotPrice').value;
+      const paymentType = document.getElementById('plotPaymentType').value;
+      const owner = document.getElementById('plotOwner').value.trim();
+      const phone = document.getElementById('plotPhone').value.trim();
+      const email = document.getElementById('plotEmail').value.trim();
+      
+      if (!no || !dev || !owner || !price) {
+        alert('Please fill in all required fields (Plot Number, Development, Owner Name, Price)');
+        return;
+      }
+      
+      if (currentEditId !== null) {
+        const plot = plots.find(p => p.id === currentEditId);
+        plot.no = no; plot.dev = dev; plot.country = country; plot.city = city; plot.area = area;
+        plot.type = type; plot.status = status; plot.gfa = gfa; plot.height = height;
+        plot.pricePerGFA = pricePerGFA; plot.pricePerSqf = pricePerSqf; plot.price = price;
+        plot.paymentType = paymentType; plot.owner = owner; plot.phone = phone; plot.email = email;
+        
+        alert(`✅ Plot ${no} updated successfully!`);
+      } else {
+        const newPlot = {
+          id: plots.length,
+          no: no,
+          lat: 25.25 + Math.random() * 0.15,
+          lng: 55.27 + Math.random() * 0.15,
+          dev: dev,
+          country: country,
+          city: city,
+          area: area,
+          type: type,
+          status: status,
+          gfa: gfa,
+          height: height,
+          pricePerGFA: pricePerGFA,
+          pricePerSqf: pricePerSqf,
+          price: price,
+          paymentType: paymentType,
+          owner: owner,
+          phone: phone,
+          email: email,
+          sale: true,
+          lease: false,
+          jv: false,
+          musataha: false
+        };
+        plots.push(newPlot);
+        alert(`✅ New plot ${no} added successfully!`);
+      }
+      
+      saveToLocalStorage();
+      closePlotModal();
+      addMarkers();
+      renderTable();
+      
+      if (!document.getElementById('analyticsView').classList.contains('hidden')) {
+        updateAnalytics();
+      }
+    }
+
+    // ==================== IMPORT / EXPORT ====================
     function importPlots() {
       const input = document.createElement('input');
       input.type = 'file';
@@ -441,16 +620,12 @@
           try {
             if (['csv', 'txt'].includes(ext)) {
               data = parseCSV(ev.target.result);
-            } 
-            else if (['xlsx', 'xls'].includes(ext)) {
+            } else if (['xlsx', 'xls'].includes(ext)) {
               const wb = XLSX.read(ev.target.result, { type: 'binary' });
               data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-            } 
-            else if (ext === 'json') {
+            } else if (ext === 'json') {
               data = JSON.parse(ev.target.result);
-            } 
-            else if (ext === 'pdf') {
-              // Improved PDF handling (simulated extraction)
+            } else if (ext === 'pdf') {
               const text = new TextDecoder().decode(ev.target.result);
               data = parsePDFText(text);
             }
@@ -508,6 +683,7 @@
               added++;
             });
 
+            saveToLocalStorage();
             addMarkers();
             renderTable();
             alert(`✅ Import Successful!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`);
@@ -550,6 +726,60 @@
         'Status': 'Available',
         'Owner': 'Imported Owner'
       }));
+    }
+
+    function exportCSV() {
+      let csv = "Plot No,Development,Type,GFA,Height,Price,PricePerGFA,PricePerSqf,Status,Owner,Phone,Email,Country,City,Area,PaymentType\n";
+      plots.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.height},${p.price},${p.pricePerGFA},${p.pricePerSqf},${p.status},${p.owner},${p.phone},${p.email},${p.country},${p.city},${p.area},${p.paymentType}\n`);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'plots_export.csv';
+      a.click();
+    }
+
+    function exportPDFReport() {
+      const printArea = document.getElementById('printArea');
+      const printContent = document.getElementById('printContent');
+      
+      let html = `<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto;">
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 4px solid #1e40af; padding-bottom: 25px;">
+          <h1 style="color: #1e40af; font-size: 36px; font-weight: 800;">AI Plot Portal</h1>
+          <p style="color: #64748b;">Full Portfolio Report • ${new Date().toLocaleDateString()}</p>
+        </div>`;
+
+      plots.forEach(plot => {
+        html += `
+          <div style="margin-bottom: 40px; page-break-inside: avoid;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+              <div>
+                <div style="font-size: 24px; font-weight: 700; color: #1e40af;">Plot ${plot.no}</div>
+                <div style="font-size: 16px; color: #334155;">${plot.dev}</div>
+              </div>
+              <span style="background: ${plot.status === 'Available' ? '#dcfce7' : plot.status === 'Reserved' ? '#fef3c7' : '#fee2e2'}; color: ${plot.status === 'Available' ? '#166534' : plot.status === 'Reserved' ? '#854d0e' : '#991b1b'}; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 600;">
+                ${plot.status}
+              </span>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
+              <div><strong>Location:</strong> ${plot.country || 'UAE'} - ${plot.city || 'Dubai'}</div>
+              <div><strong>GFA:</strong> ${plot.gfa} sqm</div>
+              <div><strong>Total Price:</strong> AED ${Number(plot.price).toLocaleString()}</div>
+              <div><strong>Price/GFA:</strong> AED ${plot.pricePerGFA || 'N/A'}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+
+      printContent.innerHTML = html;
+      printArea.classList.remove('hidden');
+      
+      setTimeout(() => {
+        window.print();
+        printArea.classList.add('hidden');
+      }, 300);
     }
 
     // ==================== OTHER FUNCTIONS ====================
@@ -643,11 +873,26 @@
       applySearchFilters();
     }
 
+    function deletePlot(id) {
+      if (!confirm('Delete this plot?')) return;
+      plots = plots.filter(p => p.id !== id);
+      saveToLocalStorage();
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      addMarkers();
+      renderTable();
+    }
+
     // ==================== INITIALIZE ====================
     window.onload = () => {
+      loadFromLocalStorage();
       initMap();
       renderTable();
-      console.log('✅ Portal Fully Optimized - All Features Working');
+      
+      setTimeout(() => {
+        showAnalytics();
+      }, 500);
+      
+      console.log('✅ Portal Ready - Add Plot Fixed + Web Sync Available');
     };
   </script>
 </body>
