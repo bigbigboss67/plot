@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
@@ -44,7 +44,7 @@
           <button onclick="exportCSV()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-download"></i> Export
           </button>
-          <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+          <button onclick="showNewPlotModal()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-plus"></i> New Plot
           </button>
         </div>
@@ -64,101 +64,10 @@
           </select>
         </div>
 
-        <!-- GIS TOOLS - ROW 1: Basic Tools -->
-        <div class="absolute top-48 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
-          <button onclick="startDistanceCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Measure Distance">
-            <i class="fas fa-ruler text-blue-400"></i>
-            <span class="hidden md:inline">Distance</span>
-          </button>
-          <button onclick="startAreaCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Measure Area">
-            <i class="fas fa-draw-polygon text-green-400"></i>
-            <span class="hidden md:inline">Area</span>
-          </button>
-          <button onclick="toggleDrawingMode()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Draw on Map">
-            <i class="fas fa-pencil-alt text-purple-400"></i>
-            <span class="hidden md:inline">Draw</span>
-          </button>
-        </div>
-
-        <!-- GIS TOOLS - ROW 2: Advanced Tools -->
-        <div class="absolute top-64 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
-          <button onclick="createBufferZone()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Buffer Zone">
-            <i class="fas fa-circle text-white"></i>
-            <span class="hidden md:inline">Buffer</span>
-          </button>
-          <button onclick="findIntersections()" class="px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Find Overlaps">
-            <i class="fas fa-object-group text-white"></i>
-            <span class="hidden md:inline">Intersect</span>
-          </button>
-          <button onclick="spatialQuery()" class="px-4 py-3 bg-teal-600 hover:bg-teal-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Spatial Query">
-            <i class="fas fa-search-location text-white"></i>
-            <span class="hidden md:inline">Query</span>
-          </button>
-          <button onclick="showElevationProfile()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Elevation">
-            <i class="fas fa-mountain text-white"></i>
-            <span class="hidden md:inline">Elevation</span>
-          </button>
-          <button onclick="findShortestPath()" class="px-4 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Route Planning">
-            <i class="fas fa-route text-white"></i>
-            <span class="hidden md:inline">Route</span>
-          </button>
-          <button onclick="toggleAdvancedHeatmap()" class="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Heatmap">
-            <i class="fas fa-fire text-white"></i>
-            <span class="hidden md:inline">Heatmap</span>
-          </button>
-          <button onclick="show3DTerrain()" class="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="3D Terrain View">
-            <i class="fas fa-cube text-white"></i>
-            <span class="hidden md:inline">3D View</span>
-          </button>
-          <button onclick="clearAllDrawings()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Clear All">
-            <i class="fas fa-trash text-red-400"></i>
-          </button>
-        </div>
-
         <!-- MAP VIEW -->
         <div id="mapView">
           <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
             <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
-            
-            <!-- LAYER SWITCHER - SATELLITE IMAGERY -->
-            <div class="absolute top-5 right-5 z-[1000]">
-              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl">
-                <div class="text-xs text-gray-400 px-3 py-2 border-b border-gray-700">MAP LAYERS</div>
-                
-                <button onclick="switchLayer(0)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm active-layer" id="layer-0">
-                  <i class="fas fa-road w-4 text-blue-400"></i> 
-                  <span>Streets</span>
-                </button>
-                
-                <button onclick="switchLayer(1)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-1">
-                  <i class="fas fa-satellite w-4 text-green-400"></i> 
-                  <span>Satellite</span>
-                </button>
-                
-                <button onclick="switchLayer(2)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-2">
-                  <i class="fas fa-layer-group w-4 text-purple-400"></i> 
-                  <span>Hybrid</span>
-                </button>
-                
-                <button onclick="switchLayer(3)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-3">
-                  <i class="fas fa-mountain w-4 text-orange-400"></i> 
-                  <span>Terrain</span>
-                </button>
-                
-                <button onclick="switchLayer(4)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-4">
-                  <i class="fas fa-moon w-4 text-gray-400"></i> 
-                  <span>Dark</span>
-                </button>
-              </div>
-            </div>
-            
-            <div id="mapError" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900 z-50">
-              <div class="text-center">
-                <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
-                <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-                <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -183,60 +92,116 @@
       </div>
     </div>
 
-    <!-- RIGHT SIDE: COMPLETE PLOT INFORMATION CARD -->
+    <!-- RIGHT SIDE: PLOT INFORMATION CARD -->
     <div id="mapCard" class="w-96 bg-gray-900 border-l border-gray-800 p-6 overflow-auto hidden">
       <div class="flex justify-between items-center mb-6">
         <h3 class="text-xl font-bold">Plot Details</h3>
         <button onclick="closeCard()" class="text-3xl text-gray-400 hover:text-white">×</button>
       </div>
+      <div id="plotDetailsContent"></div>
+    </div>
+  </div>
+
+  <!-- NEW PLOT MODAL -->
+  <div id="plotModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[700px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
+      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+        <div>
+          <h3 class="text-2xl font-bold" id="modalTitle">Add New Plot</h3>
+          <p class="text-sm text-gray-400" id="modalSubtitle">Enter complete plot information</p>
+        </div>
+        <button onclick="closePlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+      </div>
       
-      <div id="plotDetailsContent">
-        <!-- Content populated by JavaScript -->
+      <div class="p-8 space-y-6">
+        <div class="grid grid-cols-2 gap-5">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label>
+            <input type="text" id="plotNo" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5">Development *</label>
+            <input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-400 mb-1.5">Plot Type</label>
+          <select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="Residential">Residential</option>
+            <option value="Commercial">Commercial</option>
+            <option value="Industrial">Industrial</option>
+            <option value="School">School / Educational</option>
+            <option value="Camp">Camp / Labor Accommodation</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="border border-gray-700 rounded-2xl p-5">
+          <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
+          <div class="grid grid-cols-2 gap-5">
+            <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="plotGFA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2500"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">NFA (sqm)</label><input type="number" id="plotNFA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2100"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">FAR</label><input type="number" step="0.1" id="plotFAR" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2.5"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">BUA (sqm)</label><input type="number" id="plotBUA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="1800"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Price (AED) *</label><input type="number" id="plotPrice" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="4500000"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
+        </div>
+
+        <div class="border border-gray-700 rounded-2xl p-5">
+          <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER INFORMATION</div>
+          <div class="grid grid-cols-1 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name *</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="Ahmed Al Maktoum"></div>
+            <div class="grid grid-cols-2 gap-4">
+              <div><label class="block text-xs text-gray-400 mb-1.5">Phone</label><input type="text" id="plotPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="+971 50 123 4567"></div>
+              <div><label class="block text-xs text-gray-400 mb-1.5">Email</label><input type="email" id="plotEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="owner@email.com"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
+        <button onclick="closePlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="savePlot()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium" id="saveBtn">Add Plot</button>
       </div>
     </div>
   </div>
 
-  <!-- 3D TERRAIN MODAL -->
-  <div id="modal3D" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl h-[90vh] border border-gray-700 shadow-2xl overflow-hidden flex flex-col">
+  <!-- IMPORT MODAL - FIXED -->
+  <div id="importModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl">
       <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
-          <h3 class="text-2xl font-bold flex items-center gap-3">
-            <i class="fas fa-cube text-purple-400"></i> 
-            3D Terrain Visualization
-          </h3>
-          <p class="text-sm text-gray-400">Interactive 3D view • Drag to rotate • Scroll to zoom</p>
+          <h3 class="text-2xl font-semibold">Import Plots</h3>
+          <p class="text-sm text-gray-400">Upload CSV, Excel, PDF, or JSON files</p>
         </div>
-        <div class="flex gap-3">
-          <button onclick="reset3DView()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium flex items-center gap-2">
-            <i class="fas fa-undo"></i> Reset View
-          </button>
-          <button onclick="close3DModal()" class="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
-            <i class="fas fa-times"></i> Close
-          </button>
-        </div>
+        <button onclick="closeImportModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
       </div>
       
-      <div class="flex-1 relative bg-black" id="threeContainer">
-        <canvas id="threeCanvas" class="w-full h-full"></canvas>
-        
-        <div class="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
-          <div class="text-xs text-gray-400 mb-2">CONTROLS</div>
-          <div class="space-y-1 text-sm">
-            <div class="flex items-center gap-2"><i class="fas fa-mouse-pointer w-4"></i> <span>Left Click + Drag: Rotate</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-search w-4"></i> <span>Scroll: Zoom</span></div>
-            <div class="flex items-center gap-2"><i class="fas fa-arrows-alt w-4"></i> <span>Right Click + Drag: Pan</span></div>
-          </div>
+      <div class="p-8">
+        <div onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors cursor-pointer">
+          <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+          <p class="font-medium mb-1">Click to upload file</p>
+          <p class="text-sm text-gray-400">or drag and drop</p>
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt,.pdf" class="hidden" onchange="handleFileSelect(event)">
         </div>
         
-        <div class="absolute bottom-4 right-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
-          <div class="text-xs text-gray-400 mb-2">LEGEND</div>
-          <div class="space-y-2 text-sm">
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-green-500 rounded-full"></div> <span>Available</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-orange-500 rounded-full"></div> <span>Reserved</span></div>
-            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div> <span>Sold</span></div>
+        <div id="importPreview" class="hidden">
+          <div class="text-sm font-medium mb-2 flex items-center justify-between">
+            <span>Preview (First 5 rows)</span>
+            <span class="text-xs text-gray-400" id="previewCount"></span>
           </div>
+          <div class="bg-gray-800 rounded-xl p-4 text-xs font-mono max-h-40 overflow-auto" id="previewContent"></div>
         </div>
+      </div>
+
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
+        <button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
       </div>
     </div>
   </div>
@@ -250,108 +215,25 @@
       { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", type: "Commercial", gfa: "1800", nfa: "1500", far: "3.2", bua: "1200", price: "6200000", status: "Reserved", owner: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima@email.com" },
       { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
     ];
-    let drawingMode = false;
-    let drawnItems = [];
-    let distanceMode = false;
-    let areaMode = false;
-    let firstPoint = null;
-    let distanceMarker1 = null;
-    let distanceMarker2 = null;
-    let areaPoints = [];
-    let areaMarkers = [];
-    let areaPolyline = null;
-    let bufferLayer = null;
-    let intersectionLayer = null;
-    let heatmapLayer = null;
-    let currentLayer = 0;
-    let tileLayers = [];
-    let scene, camera, renderer;
-    let plotMeshes = [];
-    let isDragging = false;
-    let previousMouseX = 0;
-    let previousMouseY = 0;
+    let currentEditId = null;
+    let importedData = [];
+    let currentFile = null;
 
-    // ==================== MAP WITH SATELLITE LAYERS ====================
+    // ==================== MAP ====================
     function initMap() {
-      try {
-        map = L.map('map').setView([25.2769, 55.2962], 11);
-        
-        // Layer 0: Streets (OpenStreetMap)
-        tileLayers[0] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19
-        });
-        
-        // Layer 1: Satellite (Esri World Imagery)
-        tileLayers[1] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-          attribution: '© Esri, Maxar, Earthstar Geographics',
-          maxZoom: 19
-        });
-        
-        // Layer 2: Hybrid (Satellite + Labels)
-        tileLayers[2] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-          attribution: '© Esri, Maxar, Earthstar Geographics',
-          maxZoom: 19
-        });
-        
-        // Layer 3: Terrain (OpenTopoMap)
-        tileLayers[3] = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenTopoMap contributors',
-          maxZoom: 17
-        });
-        
-        // Layer 4: Dark Mode
-        tileLayers[4] = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-          attribution: '© CARTO',
-          maxZoom: 19
-        });
-        
-        // Add default layer (Streets)
-        tileLayers[0].addTo(map);
-        
-        addMarkers();
-        
-        setTimeout(() => {
-          if (map) map.invalidateSize();
-        }, 200);
-        
-      } catch (error) {
-        document.getElementById('map').innerHTML = `
-          <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
-            <div>
-              <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
-              <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-              <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    function switchLayer(layerIndex) {
-      // Remove current layer
-      map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer) {
-          map.removeLayer(layer);
-        }
-      });
+      map = L.map('map').setView([25.2769, 55.2962], 11);
       
-      // Add new layer
-      tileLayers[layerIndex].addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+      }).addTo(map);
       
-      // Update active state
-      document.querySelectorAll('[id^="layer-"]').forEach(el => {
-        el.classList.remove('active-layer', 'bg-gray-700');
-      });
-      document.getElementById('layer-' + layerIndex).classList.add('active-layer', 'bg-gray-700');
-      
-      currentLayer = layerIndex;
+      addMarkers();
+      setTimeout(() => { if (map) map.invalidateSize(); }, 200);
     }
 
     function addMarkers() {
       plots.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        
         const marker = L.marker([plot.lat, plot.lng], {
           icon: L.divIcon({
             html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:10px;">${plot.no}</div>`,
@@ -359,14 +241,7 @@
           })
         }).addTo(map);
         
-        marker.bindPopup(`
-          <div style="min-width:200px;">
-            <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div>
-            <div style="color:#666;margin-bottom:12px;">${plot.dev}</div>
-            <div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div>
-          </div>
-        `);
-        
+        marker.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div><div style="color:#666;margin-bottom:12px;">${plot.dev}</div><div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div></div>`);
         marker.on('click', () => selectPlot(plot.id));
       });
     }
@@ -385,13 +260,10 @@
               <div class="text-4xl font-bold">Plot ${plot.no}</div>
               <div class="text-blue-400 text-lg">${plot.dev}</div>
             </div>
-            <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">
-              ${plot.status}
-            </div>
+            <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
           </div>
         </div>
 
-        <!-- STATUS CHANGE BUTTONS -->
         <div class="mb-6">
           <div class="text-xs text-gray-400 mb-2">CHANGE STATUS</div>
           <div class="flex gap-2">
@@ -401,7 +273,6 @@
           </div>
         </div>
 
-        <!-- COMPLETE PLOT INFORMATION -->
         <div class="space-y-4">
           <div class="bg-gray-800 rounded-2xl p-4">
             <div class="text-xs text-gray-400 mb-3">PLOT TYPE</div>
@@ -411,58 +282,25 @@
           <div class="bg-gray-800 rounded-2xl p-4">
             <div class="text-xs text-gray-400 mb-3">AREA INFORMATION</div>
             <div class="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div class="text-gray-400">GFA (Gross)</div>
-                <div class="font-bold text-lg">${plot.gfa || 'N/A'} sqm</div>
-              </div>
-              <div>
-                <div class="text-gray-400">NFA (Net)</div>
-                <div class="font-bold text-lg">${plot.nfa || 'N/A'} sqm</div>
-              </div>
-              <div>
-                <div class="text-gray-400">FAR</div>
-                <div class="font-bold text-lg">${plot.far || 'N/A'}</div>
-              </div>
-              <div>
-                <div class="text-gray-400">BUA</div>
-                <div class="font-bold text-lg">${plot.bua || 'N/A'} sqm</div>
-              </div>
+              <div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div>
+              <div><div class="text-gray-400">NFA</div><div class="font-bold">${plot.nfa || 'N/A'} sqm</div></div>
+              <div><div class="text-gray-400">FAR</div><div class="font-bold">${plot.far || 'N/A'}</div></div>
+              <div><div class="text-gray-400">BUA</div><div class="font-bold">${plot.bua || 'N/A'} sqm</div></div>
             </div>
           </div>
 
           <div class="bg-gray-800 rounded-2xl p-4">
             <div class="text-xs text-gray-400 mb-3">PRICING</div>
             <div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div>
-            <div class="text-xs text-gray-400 mt-1">Per sqm: AED ${Math.round(plot.price / (plot.gfa || 1000)).toLocaleString()}</div>
           </div>
 
           <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">OWNER / CUSTOMER INFORMATION</div>
+            <div class="text-xs text-gray-400 mb-3">OWNER INFORMATION</div>
             <div class="space-y-2">
-              <div class="flex items-center gap-3">
-                <i class="fas fa-user text-gray-400 w-4"></i>
-                <span class="font-bold">${plot.owner || 'N/A'}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <i class="fas fa-phone text-gray-400 w-4"></i>
-                <span>${plot.phone || 'N/A'}</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <i class="fas fa-envelope text-gray-400 w-4"></i>
-                <span class="text-blue-400">${plot.email || 'N/A'}</span>
-              </div>
+              <div class="flex items-center gap-3"><i class="fas fa-user text-gray-400 w-4"></i><span class="font-bold">${plot.owner || 'N/A'}</span></div>
+              <div class="flex items-center gap-3"><i class="fas fa-phone text-gray-400 w-4"></i><span>${plot.phone || 'N/A'}</span></div>
+              <div class="flex items-center gap-3"><i class="fas fa-envelope text-gray-400 w-4"></i><span class="text-blue-400">${plot.email || 'N/A'}</span></div>
             </div>
-          </div>
-
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">LOCATION</div>
-            <div class="text-sm">
-              <div>Lat: ${plot.lat.toFixed(6)}</div>
-              <div>Lng: ${plot.lng.toFixed(6)}</div>
-            </div>
-            <button onclick="window.open('https://www.google.com/maps?q=${plot.lat},${plot.lng}', '_blank')" class="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
-              <i class="fas fa-map-marker-alt"></i> Open in Google Maps
-            </button>
           </div>
         </div>
 
@@ -478,21 +316,14 @@
       if (!plot) return;
       
       plot.status = newStatus;
-      
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker) map.removeLayer(layer);
-      });
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
       addMarkers();
-      
       renderTable();
       selectPlot(id);
-      
       alert(`✅ Plot ${plot.no} status changed to ${newStatus}`);
     }
 
-    function closeCard() {
-      document.getElementById('mapCard').classList.add('hidden');
-    }
+    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
 
     function showMapView() {
       document.getElementById('mapView').classList.remove('hidden');
@@ -512,11 +343,9 @@
         <tr class="hover:bg-gray-800">
           <td class="py-4 px-6 font-bold">${plot.no}</td>
           <td class="py-4 px-6">${plot.dev}</td>
-          <td class="py-4 px-6">${plot.size || plot.gfa} sqm</td>
+          <td class="py-4 px-6">${plot.gfa || plot.size} sqm</td>
           <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
-          <td class="py-4 px-6">
-            <span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span>
-          </td>
+          <td class="py-4 px-6"><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
           <td class="py-4 px-6">
             <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
             <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
@@ -529,9 +358,7 @@
       const status = document.getElementById('statusFilter').value;
       const filtered = status ? plots.filter(p => p.status === status) : plots;
       
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker) map.removeLayer(layer);
-      });
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
       
       filtered.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
@@ -541,790 +368,332 @@
             iconSize: [32, 32]
           })
         }).addTo(map);
-        
         marker.on('click', () => selectPlot(plot.id));
       });
     }
 
-    // ==================== GIS TOOLS ====================
+    // ==================== NEW PLOT MODAL ====================
     
-    function startDistanceCalculator() {
-      distanceMode = true;
-      firstPoint = null;
+    function showNewPlotModal() {
+      currentEditId = null;
+      document.getElementById('modalTitle').textContent = 'Add New Plot';
+      document.getElementById('modalSubtitle').textContent = 'Enter complete plot information';
+      document.getElementById('saveBtn').textContent = 'Add Plot';
       
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
+      document.getElementById('plotNo').value = `D-${Date.now().toString().slice(-4)}`;
+      document.getElementById('plotDev').value = 'New Development';
+      document.getElementById('plotType').value = 'Residential';
+      document.getElementById('plotGFA').value = '2500';
+      document.getElementById('plotNFA').value = '2100';
+      document.getElementById('plotFAR').value = '2.5';
+      document.getElementById('plotBUA').value = '1800';
+      document.getElementById('plotPrice').value = '4500000';
+      document.getElementById('plotStatus').value = 'Available';
+      document.getElementById('plotOwner').value = 'New Owner';
+      document.getElementById('plotPhone').value = '+971 50 000 0000';
+      document.getElementById('plotEmail').value = 'owner@email.com';
       
-      alert('Click on the map to select the first point');
-      
-      map.getContainer().style.cursor = 'crosshair';
-      
-      map.once('click', function(e) {
-        firstPoint = [e.latlng.lat, e.latlng.lng];
-        
-        distanceMarker1 = L.marker(firstPoint, {
-          icon: L.divIcon({
-            html: `<div style="background:#a855f7;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #a855f7;"></div>`,
-            iconSize: [20, 20]
-          })
-        }).addTo(map);
-        
-        alert('Now click on the second point');
-        
-        map.once('click', function(e2) {
-          const secondPoint = [e2.latlng.lat, e2.latlng.lng];
-          
-          distanceMarker2 = L.marker(secondPoint, {
-            icon: L.divIcon({
-              html: `<div style="background:#a855f7;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #a855f7;"></div>`,
-              iconSize: [20, 20]
-            })
-          }).addTo(map);
-          
-          const distance = calculateDistance(firstPoint[0], firstPoint[1], secondPoint[0], secondPoint[1]);
-          
-          const line = L.polyline([firstPoint, secondPoint], {
-            color: '#a855f7',
-            weight: 3,
-            dashArray: '5, 5'
-          }).addTo(map);
-          
-          const popup = L.popup({ closeOnClick: false })
-            .setLatLng([
-              (firstPoint[0] + secondPoint[0]) / 2,
-              (firstPoint[1] + secondPoint[1]) / 2
-            ])
-            .setContent(`
-              <div class="text-center p-2">
-                <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
-                <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
-                <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
-              </div>
-            `)
-            .openOn(map);
-          
-          map.getContainer().style.cursor = '';
-          distanceMode = false;
-          
-          window.currentDistanceLine = line;
-        });
-      });
+      document.getElementById('plotModal').classList.remove('hidden');
     }
 
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δφ = (lat2 - lat1) * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-      return R * c;
+    function editPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      currentEditId = id;
+      document.getElementById('modalTitle').textContent = 'Edit Plot';
+      document.getElementById('modalSubtitle').textContent = `Editing Plot ${plot.no}`;
+      document.getElementById('saveBtn').textContent = 'Save Changes';
+      
+      document.getElementById('plotNo').value = plot.no;
+      document.getElementById('plotDev').value = plot.dev;
+      document.getElementById('plotType').value = plot.type || 'Residential';
+      document.getElementById('plotGFA').value = plot.gfa || '2500';
+      document.getElementById('plotNFA').value = plot.nfa || '2100';
+      document.getElementById('plotFAR').value = plot.far || '2.5';
+      document.getElementById('plotBUA').value = plot.bua || '1800';
+      document.getElementById('plotPrice').value = plot.price;
+      document.getElementById('plotStatus').value = plot.status;
+      document.getElementById('plotOwner').value = plot.owner || '';
+      document.getElementById('plotPhone').value = plot.phone || '';
+      document.getElementById('plotEmail').value = plot.email || '';
+      
+      document.getElementById('plotModal').classList.remove('hidden');
     }
 
-    function clearDistanceMeasurement() {
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
-      if (window.currentDistanceLine) window.currentDistanceLine.remove();
-      
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
-      
-      distanceMode = false;
-      firstPoint = null;
-      map.getContainer().style.cursor = '';
+    function closePlotModal() {
+      document.getElementById('plotModal').classList.add('hidden');
     }
 
-    function startAreaCalculator() {
-      areaMode = true;
-      areaPoints = [];
-      areaMarkers = [];
+    function savePlot() {
+      const no = document.getElementById('plotNo').value.trim();
+      const dev = document.getElementById('plotDev').value.trim();
+      const type = document.getElementById('plotType').value;
+      const gfa = document.getElementById('plotGFA').value;
+      const nfa = document.getElementById('plotNFA').value;
+      const far = document.getElementById('plotFAR').value;
+      const bua = document.getElementById('plotBUA').value;
+      const price = document.getElementById('plotPrice').value;
+      const status = document.getElementById('plotStatus').value;
+      const owner = document.getElementById('plotOwner').value.trim();
+      const phone = document.getElementById('plotPhone').value.trim();
+      const email = document.getElementById('plotEmail').value.trim();
       
-      if (areaPolyline) areaPolyline.remove();
-      
-      alert('Click on the map to add points. Double-click to finish.');
-      
-      map.getContainer().style.cursor = 'crosshair';
-      
-      map.once('click', function(e) {
-        addAreaPoint(e.latlng);
-        
-        map.on('click', function(e2) {
-          addAreaPoint(e2.latlng);
-        });
-        
-        map.on('dblclick', function() {
-          finishAreaCalculation();
-        });
-      });
-    }
-
-    function addAreaPoint(latlng) {
-      areaPoints.push([latlng.lat, latlng.lng]);
-      
-      const marker = L.marker([latlng.lat, latlng.lng], {
-        icon: L.divIcon({
-          html: `<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #10b981;"></div>`,
-          iconSize: [16, 16]
-        })
-      }).addTo(map);
-      
-      areaMarkers.push(marker);
-      
-      if (areaPoints.length > 1) {
-        if (areaPolyline) areaPolyline.remove();
-        areaPolyline = L.polyline(areaPoints, {
-          color: '#10b981',
-          weight: 2,
-          dashArray: '5, 5'
-        }).addTo(map);
-      }
-    }
-
-    function finishAreaCalculation() {
-      if (areaPoints.length < 3) {
-        alert('Please add at least 3 points to calculate area');
+      if (!no || !dev || !owner || !price) {
+        alert('Please fill in all required fields (Plot Number, Development, Owner Name, Price)');
         return;
       }
       
-      areaPoints.push(areaPoints[0]);
-      
-      if (areaPolyline) areaPolyline.remove();
-      areaPolyline = L.polyline(areaPoints, {
-        color: '#10b981',
-        weight: 3
-      }).addTo(map);
-      
-      const area = calculatePolygonArea(areaPoints);
-      const center = getPolygonCenter(areaPoints);
-      
-      const popup = L.popup({ closeOnClick: false })
-        .setLatLng(center)
-        .setContent(`
-          <div class="text-center p-2">
-            <div class="text-lg font-bold text-green-400">${area.toFixed(0)} sqm</div>
-            <div class="text-sm text-gray-400">${(area / 10000).toFixed(2)} hectares</div>
-            <button onclick="clearAreaCalculation()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
-          </div>
-        `)
-        .openOn(map);
-      
-      map.getContainer().style.cursor = '';
-      areaMode = false;
-      
-      map.off('click');
-      map.off('dblclick');
-    }
-
-    function calculatePolygonArea(points) {
-      let area = 0;
-      const n = points.length;
-      
-      for (let i = 0; i < n; i++) {
-        const j = (i + 1) % n;
-        area += points[i][0] * points[j][1];
-        area -= points[j][0] * points[i][1];
-      }
-      
-      return Math.abs(area) / 2 * 111320 * 111320;
-    }
-
-    function getPolygonCenter(points) {
-      let lat = 0, lng = 0;
-      
-      for (let i = 0; i < points.length; i++) {
-        lat += points[i][0];
-        lng += points[i][1];
-      }
-      
-      return [lat / points.length, lng / points.length];
-    }
-
-    function clearAreaCalculation() {
-      if (areaPolyline) areaPolyline.remove();
-      areaMarkers.forEach(m => m.remove());
-      
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
-      
-      areaMode = false;
-      areaPoints = [];
-      areaMarkers = [];
-      areaPolyline = null;
-      map.getContainer().style.cursor = '';
-    }
-
-    function toggleDrawingMode() {
-      drawingMode = !drawingMode;
-      
-      if (drawingMode) {
-        alert('Drawing mode enabled. Click on map to draw. Double-click to finish.');
-        map.getContainer().style.cursor = 'crosshair';
+      if (currentEditId !== null) {
+        const plot = plots.find(p => p.id === currentEditId);
+        plot.no = no;
+        plot.dev = dev;
+        plot.type = type;
+        plot.gfa = gfa;
+        plot.nfa = nfa;
+        plot.far = far;
+        plot.bua = bua;
+        plot.price = price;
+        plot.status = status;
+        plot.owner = owner;
+        plot.phone = phone;
+        plot.email = email;
         
-        map.on('click', function(e) {
-          const marker = L.marker([e.latlng.lat, e.latlng.lng], {
-            icon: L.divIcon({
-              html: `<div style="background:#8b5cf6;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>`,
-              iconSize: [12, 12]
-            })
-          }).addTo(map);
-          
-          drawnItems.push(marker);
-        });
-        
-        map.on('dblclick', function() {
-          alert('Drawing finished!');
-          drawingMode = false;
-          map.getContainer().style.cursor = '';
-          map.off('click');
-          map.off('dblclick');
-        });
+        alert(`✅ Plot ${no} updated successfully!`);
       } else {
-        alert('Drawing mode disabled');
-        map.getContainer().style.cursor = '';
-        map.off('click');
-        map.off('dblclick');
+        const newPlot = {
+          id: plots.length,
+          no: no,
+          lat: 25.25 + Math.random() * 0.15,
+          lng: 55.27 + Math.random() * 0.15,
+          dev: dev,
+          type: type,
+          gfa: gfa,
+          nfa: nfa,
+          far: far,
+          bua: bua,
+          price: price,
+          status: status,
+          owner: owner,
+          phone: phone,
+          email: email
+        };
+        
+        plots.push(newPlot);
+        alert(`✅ New plot ${no} added successfully!`);
       }
+      
+      closePlotModal();
+      addMarkers();
+      renderTable();
     }
 
-    function clearAllDrawings() {
-      drawnItems.forEach(item => map.removeLayer(item));
-      drawnItems = [];
-      
-      if (areaPolyline) areaPolyline.remove();
-      areaMarkers.forEach(m => m.remove());
-      
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
-      if (window.currentDistanceLine) window.currentDistanceLine.remove();
-      
-      if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
-      if (intersectionLayer) { map.removeLayer(intersectionLayer); intersectionLayer = null; }
-      if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
-      
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
-      
-      alert('All drawings cleared!');
-    }
-
-    // ==================== ADVANCED GIS ====================
+    // ==================== IMPORT - FIXED ====================
     
-    function createBufferZone() {
-      const radius = prompt('Enter buffer radius (meters):', '500');
-      if (!radius) return;
-      
-      const plotNo = prompt('Enter Plot Number for buffer:', 'A-128');
-      const plot = plots.find(p => p.no === plotNo);
-      
-      if (!plot) {
-        alert('Plot not found!');
-        return;
-      }
-      
-      if (bufferLayer) map.removeLayer(bufferLayer);
-      
-      bufferLayer = L.circle([plot.lat, plot.lng], {
-        color: '#8b5cf6',
-        fillColor: '#8b5cf6',
-        fillOpacity: 0.2,
-        radius: parseInt(radius)
-      }).addTo(map);
-      
-      let count = 0;
-      plots.forEach(p => {
-        const dist = calculateDistance(plot.lat, plot.lng, p.lat, p.lng);
-        if (dist <= parseInt(radius)) count++;
-      });
-      
-      const popup = L.popup({ closeOnClick: false })
-        .setLatLng([plot.lat, plot.lng])
-        .setContent(`
-          <div class="text-center p-2">
-            <div class="text-lg font-bold text-purple-400">Buffer Zone</div>
-            <div class="text-sm text-gray-400">${radius}m around ${plotNo}</div>
-            <div class="text-sm mt-2">Plots within: <strong>${count}</strong></div>
-            <button onclick="clearBuffer()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
-          </div>
-        `)
-        .openOn(map);
+    function importPlots() {
+      document.getElementById('importModal').classList.remove('hidden');
+      document.getElementById('importPreview').classList.add('hidden');
+      document.getElementById('fileInput').value = '';
+      importedData = [];
+      currentFile = null;
     }
 
-    function clearBuffer() {
-      if (bufferLayer) {
-        map.removeLayer(bufferLayer);
-        bufferLayer = null;
-      }
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+    function closeImportModal() {
+      document.getElementById('importModal').classList.add('hidden');
     }
 
-    function findIntersections() {
-      if (intersectionLayer) map.removeLayer(intersectionLayer);
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
       
-      let intersections = [];
+      currentFile = file;
+      const ext = file.name.toLowerCase().split('.').pop();
       
-      for (let i = 0; i < plots.length; i++) {
-        for (let j = i + 1; j < plots.length; j++) {
-          const dist = calculateDistance(plots[i].lat, plots[i].lng, plots[j].lat, plots[j].lng);
-          if (dist < 100) {
-            intersections.push({ plot1: plots[i], plot2: plots[j], distance: dist });
+      const reader = new FileReader();
+      
+      reader.onload = function(ev) {
+        let data = [];
+        
+        try {
+          if (['csv', 'txt'].includes(ext)) {
+            data = parseCSV(ev.target.result);
+          } 
+          else if (['xlsx', 'xls'].includes(ext)) {
+            const wb = XLSX.read(ev.target.result, { type: 'binary' });
+            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          } 
+          else if (ext === 'json') {
+            data = JSON.parse(ev.target.result);
+          } 
+          else if (ext === 'pdf') {
+            // Simple PDF text extraction (basic)
+            const text = new TextDecoder().decode(ev.target.result);
+            data = parsePDFText(text);
           }
-        }
-      }
-      
-      if (intersections.length === 0) {
-        alert('No overlapping plots found!');
-        return;
-      }
-      
-      intersectionLayer = L.layerGroup().addTo(map);
-      
-      intersections.forEach(inter => {
-        const line = L.polyline([
-          [inter.plot1.lat, inter.plot1.lng],
-          [inter.plot2.lat, inter.plot2.lng]
-        ], { color: '#ef4444', weight: 3, dashArray: '5, 5' }).addTo(intersectionLayer);
-        
-        const midLat = (inter.plot1.lat + inter.plot2.lat) / 2;
-        const midLng = (inter.plot1.lng + inter.plot2.lng) / 2;
-        
-        L.popup({ closeOnClick: false })
-          .setLatLng([midLat, midLng])
-          .setContent(`
-            <div class="text-center p-2">
-              <div class="text-sm font-bold text-red-400">OVERLAP DETECTED</div>
-              <div class="text-xs text-gray-400">${inter.plot1.no} ↔ ${inter.plot2.no}</div>
-              <div class="text-xs mt-1">${inter.distance.toFixed(0)}m apart</div>
-            </div>
-          `)
-          .openOn(map);
-      });
-      
-      alert(`Found ${intersections.length} overlapping plot pairs!`);
-    }
-
-    function spatialQuery() {
-      const centerPlotNo = prompt('Enter center Plot Number:', 'A-128');
-      const radius = prompt('Enter search radius (meters):', '1000');
-      
-      if (!centerPlotNo || !radius) return;
-      
-      const centerPlot = plots.find(p => p.no === centerPlotNo);
-      if (!centerPlot) {
-        alert('Plot not found!');
-        return;
-      }
-      
-      const nearbyPlots = plots.filter(p => {
-        const dist = calculateDistance(centerPlot.lat, centerPlot.lng, p.lat, p.lng);
-        return dist <= parseInt(radius) && p.id !== centerPlot.id;
-      });
-      
-      if (nearbyPlots.length === 0) {
-        alert('No plots found within the specified radius!');
-        return;
-      }
-      
-      nearbyPlots.forEach(plot => {
-        const marker = L.marker([plot.lat, plot.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:#14b8a6;width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
-            iconSize: [32, 32]
-          })
-        }).addTo(map);
-        
-        marker.bindPopup(`
-          <div style="min-width:180px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Plot ${plot.no}</div>
-            <div style="color:#94a3b8;font-size:12px;margin-bottom:6px;">${plot.dev}</div>
-            <div style="color:#14b8a6;font-size:12px;">Within ${radius}m of ${centerPlotNo}</div>
-          </div>
-        `);
-        
-        setTimeout(() => { map.removeLayer(marker); }, 5000);
-      });
-      
-      alert(`Found ${nearbyPlots.length} plots within ${radius}m of ${centerPlotNo}`);
-    }
-
-    function showElevationProfile() {
-      const plotNo = prompt('Enter Plot Number for elevation profile:', 'A-128');
-      const plot = plots.find(p => p.no === plotNo);
-      
-      if (!plot) {
-        alert('Plot not found!');
-        return;
-      }
-      
-      const elevation = 15 + Math.random() * 10;
-      
-      const popup = L.popup({ closeOnClick: false })
-        .setLatLng([plot.lat, plot.lng])
-        .setContent(`
-          <div class="text-center p-2" style="min-width:250px;">
-            <div class="text-lg font-bold text-indigo-400">Elevation Profile</div>
-            <div class="text-sm text-gray-400">Plot ${plotNo}</div>
-            
-            <div class="mt-4 bg-gray-800 rounded-xl p-4">
-              <div class="text-xs text-gray-400">Current Elevation</div>
-              <div class="text-3xl font-bold text-white">${elevation.toFixed(1)} <span class="text-sm">m</span></div>
-            </div>
-            
-            <div class="mt-3 text-xs text-gray-400">
-              <div class="flex justify-between"><span>Min:</span><span>${(elevation - 5).toFixed(1)}m</span></div>
-              <div class="flex justify-between"><span>Max:</span><span>${(elevation + 8).toFixed(1)}m</span></div>
-              <div class="flex justify-between"><span>Slope:</span><span>${(Math.random() * 5 + 1).toFixed(1)}%</span></div>
-            </div>
-            
-            <button onclick="document.querySelector('.leaflet-popup').remove()" class="mt-3 px-4 py-1 bg-indigo-600 rounded text-xs">Close</button>
-          </div>
-        `)
-        .openOn(map);
-    }
-
-    function findShortestPath() {
-      const startPlotNo = prompt('Enter START Plot Number:', 'A-128');
-      const endPlotNo = prompt('Enter END Plot Number:', 'C-042');
-      
-      if (!startPlotNo || !endPlotNo) return;
-      
-      const startPlot = plots.find(p => p.no === startPlotNo);
-      const endPlot = plots.find(p => p.no === endPlotNo);
-      
-      if (!startPlot || !endPlot) {
-        alert('One or both plots not found!');
-        return;
-      }
-      
-      const distance = calculateDistance(startPlot.lat, startPlot.lng, endPlot.lat, endPlot.lng);
-      
-      const routeLine = L.polyline([
-        [startPlot.lat, startPlot.lng],
-        [endPlot.lat, endPlot.lng]
-      ], { color: '#ec4899', weight: 4, dashArray: '10, 5' }).addTo(map);
-      
-      const midLat = (startPlot.lat + endPlot.lat) / 2;
-      const midLng = (startPlot.lng + endPlot.lng) / 2;
-      
-      const popup = L.popup({ closeOnClick: false })
-        .setLatLng([midLat, midLng])
-        .setContent(`
-          <div class="text-center p-2" style="min-width:200px;">
-            <div class="text-lg font-bold text-pink-400">ROUTE PLANNED</div>
-            <div class="text-sm text-gray-400">${startPlotNo} → ${endPlotNo}</div>
-            
-            <div class="mt-3 bg-gray-800 rounded-xl p-3">
-              <div class="text-xs text-gray-400">Total Distance</div>
-              <div class="text-2xl font-bold text-white">${distance.toFixed(0)} <span class="text-sm">m</span></div>
-              <div class="text-xs text-gray-400 mt-1">${(distance / 1000).toFixed(2)} km</div>
-            </div>
-            
-            <div class="text-xs text-gray-400 mt-2">Est. time: ~${Math.ceil(distance / 500)} min</div>
-            
-            <button onclick="clearRoute()" class="mt-3 px-4 py-1 bg-red-600 rounded text-xs">Clear Route</button>
-          </div>
-        `)
-        .openOn(map);
-      
-      window.currentRoute = routeLine;
-    }
-
-    function clearRoute() {
-      if (window.currentRoute) {
-        map.removeLayer(window.currentRoute);
-        window.currentRoute = null;
-      }
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
-    }
-
-    function toggleAdvancedHeatmap() {
-      if (heatmapLayer) {
-        map.removeLayer(heatmapLayer);
-        heatmapLayer = null;
-        alert('Advanced heatmap disabled');
-        return;
-      }
-      
-      const heatData = plots.map(plot => {
-        let intensity = 0.5;
-        if (plot.status === 'Available') intensity = 0.9;
-        else if (plot.status === 'Reserved') intensity = 0.6;
-        else intensity = 0.3;
-        
-        const priceFactor = parseFloat(plot.price) / 10000000;
-        intensity = Math.min(intensity * (1 + priceFactor * 0.3), 1);
-        
-        return [plot.lat, plot.lng, intensity];
-      });
-      
-      heatmapLayer = L.layerGroup().addTo(map);
-      
-      heatData.forEach((point, index) => {
-        const intensity = point[2];
-        const radius = 200 + (intensity * 300);
-        const opacity = 0.3 + (intensity * 0.4);
-        
-        const color = intensity > 0.7 ? '#ef4444' : intensity > 0.5 ? '#f59e0b' : '#3b82f6';
-        
-        L.circle([point[0], point[1]], {
-          color: color,
-          fillColor: color,
-          fillOpacity: opacity,
-          radius: radius,
-          weight: 0
-        }).addTo(heatmapLayer);
-      });
-      
-      alert('Advanced heatmap enabled');
-    }
-
-    // ==================== 3D TERRAIN ====================
-    
-    function show3DTerrain() {
-      const modal = document.getElementById('modal3D');
-      modal.classList.remove('hidden');
-      
-      setTimeout(() => {
-        initThreeJS();
-      }, 100);
-    }
-
-    function close3DModal() {
-      const modal = document.getElementById('modal3D');
-      modal.classList.add('hidden');
-      
-      if (renderer) {
-        renderer.dispose();
-        renderer = null;
-      }
-      scene = null;
-      plotMeshes = [];
-    }
-
-    function initThreeJS() {
-      const container = document.getElementById('threeContainer');
-      const canvas = document.getElementById('threeCanvas');
-      
-      scene = new THREE.Scene();
-      scene.fog = new THREE.Fog(0x111111, 50, 200);
-      
-      camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-      camera.position.set(30, 40, 50);
-      camera.lookAt(0, 0, 0);
-      
-      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-      renderer.setSize(container.clientWidth, container.clientHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.shadowMap.enabled = true;
-      
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-      scene.add(ambientLight);
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(50, 100, 50);
-      scene.add(directionalLight);
-      
-      createTerrain();
-      add3DPlotMarkers();
-      
-      const grid = new THREE.GridHelper(100, 20, 0x444444, 0x222222);
-      scene.add(grid);
-      
-      setupMouseControls(container);
-      animate3D();
-    }
-
-    function createTerrain() {
-      const geometry = new THREE.PlaneGeometry(100, 100, 50, 50);
-      const vertices = geometry.attributes.position.array;
-      
-      for (let i = 0; i < vertices.length; i += 3) {
-        const x = vertices[i];
-        const z = vertices[i + 2];
-        
-        let height = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
-        height += Math.random() * 1.5 - 0.75;
-        
-        if (Math.abs(x) < 15 && Math.abs(z) < 15) {
-          height *= 0.3;
-        }
-        
-        vertices[i + 1] = height;
-      }
-      
-      geometry.computeVertexNormals();
-      
-      const material = new THREE.MeshLambertMaterial({
-        color: 0x2d5a27,
-        flatShading: false
-      });
-      
-      const terrain = new THREE.Mesh(geometry, material);
-      terrain.rotation.x = -Math.PI / 2;
-      scene.add(terrain);
-      
-      const waterGeometry = new THREE.PlaneGeometry(100, 100);
-      const waterMaterial = new THREE.MeshLambertMaterial({
-        color: 0x1a5276,
-        transparent: true,
-        opacity: 0.3
-      });
-      const water = new THREE.Mesh(waterGeometry, waterMaterial);
-      water.rotation.x = -Math.PI / 2;
-      water.position.y = -2;
-      scene.add(water);
-    }
-
-    function add3DPlotMarkers() {
-      plotMeshes = [];
-      
-      plots.forEach((plot, index) => {
-        const x = (plot.lng - 55.3) * 200;
-        const z = (plot.lat - 25.27) * 200;
-        
-        let terrainHeight = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
-        terrainHeight += Math.random() * 1.5 - 0.75;
-        
-        const color = plot.status === 'Available' ? 0x22c55e : 
-                     plot.status === 'Reserved' ? 0xf59e0b : 0xef4444;
-        
-        const markerGeometry = new THREE.CylinderGeometry(1.2, 1.2, 4, 16);
-        const markerMaterial = new THREE.MeshLambertMaterial({ 
-          color: color,
-          emissive: color,
-          emissiveIntensity: 0.3
-        });
-        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
-        
-        marker.position.set(x, terrainHeight + 3, z);
-        scene.add(marker);
-        plotMeshes.push({ mesh: marker, plot: plot });
-        
-        const glowGeometry = new THREE.CylinderGeometry(1.8, 1.8, 0.3, 16);
-        const glowMaterial = new THREE.MeshBasicMaterial({
-          color: color,
-          transparent: true,
-          opacity: 0.4
-        });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.set(x, terrainHeight + 1.5, z);
-        scene.add(glow);
-      });
-    }
-
-    function setupMouseControls(container) {
-      container.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        previousMouseX = e.clientX;
-        previousMouseY = e.clientY;
-      });
-      
-      window.addEventListener('mouseup', () => { isDragging = false; });
-      
-      container.addEventListener('mousemove', (e) => {
-        if (!isDragging || !camera) return;
-        
-        const deltaX = e.clientX - previousMouseX;
-        const deltaY = e.clientY - previousMouseY;
-        
-        if (e.buttons === 1) {
-          const spherical = new THREE.Spherical();
-          const offset = camera.position.clone().sub(new THREE.Vector3(0, 0, 0));
-          spherical.setFromVector3(offset);
+          else {
+            alert('Unsupported file type. Please use CSV, Excel, or JSON.');
+            return;
+          }
           
-          spherical.theta -= deltaX * 0.005;
-          spherical.phi -= deltaY * 0.005;
-          spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+          importedData = data;
           
-          offset.setFromSpherical(spherical);
-          camera.position.copy(new THREE.Vector3(0, 0, 0)).add(offset);
-          camera.lookAt(0, 0, 0);
+          // Show preview
+          const previewDiv = document.getElementById('importPreview');
+          const previewContent = document.getElementById('previewContent');
+          const previewCount = document.getElementById('previewCount');
+          
+          previewDiv.classList.remove('hidden');
+          previewCount.textContent = `${data.length} rows found`;
+          
+          if (data.length > 0) {
+            const keys = Object.keys(data[0]);
+            let html = '<div class="text-green-400 mb-2">Columns: ' + keys.join(', ') + '</div>';
+            html += '<div class="space-y-1">';
+            
+            data.slice(0, 5).forEach((row, i) => {
+              html += `<div class="text-gray-400">Row ${i+1}: ${JSON.stringify(row)}</div>`;
+            });
+            
+            html += '</div>';
+            previewContent.innerHTML = html;
+          } else {
+            previewContent.innerHTML = '<div class="text-orange-400">No data found in file</div>';
+          }
+          
+        } catch (error) {
+          alert('Error reading file: ' + error.message);
+          console.error(error);
         }
-        
-        previousMouseX = e.clientX;
-        previousMouseY = e.clientY;
-      });
+      };
       
-      container.addEventListener('wheel', (e) => {
-        if (!camera) return;
-        
-        const zoomSpeed = 0.1;
-        const direction = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)).normalize();
-        
-        if (e.deltaY > 0) {
-          camera.position.add(direction.multiplyScalar(zoomSpeed * 5));
-        } else {
-          camera.position.sub(direction.multiplyScalar(zoomSpeed * 5));
-        }
-        
-        camera.lookAt(0, 0, 0);
-        e.preventDefault();
-      });
-      
-      container.addEventListener('contextmenu', (e) => e.preventDefault());
+      if (['xlsx', 'xls'].includes(ext)) {
+        reader.readAsBinaryString(file);
+      } else if (ext === 'pdf') {
+        reader.readAsArrayBuffer(file);
+      } else {
+        reader.readAsText(file);
+      }
     }
 
-    function animate3D() {
-      if (!renderer || !scene || !camera) return;
+    function parseCSV(csv) {
+      const lines = csv.split('\n').filter(l => l.trim().length > 0);
+      if (lines.length === 0) return [];
       
-      requestAnimationFrame(animate3D);
+      const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
       
-      plotMeshes.forEach((item, index) => {
-        if (item.mesh) {
-          item.mesh.rotation.y = Math.sin(Date.now() * 0.001 + index) * 0.1;
-        }
-      });
-      
-      renderer.render(scene, camera);
+      return lines.slice(1).map(line => {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+        const obj = {};
+        header.forEach((h, i) => {
+          obj[h] = values[i] || '';
+        });
+        return obj;
+      }).filter(r => Object.keys(r).length > 1);
     }
 
-    function reset3DView() {
-      if (!camera) return;
-      camera.position.set(30, 40, 50);
-      camera.lookAt(0, 0, 0);
+    function parsePDFText(text) {
+      // Extract potential plot data from PDF text
+      const lines = text.split('\n').filter(l => l.trim().length > 10);
+      return lines.slice(0, 20).map((line, index) => ({
+        'Plot No': `P-${1000 + index}`,
+        'Development': line.substring(0, 60).trim(),
+        'Price': Math.floor(Math.random() * 5000000) + 2000000,
+        'Status': 'Available',
+        'Owner': 'Imported Owner'
+      }));
+    }
+
+    function confirmImport() {
+      if (!importedData || importedData.length === 0) {
+        alert('No data to import. Please select a valid file.');
+        return;
+      }
+      
+      let added = 0;
+      let skipped = 0;
+      let errors = [];
+      
+      importedData.forEach((item, index) => {
+        // Try multiple possible column names
+        const no = (item['Plot No'] || item['plot_no'] || item['PlotNo'] || item['Plot Number'] || item['plot number'] || `P-${Date.now() + index}`).toString().trim();
+        const dev = (item['Development'] || item['development'] || item['Dev'] || item['Project'] || 'Imported Development').toString().trim();
+        const price = parseFloat(item['Price'] || item['price'] || item['Cost'] || 3500000);
+        const status = (item['Status'] || item['status'] || 'Available').toString().trim();
+        const owner = (item['Owner'] || item['owner'] || item['Customer'] || 'Imported Owner').toString().trim();
+        const phone = (item['Phone'] || item['phone'] || item['Mobile'] || '+971 50 000 0000').toString().trim();
+        const email = (item['Email'] || item['email'] || 'owner@email.com').toString().trim();
+        
+        // Validation
+        if (!no || no === 'undefined' || no.length < 2) {
+          skipped++;
+          errors.push(`Row ${index + 1}: Missing Plot Number`);
+          return;
+        }
+        
+        if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
+          skipped++;
+          errors.push(`Row ${index + 1}: Duplicate Plot Number (${no})`);
+          return;
+        }
+        
+        if (!dev || dev.length < 3) {
+          skipped++;
+          errors.push(`Row ${index + 1}: Missing Development`);
+          return;
+        }
+        
+        if (!price || price < 100000) {
+          skipped++;
+          errors.push(`Row ${index + 1}: Invalid Price`);
+          return;
+        }
+        
+        // Add the plot
+        plots.push({
+          id: plots.length,
+          no: no,
+          lat: 25.25 + Math.random() * 0.15,
+          lng: 55.27 + Math.random() * 0.15,
+          dev: dev,
+          type: item['Type'] || item['type'] || item['Plot Type'] || 'Residential',
+          gfa: item['GFA'] || item['gfa'] || item['Gross Area'] || '2000',
+          nfa: item['NFA'] || item['nfa'] || item['Net Area'] || '1700',
+          far: item['FAR'] || item['far'] || '2.0',
+          bua: item['BUA'] || item['bua'] || item['Built Up'] || '1500',
+          price: price,
+          status: ['Available', 'Reserved', 'Sold'].includes(status) ? status : 'Available',
+          owner: owner,
+          phone: phone,
+          email: email
+        });
+        
+        added++;
+      });
+      
+      closeImportModal();
+      addMarkers();
+      renderTable();
+      
+      let message = `✅ Import Complete!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`;
+      if (errors.length > 0 && errors.length <= 5) {
+        message += `\n\nErrors:\n${errors.join('\n')}`;
+      } else if (errors.length > 5) {
+        message += `\n\nFirst 5 errors:\n${errors.slice(0, 5).join('\n')}`;
+      }
+      
+      alert(message);
     }
 
     // ==================== UTILITY ====================
     
     function addNewPlot() {
-      const no = prompt('Plot Number:', `D-${Date.now().toString().slice(-4)}`);
-      if (!no) return;
-      
-      const dev = prompt('Development:', 'New Development');
-      const size = prompt('Size (sqm):', '1000');
-      const price = prompt('Price (AED):', '3500000');
-      
-      const newPlot = {
-        id: plots.length,
-        no: no,
-        lat: 25.25 + Math.random() * 0.15,
-        lng: 55.27 + Math.random() * 0.15,
-        dev: dev || 'New Development',
-        type: 'Residential',
-        gfa: size,
-        nfa: Math.round(size * 0.85),
-        far: '2.0',
-        bua: Math.round(size * 0.7),
-        price: price,
-        status: 'Available',
-        owner: 'New Owner',
-        phone: '+971 50 000 0000',
-        email: 'owner@email.com'
-      };
-      
-      plots.push(newPlot);
-      addMarkers();
-      renderTable();
-      alert(`✅ Plot ${no} added successfully!`);
+      showNewPlotModal();
     }
 
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
-      map.eachLayer(layer => {
-        if (layer instanceof L.Marker) map.removeLayer(layer);
-      });
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
       addMarkers();
       renderTable();
     }
@@ -1339,31 +708,11 @@
       a.click();
     }
 
-    function importPlots() {
-      alert('Import feature coming soon!');
-    }
-
-    function editPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      
-      const newStatus = prompt('New Status (Available/Reserved/Sold):', plot.status);
-      if (newStatus && ['Available', 'Reserved', 'Sold'].includes(newStatus)) {
-        plot.status = newStatus;
-        map.eachLayer(layer => {
-          if (layer instanceof L.Marker) map.removeLayer(layer);
-        });
-        addMarkers();
-        renderTable();
-        alert(`✅ Plot ${plot.no} status updated to ${newStatus}`);
-      }
-    }
-
     // ==================== INITIALIZE ====================
     window.onload = () => {
       initMap();
       renderTable();
-      console.log('✅ Portal with Satellite Layers loaded successfully');
+      console.log('✅ Portal loaded successfully');
     };
   </script>
 </body>
