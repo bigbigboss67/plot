@@ -7,9 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   
-  <!-- Leaflet (No API Key Required) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -114,6 +114,41 @@
 </head>
 <body class="bg-gray-950 text-gray-100">
 
+  <!-- Login Modal -->
+  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999]">
+    <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-8 text-center">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <i class="fas fa-map-marked text-white text-3xl"></i>
+        </div>
+        <h2 class="text-3xl font-bold mb-2">AI Plot Portal</h2>
+        <p class="text-gray-400 mb-8">Sign in to continue</p>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5 text-left">Username</label>
+            <input type="text" id="loginUsername" value="admin" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5 text-left">Password</label>
+            <input type="password" id="loginPassword" value="admin123" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        
+        <div class="mt-6">
+          <button onclick="login()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Sign In</button>
+        </div>
+        
+        <div class="mt-6 text-xs text-gray-500">
+          Demo Accounts:<br>
+          <span class="text-blue-400">admin / admin123</span> (Full Access)<br>
+          <span class="text-green-400">manager / manager123</span> (Edit Access)<br>
+          <span class="text-orange-400">viewer / viewer123</span> (View Only)
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
     <div id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col sidebar-mobile md:transform-none md:relative">
@@ -134,6 +169,20 @@
           <i class="fas fa-map-marker-alt"></i> Plots
         </a>
       </nav>
+      
+      <!-- User Info -->
+      <div class="p-4 border-t border-gray-800 mt-auto">
+        <div class="flex items-center gap-3">
+          <div id="userAvatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">AD</div>
+          <div class="flex-1 min-w-0">
+            <div id="userName" class="font-semibold text-sm truncate">Admin User</div>
+            <div id="userRole" class="text-xs text-gray-500">Administrator</div>
+          </div>
+          <button onclick="logout()" class="text-gray-400 hover:text-red-400 p-2">
+            <i class="fas fa-sign-out-alt"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content -->
@@ -197,7 +246,7 @@
           </div>
         </div>
 
-        <!-- Interactive Legend - Bottom Right -->
+        <!-- Interactive Legend - Bottom Right (non-overlapping) -->
         <div class="legend absolute bottom-8 right-8 z-[1000] px-4 py-3 rounded-2xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
           <div class="flex items-center gap-2 mb-2">
             <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
@@ -229,6 +278,12 @@
         <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
           <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800">
             <div id="map"></div>
+            <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-[999]">
+              <div class="text-center">
+                <div class="loading-spinner mx-auto mb-3"></div>
+                <div class="text-sm text-gray-400">Loading Map...</div>
+              </div>
+            </div>
             
             <!-- Geocoding Search Bar -->
             <div class="absolute top-5 left-5 z-[1000] w-80">
@@ -245,17 +300,23 @@
             <!-- Map Style Switcher -->
             <div class="absolute top-20 right-5 z-[1000]">
               <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl text-sm">
-                <button onclick="setMapStyle(0)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle('streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-road w-4"></i> Streets
                 </button>
-                <button onclick="setMapStyle(1)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle('satellite-streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-satellite w-4"></i> Satellite
                 </button>
-                <button onclick="setMapStyle(2)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle('outdoors-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-mountain w-4"></i> Outdoors
                 </button>
-                <button onclick="setMapStyle(3)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle('light-v11')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-sun w-4"></i> Light
+                </button>
+                
+                <div class="border-t border-gray-700 my-1"></div>
+                
+                <button onclick="toggleHeatmap()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-purple-400">
+                  <i class="fas fa-fire w-4"></i> Heatmap
                 </button>
               </div>
             </div>
@@ -276,7 +337,7 @@
             </div>
             <span class="text-sm text-gray-400" id="selectedCount">0 selected</span>
           </div>
-          <table class="w-full text-sm table-mobile">
+          <table class="w-full text-sm">
             <thead class="border-b border-gray-700">
               <tr>
                 <th class="w-12"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
@@ -297,7 +358,7 @@
 
   <!-- Import Modal -->
   <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]">
-    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden modal-mobile">
+    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden">
       <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
           <h3 class="text-2xl font-semibold">Import Plots</h3>
@@ -327,7 +388,7 @@
   </div>
 
   <script>
-    let map, markerCluster, baseLayers = [];
+    let map;
     let plots = [
       { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
       { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
@@ -335,38 +396,50 @@
     ];
     let importedData = [], headers = [];
     let selectedPlots = new Set();
-    let currentVideos = [];
+    let currentVideos = []; // Temporary storage for new plot videos
 
-    // ==================== LEAFLET MAP ====================
+    // ==================== MAPBOX INTEGRATION ====================
     function initMap() {
-      map = L.map('map').setView([25.2769, 55.2962], 11);
+      mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby1tYXBib3giLCJhIjoiY2x0c2V0dXJqMDF0azJqbzJ2d2J6a2J6ZSJ9.YourDemoTokenHere';
       
-      baseLayers = [
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }),
-        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-          attribution: 'Tiles © Esri'
-        }),
-        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenTopoMap'
-        }),
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        })
-      ];
-      
-      baseLayers[0].addTo(map);
-      
-      markerCluster = L.markerClusterGroup();
-      map.addLayer(markerCluster);
-      
-      addPlotMarkers();
+      map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [55.2962, 25.2769],
+        zoom: 11,
+        pitch: 45,
+        bearing: -17
+      });
+
+      map.on('load', () => {
+        // Hide loading spinner
+        const loadingEl = document.getElementById('mapLoading');
+        if (loadingEl) loadingEl.style.display = 'none';
+        
+        // Add 3D buildings
+        map.addLayer({
+          'id': '3d-buildings',
+          'source': 'composite',
+          'source-layer': 'building',
+          'filter': ['==', 'extrude', 'true'],
+          'type': 'fill-extrusion',
+          'minzoom': 15,
+          'paint': {
+            'fill-extrusion-color': '#1f2937',
+            'fill-extrusion-height': ['get', 'height'],
+            'fill-extrusion-base': ['get', 'min_height'],
+            'fill-extrusion-opacity': 0.8
+          }
+        });
+
+        addPlotMarkers();
+      });
+
+      map.addControl(new mapboxgl.NavigationControl());
+      map.addControl(new mapboxgl.FullscreenControl());
     }
 
     function addPlotMarkers() {
-      markerCluster.clearLayers();
-      
       plots.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
@@ -417,7 +490,8 @@
             iconSize: [38, 38],
             className: 'custom-marker',
             popupAnchor: [0, -20]
-          })
+          }),
+          status: plot.status
         });
         
         // Interactive Tooltip - Mobile Optimized
@@ -453,7 +527,7 @@
           offset: [0, -10],
           className: 'custom-tooltip',
           opacity: 0.95,
-          sticky: isMobile
+          sticky: isMobile // On mobile, tooltip follows finger
         });
         
         // Mobile: Show tooltip on tap, hide after 3 seconds
@@ -471,13 +545,9 @@
       });
     }
 
-    function setMapStyle(n) {
-      map.eachLayer(layer => {
-        if (layer instanceof L.TileLayer) {
-          map.removeLayer(layer);
-        }
-      });
-      baseLayers[n].addTo(map);
+    function setMapStyle(style) {
+      map.setStyle(`mapbox://styles/mapbox/${style}`);
+      map.once('style.load', () => addPlotMarkers());
     }
 
     // ==================== GEOCODING ====================
@@ -485,47 +555,47 @@
       const query = document.getElementById('geocodeSearch').value.trim();
       if (!query) return alert('Please enter an address');
 
-      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
 
-      fetch(url, {
-        headers: {
-          'User-Agent': 'AI-Plot-Portal/1.0'
-        }
-      })
+      fetch(url)
         .then(res => res.json())
         .then(data => {
-          if (data.length > 0) {
-            const result = data[0];
-            const lat = parseFloat(result.lat);
-            const lng = parseFloat(result.lon);
+          if (data.features && data.features.length > 0) {
+            const feature = data.features[0];
+            const [lng, lat] = feature.center;
 
-            map.flyTo([lat, lng], 16, {
-              duration: 2
+            // Fly to location
+            map.flyTo({
+              center: [lng, lat],
+              zoom: 16,
+              pitch: 50,
+              duration: 2000
             });
 
-            const marker = L.marker([lat, lng], {
-              icon: L.divIcon({
-                html: `<div style="background:#3b82f6; width:36px; height:36px; border-radius:50%; border:3px solid white; box-shadow:0 0 20px rgba(59,130,246,0.6); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;"><i class="fas fa-map-marker-alt"></i></div>`,
-                iconSize: [36, 36]
-              })
-            }).addTo(map);
+            // Add temporary marker
+            const el = document.createElement('div');
+            el.style.cssText = 'width:36px;height:36px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 20px rgba(59,130,246,0.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;';
+            el.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
 
-            const popup = L.popup({ offset: [0, -20] })
-              .setLatLng([lat, lng])
-              .setContent(`
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([lng, lat])
+              .addTo(map);
+
+            // Show popup with option to create plot
+            const popup = new mapboxgl.Popup({ offset: 25 })
+              .setHTML(`
                 <div class="text-sm">
-                  <div class="font-bold mb-1">${result.display_name}</div>
-                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${result.display_name.replace(/'/g, "\\'")}');" 
+                  <div class="font-bold mb-1">${feature.place_name}</div>
+                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${feature.place_name.replace(/'/g, "\\'")}');" 
                     class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-xs w-full">
                     Create Plot Here
                   </button>
                 </div>
               `)
-              .openOn(map);
+              .addTo(map);
 
-            setTimeout(() => {
-              marker.on('click', () => marker.remove());
-            }, 100);
+            marker.setPopup(popup);
+            popup.on('close', () => marker.remove());
 
           } else {
             alert('No results found for that address');
@@ -559,32 +629,14 @@
       alert(`✅ New plot ${plotName} created at the searched location!`);
     }
 
-    // ==================== FILTERS & TABLE ====================
+    // ==================== REST OF FUNCTIONS ====================
     function applyFilters() {
       const status = document.getElementById('statusFilter').value;
       const query = document.getElementById('mapSearch').value.toLowerCase().trim();
-      
-      const filtered = plots.filter(p => 
+      populateTable(plots.filter(p => 
         (!status || p.status === status) &&
         (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))
-      );
-      
-      markerCluster.clearLayers();
-      filtered.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        
-        const marker = L.marker([plot.lat, plot.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:${color}; width:32px; height:32px; border-radius:50%; border:3px solid white; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center;">${plot.no}</div>`,
-            iconSize: [32, 32]
-          })
-        });
-        
-        marker.on('click', () => selectPlot(plot.id));
-        markerCluster.addLayer(marker);
-      });
-      
-      populateTable(filtered);
+      ));
     }
 
     function clearFilters() {
@@ -599,12 +651,13 @@
       applyFilters();
     }
 
+    // Debounced search for better performance
     let searchTimeout;
     function debounceSearch() {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
         applyFilters();
-      }, 300);
+      }, 300); // 300ms delay
     }
 
     function togglePlotView(view) {
@@ -671,7 +724,6 @@
       document.getElementById('selectAll').checked = false;
       document.getElementById('selectedCount').textContent = '0 selected';
       populateTable();
-      addPlotMarkers();
     }
 
     function bulkExport() {
@@ -762,12 +814,13 @@
           <div>Size: <span class="font-bold">${plot.size} sqm</span></div>
           <div>Price: <span class="font-bold">AED ${Number(plot.price).toLocaleString()}</span></div>
         </div>
-        
+        ${imageHTML}
         <div class="mt-8 flex gap-3">
           <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl">Link to Deal</button>
           <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl">Delete</button>
         </div>
         
+        <!-- Send To Button -->
         <div class="mt-4">
           <button onclick="showSendOptions(${plot.id})" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-2xl flex items-center justify-center gap-3 text-sm font-medium">
             <i class="fas fa-share-alt"></i> Send To Client (Email / WhatsApp)
@@ -776,9 +829,8 @@
         
         ${imageHTML}
         ${videoHTML}
-        ${panoramaHTML}
       `;
-      map.flyTo([plot.lat, plot.lng], 16);
+      map.flyTo({ center: [plot.lng, plot.lat], zoom: 16, pitch: 60 });
     }
 
     function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
@@ -787,10 +839,8 @@
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
       populateTable();
-      addPlotMarkers();
     }
 
-    // ==================== IMPORT ====================
     function importPlots() {
       document.getElementById('importModal').classList.remove('hidden');
       document.getElementById('fileInput').value = '';
@@ -898,7 +948,6 @@
     }
 
     function printPDF() { window.print(); }
-    
     function addNewPlot() {
       const formHTML = `
         <div id="newPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
@@ -942,6 +991,74 @@
                   <option value="Sold">Sold</option>
                 </select>
               </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Latitude (optional)</label>
+                  <input type="text" id="newLat" placeholder="25.2769" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Longitude (optional)</label>
+                  <input type="text" id="newLng" placeholder="55.2962" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+
+              <!-- Image Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Image (optional)</label>
+                <div class="flex items-center gap-4">
+                  <label class="cursor-pointer px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm flex items-center gap-2 border border-gray-700">
+                    <i class="fas fa-image"></i> Upload Photo
+                    <input type="file" id="newImage" accept="image/*" class="hidden" onchange="previewPlotImage(event)">
+                  </label>
+                  <div id="imagePreview" class="w-16 h-16 bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hidden">
+                    <img id="previewImg" class="w-full h-full object-cover">
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">JPG, PNG up to 5MB</p>
+              </div>
+
+              <!-- Multiple Video Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Videos (up to 4)</label>
+                
+                <!-- YouTube/Vimeo Embed -->
+                <div class="mb-3">
+                  <div class="flex gap-2">
+                    <input type="text" id="youtubeUrl" placeholder="Paste YouTube or Vimeo URL" 
+                      class="flex-1 bg-gray-800 rounded-2xl px-5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="addVideoEmbed()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Add Embed</button>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">Supports YouTube & Vimeo links</p>
+                </div>
+                
+                <!-- File Upload -->
+                <div class="flex items-center gap-3 mb-3">
+                  <label class="cursor-pointer px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm flex items-center gap-2 border border-gray-700">
+                    <i class="fas fa-video"></i> Upload Video
+                    <input type="file" id="newVideo" accept="video/*" class="hidden" onchange="addVideoFile(event)">
+                  </label>
+                  <span class="text-xs text-gray-500">MP4, MOV (max 4 videos)</span>
+                </div>
+                
+                <!-- Video List -->
+                <div id="videoList" class="space-y-2"></div>
+              </div>
+
+              <!-- 360° Panorama Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">360° Panorama (optional)</label>
+                <div class="flex items-center gap-4">
+                  <label class="cursor-pointer px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-2xl text-sm flex items-center gap-2">
+                    <i class="fas fa-globe"></i> Upload 360° Photo
+                    <input type="file" id="newPanorama" accept="image/*" class="hidden" onchange="previewPanorama(event)">
+                  </label>
+                  <div id="panoramaPreview" class="w-16 h-16 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 hidden">
+                    <img id="panoramaImg" class="w-full h-full object-cover">
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Equirectangular 360° image (JPG/PNG)</p>
+              </div>
             </div>
             
             <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
@@ -960,6 +1077,132 @@
       if (modal) modal.remove();
     }
 
+    function previewPlotImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('imagePreview');
+        const img = document.getElementById('previewImg');
+        img.src = e.target.result;
+        preview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addVideoEmbed() {
+      const url = document.getElementById('youtubeUrl').value.trim();
+      if (!url) return alert('Please enter a YouTube or Vimeo URL');
+      
+      let embedCode = '';
+      let videoType = '';
+      
+      // YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        let videoId = '';
+        if (url.includes('youtu.be/')) {
+          videoId = url.split('youtu.be/')[1].split('?')[0];
+        } else if (url.includes('v=')) {
+          videoId = url.split('v=')[1].split('&')[0];
+        }
+        embedCode = `https://www.youtube.com/embed/${videoId}`;
+        videoType = 'youtube';
+      } 
+      // Vimeo
+      else if (url.includes('vimeo.com')) {
+        const videoId = url.split('vimeo.com/')[1].split('?')[0];
+        embedCode = `https://player.vimeo.com/video/${videoId}`;
+        videoType = 'vimeo';
+      } 
+      else {
+        return alert('Please enter a valid YouTube or Vimeo URL');
+      }
+      
+      currentVideos.push({
+        type: videoType,
+        url: embedCode,
+        title: 'Embedded Video'
+      });
+      
+      renderVideoList();
+      document.getElementById('youtubeUrl').value = '';
+    }
+
+    function addVideoFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (currentVideos.length >= 4) {
+        return alert('Maximum 4 videos allowed per plot');
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        currentVideos.push({
+          type: 'file',
+          data: e.target.result,
+          name: file.name,
+          size: (file.size / (1024 * 1024)).toFixed(1) + 'MB'
+        });
+        renderVideoList();
+      };
+      reader.readAsDataURL(file);
+      
+      // Reset input
+      event.target.value = '';
+    }
+
+    function renderVideoList() {
+      const container = document.getElementById('videoList');
+      container.innerHTML = '';
+      
+      currentVideos.forEach((video, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-gray-800 rounded-2xl px-4 py-3 text-sm';
+        
+        let icon = video.type === 'youtube' ? 'fab fa-youtube text-red-500' : 
+                   video.type === 'vimeo' ? 'fab fa-vimeo-v text-blue-500' : 'fas fa-video text-purple-400';
+        
+        let label = video.type === 'file' ? video.name : video.title;
+        
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <i class="${icon} text-lg"></i>
+            <span class="truncate max-w-[200px]">${label}</span>
+            ${video.size ? `<span class="text-xs text-gray-500">(${video.size})</span>` : ''}
+          </div>
+          <button onclick="removeVideo(${index})" class="text-red-400 hover:text-red-600 px-2">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function removeVideo(index) {
+      currentVideos.splice(index, 1);
+      renderVideoList();
+    }
+
+    // ==================== 360° PANORAMA ====================
+    function previewPanorama(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('panoramaPreview');
+        const img = document.getElementById('panoramaImg');
+        img.src = e.target.result;
+        preview.classList.remove('hidden');
+        
+        // Store temporarily
+        window.tempPanorama = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
     function saveNewPlot() {
       const no = document.getElementById('newPlotNo').value.trim();
       const dev = document.getElementById('newDev').value.trim();
@@ -976,7 +1219,7 @@
       // Plot Number: Must be in format A-123 or B-1234
       if (!no) {
         errors.push("Plot Number is required");
-      } else if (!/^[A-Z]-\\d{3,4}$/i.test(no)) {
+      } else if (!/^[A-Z]-\d{3,4}$/i.test(no)) {
         errors.push("Plot Number must be in format: A-123 or B-1234");
       } else if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
         errors.push("Plot Number already exists");
@@ -1026,8 +1269,61 @@
         dev: dev,
         size: size,
         price: price,
-        status: status
+        status: status,
+        image: null,
+        videos: [...currentVideos],
+        panorama: window.tempPanorama || null
       };
+      currentVideos = [];
+      window.tempPanorama = null;
+      
+      // Handle image upload
+      if (imageInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          newPlot.image = e.target.result;
+          
+          // Handle video upload
+          const videoInput = document.getElementById('newVideo');
+          if (videoInput.files.length > 0) {
+            const videoReader = new FileReader();
+            videoReader.onload = function(ve) {
+              newPlot.video = ve.target.result;
+              plots.push(newPlot);
+              addPlotMarkers();
+              populateTable();
+              closeNewPlotModal();
+              alert(`✅ New plot ${no} added successfully!`);
+            };
+            videoReader.readAsDataURL(videoInput.files[0]);
+            return;
+          }
+          
+          plots.push(newPlot);
+          addPlotMarkers();
+          populateTable();
+          closeNewPlotModal();
+          alert(`✅ New plot ${no} added successfully!`);
+        };
+        reader.readAsDataURL(imageInput.files[0]);
+        return;
+      }
+      
+      // Handle video only (no image)
+      const videoInput = document.getElementById('newVideo');
+      if (videoInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          newPlot.video = e.target.result;
+          plots.push(newPlot);
+          addPlotMarkers();
+          populateTable();
+          closeNewPlotModal();
+          alert(`✅ New plot ${no} added successfully!`);
+        };
+        reader.readAsDataURL(videoInput.files[0]);
+        return;
+      }
       
       plots.push(newPlot);
       addPlotMarkers();
@@ -1036,110 +1332,7 @@
       
       alert(`✅ New plot ${no} added successfully!`);
     }
-    
     function linkToDeal() { alert("Plot linked to new deal!"); }
-
-    // ==================== DISTANCE CALCULATOR ====================
-    let distanceMode = false;
-    let firstPoint = null;
-    let distanceMarker1 = null;
-    let distanceMarker2 = null;
-
-    function startDistanceCalculator() {
-      distanceMode = true;
-      firstPoint = null;
-      
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
-      
-      alert('Click on the map to select the first point');
-      
-      map.getContainer().style.cursor = 'crosshair';
-      
-      map.once('click', function(e) {
-        firstPoint = [e.latlng.lat, e.latlng.lng];
-        
-        const el1 = document.createElement('div');
-        el1.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
-        
-        distanceMarker1 = L.marker(firstPoint, {
-          icon: L.divIcon({
-            html: `<div style="background:#a855f7; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 15px #a855f7;"></div>`,
-            iconSize: [20, 20]
-          })
-        }).addTo(map);
-        
-        alert('Now click on the second point');
-        
-        map.once('click', function(e2) {
-          const secondPoint = [e2.latlng.lat, e2.latlng.lng];
-          
-          const el2 = document.createElement('div');
-          el2.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
-          
-          distanceMarker2 = L.marker(secondPoint, {
-            icon: L.divIcon({
-              html: `<div style="background:#a855f7; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 15px #a855f7;"></div>`,
-              iconSize: [20, 20]
-            })
-          }).addTo(map);
-          
-          const distance = calculateDistance(firstPoint[0], firstPoint[1], secondPoint[0], secondPoint[1]);
-          
-          const line = L.polyline([firstPoint, secondPoint], {
-            color: '#a855f7',
-            weight: 3,
-            dashArray: '5, 5'
-          }).addTo(map);
-          
-          const popup = L.popup({ closeOnClick: false })
-            .setLatLng([
-              (firstPoint[0] + secondPoint[0]) / 2,
-              (firstPoint[1] + secondPoint[1]) / 2
-            ])
-            .setContent(`
-              <div class="text-center p-2">
-                <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
-                <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
-                <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
-              </div>
-            `)
-            .openOn(map);
-          
-          map.getContainer().style.cursor = '';
-          distanceMode = false;
-          
-          window.currentDistanceLine = line;
-        });
-      });
-    }
-
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const φ1 = lat1 * Math.PI / 180;
-      const φ2 = lat2 * Math.PI / 180;
-      const Δφ = (lat2 - lat1) * Math.PI / 180;
-      const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                Math.cos(φ1) * Math.cos(φ2) *
-                Math.sin(Δλ/2) * Math.sin(Δλ/2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-      return R * c;
-    }
-
-    function clearDistanceMeasurement() {
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
-      if (window.currentDistanceLine) window.currentDistanceLine.remove();
-      
-      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
-      
-      distanceMode = false;
-      firstPoint = null;
-      map.getContainer().style.cursor = '';
-    }
 
     // ==================== SEND TO CLIENT ====================
     function showSendOptions(plotId) {
@@ -1158,11 +1351,7 @@
             </div>
             
             <div class="p-8 space-y-4">
-              <div>
-                <label class="block text-xs text-gray-400 mb-2">Customize Message (optional)</label>
-                <textarea id="customMessage" rows="4" class="w-full bg-gray-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Add your personal message here..."></textarea>
-              </div>
-              
+              <!-- Email Option -->
               <button onclick="sendViaEmail(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
                 <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <i class="fas fa-envelope text-white text-xl"></i>
@@ -1173,6 +1362,7 @@
                 </div>
               </button>
               
+              <!-- WhatsApp Option -->
               <button onclick="sendViaWhatsApp(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
                 <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <i class="fab fa-whatsapp text-white text-2xl"></i>
@@ -1183,6 +1373,7 @@
                 </div>
               </button>
               
+              <!-- SMS Option -->
               <button onclick="sendViaSMS(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
                 <div class="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <i class="fas fa-sms text-white text-xl"></i>
@@ -1216,10 +1407,8 @@
               </button>
             </div>
             
-            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
-              <button onclick="connectGoogleCalendar()" class="w-full flex items-center justify-center gap-3 py-3 text-sm text-blue-400 hover:text-blue-300">
-                <i class="fab fa-google"></i> Connect Google Calendar (API)
-              </button>
+            <div class="px-8 py-5 border-t border-gray-700 text-center">
+              <div class="text-xs text-gray-500">Pre-filled with plot details, price & link</div>
             </div>
           </div>
         </div>
@@ -1306,46 +1495,17 @@
       const plot = plots.find(p => p.id === plotId);
       if (!plot) return;
       
+      // Create unique room name based on plot
       const roomName = `AI-Plot-${plot.no}-${Date.now().toString().slice(-6)}`;
       const jitsiLink = `https://meet.jit.si/${roomName}`;
-      
-      window.open(jitsiLink, '_blank');
-      
-      setTimeout(() => {
-        alert(`✅ Video call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}`);
-      }, 1000);
-    }
-
-    // ==================== AUDIO CALL ====================
-    function startAudioCall(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      
-      // Create unique room name
-      const roomName = `AI-Plot-Audio-${plot.no}-${Date.now().toString().slice(-6)}`;
-      
-      // Jitsi Meet with video muted by default (audio only)
-      const jitsiLink = `https://meet.jit.si/${roomName}#config.startWithAudioMuted=false&config.startWithVideoMuted=true`;
       
       // Open Jitsi Meet in new tab
       window.open(jitsiLink, '_blank');
       
       // Show helpful message
       setTimeout(() => {
-        alert(`✅ Audio call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}\n\n(Voice only - video disabled by default)`);
+        alert(`✅ Video call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}`);
       }, 1000);
-    }
-
-    // ==================== QUICK VIDEO CALL ====================
-    function quickVideoCall() {
-      const roomName = `AI-Plot-Call-${Date.now().toString().slice(-8)}`;
-      const jitsiLink = `https://meet.jit.si/${roomName}`;
-      
-      window.open(jitsiLink, '_blank');
-      
-      setTimeout(() => {
-        alert(`✅ Video call started!\n\nRoom: ${roomName}\n\nShare this link: ${jitsiLink}`);
-      }, 800);
     }
 
     // ==================== CALENDAR SCHEDULING ====================
@@ -1426,6 +1586,7 @@
         return;
       }
       
+      // Create ICS file content
       const startDateTime = new Date(`${date}T${time}`);
       const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
       
@@ -1446,6 +1607,7 @@ SEQUENCE:0
 END:VEVENT
 END:VCALENDAR`;
       
+      // Download ICS file
       const blob = new Blob([icsContent], { type: 'text/calendar' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1453,6 +1615,7 @@ END:VCALENDAR`;
       a.download = `Plot_${plot.no}_Viewing.ics`;
       a.click();
       
+      // Also offer Google Calendar link
       const googleLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Viewing%20-%20Plot%20${plot.no}&dates=${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=Plot%20${plot.no}%20-%20${plot.dev}%0ASize:%20${plot.size}%20sqm%0APrice:%20AED%20${Number(plot.price).toLocaleString()}&location=${plot.dev}`;
       
       closeScheduleModal();
@@ -1464,7 +1627,7 @@ END:VCALENDAR`;
       }, 500);
     }
 
-    // ==================== GOOGLE CALENDAR API ====================
+    // ==================== GOOGLE CALENDAR API INTEGRATION ====================
     function connectGoogleCalendar() {
       const modalHTML = `
         <div id="googleCalendarModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[6000]">
@@ -1527,6 +1690,212 @@ END:VCALENDAR`;
       const modal = document.getElementById('googleCalendarModal');
       if (modal) modal.remove();
     }
+
+    // ==================== QUICK VIDEO CALL ====================
+    function quickVideoCall() {
+      const roomName = `AI-Plot-Call-${Date.now().toString().slice(-8)}`;
+      const jitsiLink = `https://meet.jit.si/${roomName}`;
+      
+      window.open(jitsiLink, '_blank');
+      
+      setTimeout(() => {
+        alert(`✅ Video call started!\n\nRoom: ${roomName}\n\nShare this link: ${jitsiLink}`);
+      }, 800);
+    }
+
+    // ==================== 360° PANORAMA VIEWER ====================
+    function viewPanorama(imageData) {
+      const modalHTML = `
+        <div id="panoramaModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[4000]">
+          <div class="w-[95%] max-w-6xl">
+            <div class="flex justify-between items-center mb-4 px-4">
+              <div class="text-white">
+                <h3 class="text-2xl font-bold">360° Virtual Tour</h3>
+                <p class="text-gray-400 text-sm">Drag to look around • Scroll to zoom</p>
+              </div>
+              <button onclick="closePanoramaModal()" class="text-white text-4xl hover:text-gray-300">×</button>
+            </div>
+            
+            <div class="bg-black rounded-3xl overflow-hidden border border-gray-700" style="height: 70vh;">
+              <div id="pannellumViewer" style="width: 100%; height: 100%;"></div>
+            </div>
+            
+            <div class="text-center mt-4 text-gray-400 text-sm">
+              Use mouse to drag • Scroll wheel to zoom • Double-click to reset
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      
+      // Load Pannellum dynamically
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js';
+      script.onload = function() {
+        pannellum.viewer('pannellumViewer', {
+          type: 'equirectangular',
+          panorama: imageData,
+          autoLoad: true,
+          compass: true,
+          northOffset: 0,
+          pitch: 0,
+          yaw: 0,
+          hfov: 100
+        });
+      };
+      document.head.appendChild(script);
+      
+      // Also load CSS
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css';
+      document.head.appendChild(link);
+    }
+
+    function closePanoramaModal() {
+      const modal = document.getElementById('panoramaModal');
+      if (modal) modal.remove();
+    }
+
+    // ==================== DISTANCE CALCULATOR ====================
+    let distanceMode = false;
+    let firstPoint = null;
+    let distanceMarker1 = null;
+    let distanceMarker2 = null;
+
+    function startDistanceCalculator() {
+      distanceMode = true;
+      firstPoint = null;
+      
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      
+      alert('Click on the map to select the first point');
+      
+      map.getCanvas().style.cursor = 'crosshair';
+      
+      map.once('click', function(e) {
+        firstPoint = [e.lngLat.lng, e.lngLat.lat];
+        
+        const el1 = document.createElement('div');
+        el1.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
+        
+        distanceMarker1 = new mapboxgl.Marker(el1)
+          .setLngLat(firstPoint)
+          .addTo(map);
+        
+        alert('Now click on the second point');
+        
+        map.once('click', function(e2) {
+          const secondPoint = [e2.lngLat.lng, e2.lngLat.lat];
+          
+          const el2 = document.createElement('div');
+          el2.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
+          
+          distanceMarker2 = new mapboxgl.Marker(el2)
+            .setLngLat(secondPoint)
+            .addTo(map);
+          
+          // Calculate distance
+          const distance = calculateDistance(firstPoint[1], firstPoint[0], secondPoint[1], secondPoint[0]);
+          
+          // Draw line
+          if (map.getSource('distance-line')) {
+            map.removeLayer('distance-line');
+            map.removeSource('distance-line');
+          }
+          
+          map.addSource('distance-line', {
+            'type': 'geojson',
+            'data': {
+              'type': 'Feature',
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': [firstPoint, secondPoint]
+              }
+            }
+          });
+          
+          map.addLayer({
+            'id': 'distance-line',
+            'type': 'line',
+            'source': 'distance-line',
+            'layout': {},
+            'paint': {
+              'line-color': '#a855f7',
+              'line-width': 3,
+              'line-dasharray': [2, 1]
+            }
+          });
+          
+          // Show result
+          const popup = new mapboxgl.Popup({ closeOnClick: false })
+            .setLngLat([
+              (firstPoint[0] + secondPoint[0]) / 2,
+              (firstPoint[1] + secondPoint[1]) / 2
+            ])
+            .setHTML(`
+              <div class="text-center p-2">
+                <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
+                <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
+                <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
+              </div>
+            `)
+            .addTo(map);
+          
+          map.getCanvas().style.cursor = '';
+          distanceMode = false;
+        });
+      });
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth's radius in meters
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; // Distance in meters
+    }
+
+    function clearDistanceMeasurement() {
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      
+      if (map.getLayer('distance-line')) map.removeLayer('distance-line');
+      if (map.getSource('distance-line')) map.removeSource('distance-line');
+      
+      document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+      
+      distanceMode = false;
+      firstPoint = null;
+      map.getCanvas().style.cursor = '';
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('open');
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(e) {
+      const sidebar = document.getElementById('sidebar');
+      const hamburger = document.querySelector('.hamburger');
+      
+      if (window.innerWidth < 768 && 
+          sidebar.classList.contains('open') && 
+          !sidebar.contains(e.target) && 
+          !hamburger.contains(e.target)) {
+        sidebar.classList.remove('open');
+      }
+    });
 
     // ==================== CUSTOM VALIDATION RULES ====================
     let customValidationRules = {
@@ -1618,23 +1987,293 @@ END:VCALENDAR`;
       alert("✅ Custom validation rules saved successfully!");
     }
 
-    // ==================== MOBILE SIDEBAR ====================
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.toggle('open');
+    // ==================== AUDIO CALL ====================
+    function startAudioCall(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      // Create unique room name
+      const roomName = `AI-Plot-Audio-${plot.no}-${Date.now().toString().slice(-6)}`;
+      
+      // Jitsi Meet with video muted by default (audio only)
+      const jitsiLink = `https://meet.jit.si/${roomName}#config.startWithAudioMuted=false&config.startWithVideoMuted=true`;
+      
+      // Open Jitsi Meet in new tab
+      window.open(jitsiLink, '_blank');
+      
+      // Show helpful message
+      setTimeout(() => {
+        alert(`✅ Audio call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}\n\n(Voice only - video disabled by default)`);
+      }, 1000);
     }
 
-    document.addEventListener('click', function(e) {
-      const sidebar = document.getElementById('sidebar');
-      const hamburger = document.querySelector('.hamburger');
-      
-      if (window.innerWidth < 768 && 
-          sidebar.classList.contains('open') && 
-          !sidebar.contains(e.target) && 
-          !hamburger.contains(e.target)) {
-        sidebar.classList.remove('open');
+    // ==================== HEATMAP ====================
+    let heatmapLayer = null;
+    let heatmapEnabled = false;
+
+    function toggleHeatmap() {
+      if (heatmapEnabled) {
+        // Remove heatmap
+        if (heatmapLayer) {
+          map.removeLayer(heatmapLayer);
+          heatmapLayer = null;
+        }
+        markerCluster.addTo(map);
+        heatmapEnabled = false;
+        alert('Heatmap disabled - showing markers');
+      } else {
+        // Create heatmap
+        markerCluster.remove();
+        
+        const heatData = plots.map(plot => {
+          let intensity = 0.5;
+          if (plot.status === 'Available') intensity = 0.8;
+          else if (plot.status === 'Reserved') intensity = 0.6;
+          else intensity = 0.4;
+          
+          return [plot.lat, plot.lng, intensity];
+        });
+        
+        heatmapLayer = L.heatLayer(heatData, {
+          radius: 35,
+          blur: 25,
+          maxZoom: 17,
+          gradient: {
+            0.4: '#3b82f6',
+            0.6: '#22c55e',
+            0.8: '#f59e0b',
+            1.0: '#ef4444'
+          }
+        }).addTo(map);
+        
+        heatmapEnabled = true;
+        alert('Heatmap enabled - showing plot density');
       }
-    });
+    }
+
+    // ==================== EDIT PLOT ====================
+    function editPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const formHTML = `
+        <div id="editPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
+          <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+              <div>
+                <h3 class="text-2xl font-semibold">Edit Plot</h3>
+                <p class="text-sm text-gray-400">Plot ${plot.no}</p>
+              </div>
+              <button onclick="closeEditPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-6">
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number</label>
+                  <input type="text" id="editPlotNo" value="${plot.no}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Development</label>
+                  <input type="text" id="editDev" value="${plot.dev}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Type</label>
+                <select id="editType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="Residential" ${plot.type === 'Residential' ? 'selected' : ''}>Residential</option>
+                  <option value="Commercial" ${plot.type === 'Commercial' ? 'selected' : ''}>Commercial</option>
+                  <option value="Industrial" ${plot.type === 'Industrial' ? 'selected' : ''}>Industrial</option>
+                  <option value="School" ${plot.type === 'School' ? 'selected' : ''}>School / Educational</option>
+                  <option value="Camp" ${plot.type === 'Camp' ? 'selected' : ''}>Camp / Labor Accommodation</option>
+                  <option value="Other" ${plot.type === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+              </div>
+              
+              <div class="border border-gray-700 rounded-2xl p-5">
+                <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
+                <div class="grid grid-cols-2 gap-5">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">GFA (Gross Floor Area) sqm</label>
+                    <input type="number" id="editGFA" value="${plot.gfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">NFA (Net Floor Area) sqm</label>
+                    <input type="number" id="editNFA" value="${plot.nfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">FAR (Floor Area Ratio)</label>
+                    <input type="number" step="0.1" id="editFAR" value="${plot.far || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">BUA (Built-Up Area) sqm</label>
+                    <input type="number" id="editBUA" value="${plot.bua || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label>
+                  <input type="number" id="editPrice" value="${plot.price}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Status</label>
+                  <select id="editStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Available" ${plot.status === 'Available' ? 'selected' : ''}>Available</option>
+                    <option value="Reserved" ${plot.status === 'Reserved' ? 'selected' : ''}>Reserved</option>
+                    <option value="Sold" ${plot.status === 'Sold' ? 'selected' : ''}>Sold</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="border border-gray-700 rounded-2xl p-5">
+                <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER / CUSTOMER INFORMATION</div>
+                <div class="grid grid-cols-1 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">Owner Name</label>
+                    <input type="text" id="editOwner" value="${plot.owner || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-1.5">Phone Number</label>
+                      <input type="text" id="editPhone" value="${plot.phone || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-1.5">Email Address</label>
+                      <input type="email" id="editEmail" value="${plot.email || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
+              <button onclick="closeEditPlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="saveEditPlot(${plot.id})" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', formHTML);
+    }
+
+    function closeEditPlotModal() {
+      const modal = document.getElementById('editPlotModal');
+      if (modal) modal.remove();
+    }
+
+    function saveEditPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      plot.no = document.getElementById('editPlotNo').value.trim();
+      plot.dev = document.getElementById('editDev').value.trim();
+      plot.type = document.getElementById('editType').value;
+      plot.gfa = document.getElementById('editGFA').value;
+      plot.nfa = document.getElementById('editNFA').value;
+      plot.far = document.getElementById('editFAR').value;
+      plot.bua = document.getElementById('editBUA').value;
+      plot.price = document.getElementById('editPrice').value;
+      plot.status = document.getElementById('editStatus').value;
+      plot.owner = document.getElementById('editOwner').value.trim();
+      plot.phone = document.getElementById('editPhone').value.trim();
+      plot.email = document.getElementById('editEmail').value.trim();
+      
+      addPlotMarkers();
+      populateTable();
+      closeEditPlotModal();
+      
+      setTimeout(() => {
+        selectPlot(id);
+      }, 100);
+      
+      alert(`✅ Plot ${plot.no} updated successfully!`);
+    }
+
+    // ==================== USER AUTHENTICATION ====================
+    let currentUser = null;
+
+    function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      
+      // Demo accounts
+      const accounts = {
+        'admin': { password: 'admin123', name: 'Admin User', role: 'Administrator', avatar: 'AD', color: 'bg-blue-600' },
+        'manager': { password: 'manager123', name: 'Manager User', role: 'Manager', avatar: 'MG', color: 'bg-green-600' },
+        'viewer': { password: 'viewer123', name: 'Viewer User', role: 'Viewer', avatar: 'VW', color: 'bg-orange-600' }
+      };
+      
+      if (accounts[username] && accounts[username].password === password) {
+        currentUser = {
+          username: username,
+          name: accounts[username].name,
+          role: accounts[username].role,
+          avatar: accounts[username].avatar,
+          color: accounts[username].color
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('aiPlotCurrentUser', JSON.stringify(currentUser));
+        
+        // Hide login modal
+        document.getElementById('loginModal').classList.add('hidden');
+        
+        // Update UI
+        updateUserUI();
+        
+        // Show welcome message
+        setTimeout(() => {
+          alert(`✅ Welcome back, ${currentUser.name}!`);
+        }, 500);
+        
+      } else {
+        alert('❌ Invalid username or password');
+      }
+    }
+
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        currentUser = null;
+        localStorage.removeItem('aiPlotCurrentUser');
+        document.getElementById('loginModal').classList.remove('hidden');
+        
+        // Clear user UI
+        document.getElementById('userName').textContent = 'Not Logged In';
+        document.getElementById('userRole').textContent = '';
+        document.getElementById('userAvatar').innerHTML = '<i class="fas fa-user"></i>';
+        document.getElementById('userAvatar').className = 'w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-sm font-bold';
+      }
+    }
+
+    function updateUserUI() {
+      if (!currentUser) return;
+      
+      document.getElementById('userName').textContent = currentUser.name;
+      document.getElementById('userRole').textContent = currentUser.role;
+      document.getElementById('userAvatar').innerHTML = currentUser.avatar;
+      document.getElementById('userAvatar').className = `w-10 h-10 ${currentUser.color} rounded-full flex items-center justify-center text-sm font-bold`;
+      
+      // Role-based access control
+      if (currentUser.role === 'Viewer') {
+        // Hide edit/delete buttons for viewers
+        document.querySelectorAll('button[onclick*="editPlot"], button[onclick*="deletePlot"], button[onclick*="bulkDelete"]').forEach(btn => {
+          btn.style.display = 'none';
+        });
+      }
+    }
+
+    function checkAuth() {
+      const savedUser = localStorage.getItem('aiPlotCurrentUser');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById('loginModal').classList.add('hidden');
+        updateUserUI();
+      }
+    }
 
     // ==================== INITIALIZE ====================
     window.onload = () => {
@@ -1642,6 +2281,7 @@ END:VCALENDAR`;
       initMap();
       populateTable();
       togglePlotView('map');
+      checkAuth();
     };
   </script>
 </body>
