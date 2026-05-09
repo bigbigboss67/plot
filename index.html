@@ -64,9 +64,8 @@
           </select>
         </div>
 
-        <!-- ADVANCED GIS TOOLS BAR -->
+        <!-- GIS TOOLS - ROW 1: Basic Tools -->
         <div class="absolute top-48 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
-          <!-- Basic Tools -->
           <button onclick="startDistanceCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Measure Distance">
             <i class="fas fa-ruler text-blue-400"></i>
             <span class="hidden md:inline">Distance</span>
@@ -79,10 +78,10 @@
             <i class="fas fa-pencil-alt text-purple-400"></i>
             <span class="hidden md:inline">Draw</span>
           </button>
-          
-          <!-- Advanced GIS Tools -->
-          <div class="w-px bg-gray-700 mx-1"></div>
-          
+        </div>
+
+        <!-- GIS TOOLS - ROW 2: Advanced Tools -->
+        <div class="absolute top-64 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
           <button onclick="createBufferZone()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Buffer Zone">
             <i class="fas fa-circle text-white"></i>
             <span class="hidden md:inline">Buffer</span>
@@ -107,13 +106,10 @@
             <i class="fas fa-fire text-white"></i>
             <span class="hidden md:inline">Heatmap</span>
           </button>
-          
-          <!-- 3D TERRAIN BUTTON -->
           <button onclick="show3DTerrain()" class="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="3D Terrain View">
             <i class="fas fa-cube text-white"></i>
             <span class="hidden md:inline">3D View</span>
           </button>
-          
           <button onclick="clearAllDrawings()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Clear All">
             <i class="fas fa-trash text-red-400"></i>
           </button>
@@ -124,11 +120,42 @@
           <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
             <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
             
+            <!-- LAYER SWITCHER - SATELLITE IMAGERY -->
+            <div class="absolute top-5 right-5 z-[1000]">
+              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl">
+                <div class="text-xs text-gray-400 px-3 py-2 border-b border-gray-700">MAP LAYERS</div>
+                
+                <button onclick="switchLayer(0)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm active-layer" id="layer-0">
+                  <i class="fas fa-road w-4 text-blue-400"></i> 
+                  <span>Streets</span>
+                </button>
+                
+                <button onclick="switchLayer(1)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-1">
+                  <i class="fas fa-satellite w-4 text-green-400"></i> 
+                  <span>Satellite</span>
+                </button>
+                
+                <button onclick="switchLayer(2)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-2">
+                  <i class="fas fa-layer-group w-4 text-purple-400"></i> 
+                  <span>Hybrid</span>
+                </button>
+                
+                <button onclick="switchLayer(3)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-3">
+                  <i class="fas fa-mountain w-4 text-orange-400"></i> 
+                  <span>Terrain</span>
+                </button>
+                
+                <button onclick="switchLayer(4)" class="w-full px-4 py-3 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-sm" id="layer-4">
+                  <i class="fas fa-moon w-4 text-gray-400"></i> 
+                  <span>Dark</span>
+                </button>
+              </div>
+            </div>
+            
             <div id="mapError" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900 z-50">
               <div class="text-center">
                 <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
                 <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-                <div class="text-sm text-gray-400 mb-4">Please refresh the page</div>
                 <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
               </div>
             </div>
@@ -155,19 +182,30 @@
         </div>
       </div>
     </div>
+
+    <!-- RIGHT SIDE: COMPLETE PLOT INFORMATION CARD -->
+    <div id="mapCard" class="w-96 bg-gray-900 border-l border-gray-800 p-6 overflow-auto hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-bold">Plot Details</h3>
+        <button onclick="closeCard()" class="text-3xl text-gray-400 hover:text-white">×</button>
+      </div>
+      
+      <div id="plotDetailsContent">
+        <!-- Content populated by JavaScript -->
+      </div>
+    </div>
   </div>
 
   <!-- 3D TERRAIN MODAL -->
   <div id="modal3D" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
     <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl h-[90vh] border border-gray-700 shadow-2xl overflow-hidden flex flex-col">
-      <!-- Modal Header -->
       <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
           <h3 class="text-2xl font-bold flex items-center gap-3">
             <i class="fas fa-cube text-purple-400"></i> 
             3D Terrain Visualization
           </h3>
-          <p class="text-sm text-gray-400">Interactive 3D view of plot locations • Drag to rotate • Scroll to zoom</p>
+          <p class="text-sm text-gray-400">Interactive 3D view • Drag to rotate • Scroll to zoom</p>
         </div>
         <div class="flex gap-3">
           <button onclick="reset3DView()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium flex items-center gap-2">
@@ -179,11 +217,9 @@
         </div>
       </div>
       
-      <!-- 3D Canvas Container -->
       <div class="flex-1 relative bg-black" id="threeContainer">
         <canvas id="threeCanvas" class="w-full h-full"></canvas>
         
-        <!-- 3D Controls Overlay -->
         <div class="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
           <div class="text-xs text-gray-400 mb-2">CONTROLS</div>
           <div class="space-y-1 text-sm">
@@ -193,7 +229,6 @@
           </div>
         </div>
         
-        <!-- Legend -->
         <div class="absolute bottom-4 right-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
           <div class="text-xs text-gray-400 mb-2">LEGEND</div>
           <div class="space-y-2 text-sm">
@@ -211,9 +246,9 @@
   <script>
     let map;
     let plots = [
-      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
-      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
-      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", size: "2100", price: "8900000", status: "Sold" }
+      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com" },
+      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", type: "Commercial", gfa: "1800", nfa: "1500", far: "3.2", bua: "1200", price: "6200000", status: "Reserved", owner: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima@email.com" },
+      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
     ];
     let drawingMode = false;
     let drawnItems = [];
@@ -228,47 +263,89 @@
     let bufferLayer = null;
     let intersectionLayer = null;
     let heatmapLayer = null;
-    
-    // 3D Variables
+    let currentLayer = 0;
+    let tileLayers = [];
     let scene, camera, renderer;
     let plotMeshes = [];
     let isDragging = false;
     let previousMouseX = 0;
     let previousMouseY = 0;
 
-    // ==================== MAP INITIALIZATION ====================
+    // ==================== MAP WITH SATELLITE LAYERS ====================
     function initMap() {
       try {
-        console.log('Initializing map...');
-        
         map = L.map('map').setView([25.2769, 55.2962], 11);
         
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap'
-        }).addTo(map);
+        // Layer 0: Streets (OpenStreetMap)
+        tileLayers[0] = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        });
+        
+        // Layer 1: Satellite (Esri World Imagery)
+        tileLayers[1] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri, Maxar, Earthstar Geographics',
+          maxZoom: 19
+        });
+        
+        // Layer 2: Hybrid (Satellite + Labels)
+        tileLayers[2] = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: '© Esri, Maxar, Earthstar Geographics',
+          maxZoom: 19
+        });
+        
+        // Layer 3: Terrain (OpenTopoMap)
+        tileLayers[3] = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenTopoMap contributors',
+          maxZoom: 17
+        });
+        
+        // Layer 4: Dark Mode
+        tileLayers[4] = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '© CARTO',
+          maxZoom: 19
+        });
+        
+        // Add default layer (Streets)
+        tileLayers[0].addTo(map);
         
         addMarkers();
         
         setTimeout(() => {
-          if (map) {
-            map.invalidateSize();
-            console.log('✅ Map initialized successfully');
-          }
+          if (map) map.invalidateSize();
         }, 200);
         
       } catch (error) {
-        console.error('Map error:', error);
         document.getElementById('map').innerHTML = `
           <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
             <div>
               <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
               <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-              <div class="text-sm text-gray-400 mb-4">Please refresh the page</div>
               <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
             </div>
           </div>
         `;
       }
+    }
+
+    function switchLayer(layerIndex) {
+      // Remove current layer
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          map.removeLayer(layer);
+        }
+      });
+      
+      // Add new layer
+      tileLayers[layerIndex].addTo(map);
+      
+      // Update active state
+      document.querySelectorAll('[id^="layer-"]').forEach(el => {
+        el.classList.remove('active-layer', 'bg-gray-700');
+      });
+      document.getElementById('layer-' + layerIndex).classList.add('active-layer', 'bg-gray-700');
+      
+      currentLayer = layerIndex;
     }
 
     function addMarkers() {
@@ -286,28 +363,141 @@
           <div style="min-width:200px;">
             <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div>
             <div style="color:#666;margin-bottom:12px;">${plot.dev}</div>
-            <div style="margin-bottom:6px;"><strong>Size:</strong> ${plot.size} sqm</div>
-            <div style="margin-bottom:12px;"><strong>Price:</strong> AED ${Number(plot.price).toLocaleString()}</div>
             <div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div>
           </div>
         `);
         
-        marker.on('click', () => showPlotDetails(plot.id));
+        marker.on('click', () => selectPlot(plot.id));
       });
     }
 
-    function showPlotDetails(id) {
+    function selectPlot(id) {
       const plot = plots.find(p => p.id === id);
-      alert(`Plot ${plot.no}\n${plot.dev}\nSize: ${plot.size} sqm\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}`);
+      const card = document.getElementById('mapCard');
+      const content = document.getElementById('plotDetailsContent');
+      
+      card.classList.remove('hidden');
+      
+      content.innerHTML = `
+        <div class="mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-4xl font-bold">Plot ${plot.no}</div>
+              <div class="text-blue-400 text-lg">${plot.dev}</div>
+            </div>
+            <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">
+              ${plot.status}
+            </div>
+          </div>
+        </div>
+
+        <!-- STATUS CHANGE BUTTONS -->
+        <div class="mb-6">
+          <div class="text-xs text-gray-400 mb-2">CHANGE STATUS</div>
+          <div class="flex gap-2">
+            <button onclick="changePlotStatus(${plot.id}, 'Available')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-medium">Available</button>
+            <button onclick="changePlotStatus(${plot.id}, 'Reserved')" class="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl text-sm font-medium">Reserved</button>
+            <button onclick="changePlotStatus(${plot.id}, 'Sold')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium">Sold</button>
+          </div>
+        </div>
+
+        <!-- COMPLETE PLOT INFORMATION -->
+        <div class="space-y-4">
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-3">PLOT TYPE</div>
+            <div class="font-bold text-lg">${plot.type || 'Residential'}</div>
+          </div>
+
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-3">AREA INFORMATION</div>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <div class="text-gray-400">GFA (Gross)</div>
+                <div class="font-bold text-lg">${plot.gfa || 'N/A'} sqm</div>
+              </div>
+              <div>
+                <div class="text-gray-400">NFA (Net)</div>
+                <div class="font-bold text-lg">${plot.nfa || 'N/A'} sqm</div>
+              </div>
+              <div>
+                <div class="text-gray-400">FAR</div>
+                <div class="font-bold text-lg">${plot.far || 'N/A'}</div>
+              </div>
+              <div>
+                <div class="text-gray-400">BUA</div>
+                <div class="font-bold text-lg">${plot.bua || 'N/A'} sqm</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-3">PRICING</div>
+            <div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div>
+            <div class="text-xs text-gray-400 mt-1">Per sqm: AED ${Math.round(plot.price / (plot.gfa || 1000)).toLocaleString()}</div>
+          </div>
+
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-3">OWNER / CUSTOMER INFORMATION</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3">
+                <i class="fas fa-user text-gray-400 w-4"></i>
+                <span class="font-bold">${plot.owner || 'N/A'}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-phone text-gray-400 w-4"></i>
+                <span>${plot.phone || 'N/A'}</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <i class="fas fa-envelope text-gray-400 w-4"></i>
+                <span class="text-blue-400">${plot.email || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-800 rounded-2xl p-4">
+            <div class="text-xs text-gray-400 mb-3">LOCATION</div>
+            <div class="text-sm">
+              <div>Lat: ${plot.lat.toFixed(6)}</div>
+              <div>Lng: ${plot.lng.toFixed(6)}</div>
+            </div>
+            <button onclick="window.open('https://www.google.com/maps?q=${plot.lat},${plot.lng}', '_blank')" class="mt-3 w-full py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center justify-center gap-2">
+              <i class="fas fa-map-marker-alt"></i> Open in Google Maps
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 flex gap-3">
+          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Edit Plot</button>
+          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 py-4 border border-red-600 text-red-400 hover:bg-red-900/50 rounded-2xl text-sm font-medium">Delete</button>
+        </div>
+      `;
+    }
+
+    function changePlotStatus(id, newStatus) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      plot.status = newStatus;
+      
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+      });
+      addMarkers();
+      
+      renderTable();
+      selectPlot(id);
+      
+      alert(`✅ Plot ${plot.no} status changed to ${newStatus}`);
+    }
+
+    function closeCard() {
+      document.getElementById('mapCard').classList.add('hidden');
     }
 
     function showMapView() {
       document.getElementById('mapView').classList.remove('hidden');
       document.getElementById('tableView').classList.add('hidden');
-      
-      setTimeout(() => {
-        if (map) map.invalidateSize();
-      }, 100);
+      setTimeout(() => { if (map) map.invalidateSize(); }, 100);
     }
 
     function showTableView() {
@@ -322,13 +512,13 @@
         <tr class="hover:bg-gray-800">
           <td class="py-4 px-6 font-bold">${plot.no}</td>
           <td class="py-4 px-6">${plot.dev}</td>
-          <td class="py-4 px-6">${plot.size} sqm</td>
+          <td class="py-4 px-6">${plot.size || plot.gfa} sqm</td>
           <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
           <td class="py-4 px-6">
             <span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span>
           </td>
           <td class="py-4 px-6">
-            <button onclick="showPlotDetails(${plot.id})" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
+            <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
             <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
           </td>
         </tr>
@@ -352,11 +542,11 @@
           })
         }).addTo(map);
         
-        marker.bindPopup(`Plot ${plot.no} - ${plot.dev}`);
+        marker.on('click', () => selectPlot(plot.id));
       });
     }
 
-    // ==================== BASIC GIS TOOLS ====================
+    // ==================== GIS TOOLS ====================
     
     function startDistanceCalculator() {
       distanceMode = true;
@@ -619,13 +809,13 @@
       alert('All drawings cleared!');
     }
 
-    // ==================== ADVANCED GIS FEATURES ====================
+    // ==================== ADVANCED GIS ====================
     
     function createBufferZone() {
       const radius = prompt('Enter buffer radius (meters):', '500');
       if (!radius) return;
       
-      const plotNo = prompt('Enter Plot Number for buffer (e.g., A-128):', 'A-128');
+      const plotNo = prompt('Enter Plot Number for buffer:', 'A-128');
       const plot = plots.find(p => p.no === plotNo);
       
       if (!plot) {
@@ -653,8 +843,8 @@
         .setContent(`
           <div class="text-center p-2">
             <div class="text-lg font-bold text-purple-400">Buffer Zone</div>
-            <div class="text-sm text-gray-400">${radius}m radius around Plot ${plotNo}</div>
-            <div class="text-sm mt-2">Plots within buffer: <strong>${count}</strong></div>
+            <div class="text-sm text-gray-400">${radius}m around ${plotNo}</div>
+            <div class="text-sm mt-2">Plots within: <strong>${count}</strong></div>
             <button onclick="clearBuffer()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
           </div>
         `)
@@ -677,13 +867,8 @@
       for (let i = 0; i < plots.length; i++) {
         for (let j = i + 1; j < plots.length; j++) {
           const dist = calculateDistance(plots[i].lat, plots[i].lng, plots[j].lat, plots[j].lng);
-          
           if (dist < 100) {
-            intersections.push({
-              plot1: plots[i],
-              plot2: plots[j],
-              distance: dist
-            });
+            intersections.push({ plot1: plots[i], plot2: plots[j], distance: dist });
           }
         }
       }
@@ -699,11 +884,7 @@
         const line = L.polyline([
           [inter.plot1.lat, inter.plot1.lng],
           [inter.plot2.lat, inter.plot2.lng]
-        ], {
-          color: '#ef4444',
-          weight: 3,
-          dashArray: '5, 5'
-        }).addTo(intersectionLayer);
+        ], { color: '#ef4444', weight: 3, dashArray: '5, 5' }).addTo(intersectionLayer);
         
         const midLat = (inter.plot1.lat + inter.plot2.lat) / 2;
         const midLng = (inter.plot1.lng + inter.plot2.lng) / 2;
@@ -761,9 +942,7 @@
           </div>
         `);
         
-        setTimeout(() => {
-          map.removeLayer(marker);
-        }, 5000);
+        setTimeout(() => { map.removeLayer(marker); }, 5000);
       });
       
       alert(`Found ${nearbyPlots.length} plots within ${radius}m of ${centerPlotNo}`);
@@ -778,15 +957,14 @@
         return;
       }
       
-      const baseElevation = 15;
-      const elevation = baseElevation + Math.random() * 10;
+      const elevation = 15 + Math.random() * 10;
       
       const popup = L.popup({ closeOnClick: false })
         .setLatLng([plot.lat, plot.lng])
         .setContent(`
           <div class="text-center p-2" style="min-width:250px;">
             <div class="text-lg font-bold text-indigo-400">Elevation Profile</div>
-            <div class="text-sm text-gray-400">Plot ${plotNo} • ${plot.dev}</div>
+            <div class="text-sm text-gray-400">Plot ${plotNo}</div>
             
             <div class="mt-4 bg-gray-800 rounded-xl p-4">
               <div class="text-xs text-gray-400">Current Elevation</div>
@@ -794,18 +972,9 @@
             </div>
             
             <div class="mt-3 text-xs text-gray-400">
-              <div class="flex justify-between">
-                <span>Min Elevation:</span>
-                <span>${(elevation - 5).toFixed(1)}m</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Max Elevation:</span>
-                <span>${(elevation + 8).toFixed(1)}m</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Slope:</span>
-                <span>${(Math.random() * 5 + 1).toFixed(1)}%</span>
-              </div>
+              <div class="flex justify-between"><span>Min:</span><span>${(elevation - 5).toFixed(1)}m</span></div>
+              <div class="flex justify-between"><span>Max:</span><span>${(elevation + 8).toFixed(1)}m</span></div>
+              <div class="flex justify-between"><span>Slope:</span><span>${(Math.random() * 5 + 1).toFixed(1)}%</span></div>
             </div>
             
             <button onclick="document.querySelector('.leaflet-popup').remove()" class="mt-3 px-4 py-1 bg-indigo-600 rounded text-xs">Close</button>
@@ -833,11 +1002,7 @@
       const routeLine = L.polyline([
         [startPlot.lat, startPlot.lng],
         [endPlot.lat, endPlot.lng]
-      ], {
-        color: '#ec4899',
-        weight: 4,
-        dashArray: '10, 5'
-      }).addTo(map);
+      ], { color: '#ec4899', weight: 4, dashArray: '10, 5' }).addTo(map);
       
       const midLat = (startPlot.lat + endPlot.lat) / 2;
       const midLng = (startPlot.lng + endPlot.lng) / 2;
@@ -855,7 +1020,7 @@
               <div class="text-xs text-gray-400 mt-1">${(distance / 1000).toFixed(2)} km</div>
             </div>
             
-            <div class="text-xs text-gray-400 mt-2">Estimated time: ~${Math.ceil(distance / 500)} min (walking)</div>
+            <div class="text-xs text-gray-400 mt-2">Est. time: ~${Math.ceil(distance / 500)} min</div>
             
             <button onclick="clearRoute()" class="mt-3 px-4 py-1 bg-red-600 rounded text-xs">Clear Route</button>
           </div>
@@ -883,7 +1048,6 @@
       
       const heatData = plots.map(plot => {
         let intensity = 0.5;
-        
         if (plot.status === 'Available') intensity = 0.9;
         else if (plot.status === 'Reserved') intensity = 0.6;
         else intensity = 0.3;
@@ -912,16 +1076,15 @@
         }).addTo(heatmapLayer);
       });
       
-      alert('Advanced heatmap enabled - showing price & availability intensity');
+      alert('Advanced heatmap enabled');
     }
 
-    // ==================== 3D TERRAIN VISUALIZATION ====================
+    // ==================== 3D TERRAIN ====================
     
     function show3DTerrain() {
       const modal = document.getElementById('modal3D');
       modal.classList.remove('hidden');
       
-      // Initialize Three.js
       setTimeout(() => {
         initThreeJS();
       }, 100);
@@ -931,14 +1094,11 @@
       const modal = document.getElementById('modal3D');
       modal.classList.add('hidden');
       
-      // Cleanup Three.js
       if (renderer) {
         renderer.dispose();
         renderer = null;
       }
-      if (scene) {
-        scene = null;
-      }
+      scene = null;
       plotMeshes = [];
     }
 
@@ -946,75 +1106,46 @@
       const container = document.getElementById('threeContainer');
       const canvas = document.getElementById('threeCanvas');
       
-      // Scene setup
       scene = new THREE.Scene();
       scene.fog = new THREE.Fog(0x111111, 50, 200);
       
-      // Camera
       camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
       camera.position.set(30, 40, 50);
       camera.lookAt(0, 0, 0);
       
-      // Renderer
-      renderer = new THREE.WebGLRenderer({ 
-        canvas: canvas, 
-        antialias: true,
-        alpha: true 
-      });
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
       renderer.setSize(container.clientWidth, container.clientHeight);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.shadowMap.enabled = true;
       
-      // Lighting
       const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
       scene.add(ambientLight);
       
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
       directionalLight.position.set(50, 100, 50);
-      directionalLight.castShadow = true;
       scene.add(directionalLight);
       
-      // Create terrain
       createTerrain();
-      
-      // Add plot markers
       add3DPlotMarkers();
       
-      // Add grid
       const grid = new THREE.GridHelper(100, 20, 0x444444, 0x222222);
       scene.add(grid);
       
-      // Mouse controls
       setupMouseControls(container);
-      
-      // Animation loop
       animate3D();
-      
-      // Handle resize
-      window.addEventListener('resize', () => {
-        if (camera && renderer && container) {
-          camera.aspect = container.clientWidth / container.clientHeight;
-          camera.updateProjectionMatrix();
-          renderer.setSize(container.clientWidth, container.clientHeight);
-        }
-      });
     }
 
     function createTerrain() {
-      // Create realistic terrain using plane with height variation
       const geometry = new THREE.PlaneGeometry(100, 100, 50, 50);
       const vertices = geometry.attributes.position.array;
       
-      // Add height variation (hills and valleys)
       for (let i = 0; i < vertices.length; i += 3) {
         const x = vertices[i];
         const z = vertices[i + 2];
         
-        // Create realistic terrain
         let height = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
         height += Math.random() * 1.5 - 0.75;
         
-        // Add some flat areas for plots
         if (Math.abs(x) < 15 && Math.abs(z) < 15) {
           height *= 0.3;
         }
@@ -1024,20 +1155,15 @@
       
       geometry.computeVertexNormals();
       
-      // Terrain material with gradient colors
       const material = new THREE.MeshLambertMaterial({
         color: 0x2d5a27,
-        flatShading: false,
-        wireframe: false
+        flatShading: false
       });
       
       const terrain = new THREE.Mesh(geometry, material);
       terrain.rotation.x = -Math.PI / 2;
-      terrain.receiveShadow = true;
-      terrain.castShadow = true;
       scene.add(terrain);
       
-      // Add water plane
       const waterGeometry = new THREE.PlaneGeometry(100, 100);
       const waterMaterial = new THREE.MeshLambertMaterial({
         color: 0x1a5276,
@@ -1054,18 +1180,15 @@
       plotMeshes = [];
       
       plots.forEach((plot, index) => {
-        // Calculate 3D position from lat/lng
         const x = (plot.lng - 55.3) * 200;
         const z = (plot.lat - 25.27) * 200;
         
-        // Get terrain height at this position
         let terrainHeight = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
         terrainHeight += Math.random() * 1.5 - 0.75;
         
         const color = plot.status === 'Available' ? 0x22c55e : 
                      plot.status === 'Reserved' ? 0xf59e0b : 0xef4444;
         
-        // Create floating marker
         const markerGeometry = new THREE.CylinderGeometry(1.2, 1.2, 4, 16);
         const markerMaterial = new THREE.MeshLambertMaterial({ 
           color: color,
@@ -1075,29 +1198,9 @@
         const marker = new THREE.Mesh(markerGeometry, markerMaterial);
         
         marker.position.set(x, terrainHeight + 3, z);
-        marker.castShadow = true;
-        marker.receiveShadow = true;
-        
-        // Add label
-        const labelCanvas = document.createElement('canvas');
-        labelCanvas.width = 128;
-        labelCanvas.height = 32;
-        const ctx = labelCanvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px Arial';
-        ctx.fillText(plot.no, 10, 22);
-        
-        const texture = new THREE.CanvasTexture(labelCanvas);
-        const labelMaterial = new THREE.SpriteMaterial({ map: texture });
-        const label = new THREE.Sprite(labelMaterial);
-        label.position.set(0, 4, 0);
-        label.scale.set(8, 2, 1);
-        
-        marker.add(label);
         scene.add(marker);
         plotMeshes.push({ mesh: marker, plot: plot });
         
-        // Add glow effect
         const glowGeometry = new THREE.CylinderGeometry(1.8, 1.8, 0.3, 16);
         const glowMaterial = new THREE.MeshBasicMaterial({
           color: color,
@@ -1117,9 +1220,7 @@
         previousMouseY = e.clientY;
       });
       
-      window.addEventListener('mouseup', () => {
-        isDragging = false;
-      });
+      window.addEventListener('mouseup', () => { isDragging = false; });
       
       container.addEventListener('mousemove', (e) => {
         if (!isDragging || !camera) return;
@@ -1127,7 +1228,7 @@
         const deltaX = e.clientX - previousMouseX;
         const deltaY = e.clientY - previousMouseY;
         
-        if (e.buttons === 1) { // Left click - rotate
+        if (e.buttons === 1) {
           const spherical = new THREE.Spherical();
           const offset = camera.position.clone().sub(new THREE.Vector3(0, 0, 0));
           spherical.setFromVector3(offset);
@@ -1138,18 +1239,6 @@
           
           offset.setFromSpherical(spherical);
           camera.position.copy(new THREE.Vector3(0, 0, 0)).add(offset);
-          camera.lookAt(0, 0, 0);
-        } else if (e.buttons === 2) { // Right click - pan
-          const panSpeed = 0.1;
-          const right = new THREE.Vector3();
-          const up = new THREE.Vector3();
-          
-          camera.getWorldDirection(right);
-          right.crossVectors(camera.up, right).normalize();
-          up.copy(camera.up);
-          
-          camera.position.add(right.multiplyScalar(-deltaX * panSpeed));
-          camera.position.add(up.multiplyScalar(deltaY * panSpeed));
           camera.lookAt(0, 0, 0);
         }
         
@@ -1173,7 +1262,6 @@
         e.preventDefault();
       });
       
-      // Prevent context menu on right click
       container.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
@@ -1182,7 +1270,6 @@
       
       requestAnimationFrame(animate3D);
       
-      // Gentle rotation animation for plot markers
       plotMeshes.forEach((item, index) => {
         if (item.mesh) {
           item.mesh.rotation.y = Math.sin(Date.now() * 0.001 + index) * 0.1;
@@ -1194,12 +1281,11 @@
 
     function reset3DView() {
       if (!camera) return;
-      
       camera.position.set(30, 40, 50);
       camera.lookAt(0, 0, 0);
     }
 
-    // ==================== UTILITY FUNCTIONS ====================
+    // ==================== UTILITY ====================
     
     function addNewPlot() {
       const no = prompt('Plot Number:', `D-${Date.now().toString().slice(-4)}`);
@@ -1215,9 +1301,16 @@
         lat: 25.25 + Math.random() * 0.15,
         lng: 55.27 + Math.random() * 0.15,
         dev: dev || 'New Development',
-        size: size || '1000',
-        price: price || '3500000',
-        status: 'Available'
+        type: 'Residential',
+        gfa: size,
+        nfa: Math.round(size * 0.85),
+        far: '2.0',
+        bua: Math.round(size * 0.7),
+        price: price,
+        status: 'Available',
+        owner: 'New Owner',
+        phone: '+971 50 000 0000',
+        email: 'owner@email.com'
       };
       
       plots.push(newPlot);
@@ -1237,8 +1330,8 @@
     }
 
     function exportCSV() {
-      let csv = "Plot No,Development,Size,Price,Status\n";
-      plots.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
+      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
+      plots.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1247,14 +1340,30 @@
     }
 
     function importPlots() {
-      alert('Import feature coming soon! Use the full version for CSV/Excel import.');
+      alert('Import feature coming soon!');
+    }
+
+    function editPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const newStatus = prompt('New Status (Available/Reserved/Sold):', plot.status);
+      if (newStatus && ['Available', 'Reserved', 'Sold'].includes(newStatus)) {
+        plot.status = newStatus;
+        map.eachLayer(layer => {
+          if (layer instanceof L.Marker) map.removeLayer(layer);
+        });
+        addMarkers();
+        renderTable();
+        alert(`✅ Plot ${plot.no} status updated to ${newStatus}`);
+      }
     }
 
     // ==================== INITIALIZE ====================
     window.onload = () => {
       initMap();
       renderTable();
-      console.log('✅ Portal with 3D Terrain loaded successfully');
+      console.log('✅ Portal with Satellite Layers loaded successfully');
     };
   </script>
 </body>
