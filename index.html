@@ -114,15 +114,15 @@
 </head>
 <body class="bg-gray-950 text-gray-100">
 
-  <!-- Login Modal -->
-  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999]">
+  <!-- Login Modal (Hidden by Default - Optional) -->
+  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
     <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
       <div class="px-8 py-8 text-center">
         <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
           <i class="fas fa-map-marked text-white text-3xl"></i>
         </div>
         <h2 class="text-3xl font-bold mb-2">AI Plot Portal</h2>
-        <p class="text-gray-400 mb-8">Sign in to continue</p>
+        <p class="text-gray-400 mb-8">Sign in to continue (Optional)</p>
         
         <div class="space-y-4">
           <div>
@@ -2277,12 +2277,25 @@ END:VCALENDAR`;
     }
 
     function checkAuth() {
+      // Auto-login as guest (login is optional)
       const savedUser = localStorage.getItem('aiPlotCurrentUser');
+      
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
-        document.getElementById('loginModal').classList.add('hidden');
-        updateUserUI();
+      } else {
+        // Auto-login as guest user
+        currentUser = {
+          username: 'guest',
+          name: 'Guest User',
+          role: 'Guest',
+          avatar: 'GU',
+          color: 'bg-gray-600'
+        };
       }
+      
+      // Always hide login modal
+      document.getElementById('loginModal').classList.add('hidden');
+      updateUserUI();
     }
 
     function continueAsGuest() {
