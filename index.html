@@ -83,6 +83,32 @@
       .leaflet-tooltip.custom-tooltip::before {
         border-width: 8px !important;
       }
+      
+      /* Better Mobile Responsiveness */
+      .legend {
+        bottom: 16px !important;
+        right: 16px !important;
+        padding: 10px 14px !important;
+        font-size: 11px !important;
+      }
+      
+      #mapCard {
+        width: 100% !important;
+        max-height: 60vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        bottom: 0 !important;
+        position: fixed !important;
+        z-index: 2000 !important;
+      }
+      
+      .main-content-mobile {
+        padding: 16px !important;
+      }
+      
+      .btn-mobile {
+        padding: 14px 18px !important;
+        font-size: 15px !important;
+      }
     }
   </style>
 </head>
@@ -131,8 +157,16 @@
           <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-plus"></i> New Plot
           </button>
-          <button onclick="connectGoogleCalendar()" class="px-5 py-2.5 bg-white text-black hover:bg-gray-200 rounded-2xl flex items-center gap-2 text-sm font-medium">
+          <button onclick="connectGoogleCalendar()" class="px-5 py-2.5 bg-white text-black hover:bg-gray-200 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
             <i class="fab fa-google"></i> Connect Calendar
+          </button>
+          <button onclick="showValidationRulesModal()" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
+            <i class="fas fa-cog"></i> Rules
+          </button>
+          
+          <!-- Mobile Video Call Button -->
+          <button onclick="quickVideoCall()" class="md:hidden px-4 py-2.5 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+            <i class="fas fa-video"></i>
           </button>
         </div>
       </div>
@@ -163,32 +197,32 @@
           </div>
         </div>
 
-        <!-- Interactive Legend -->
-        <div class="legend absolute top-24 right-8 z-[1000] px-5 py-4 rounded-3xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span class="font-semibold text-xs tracking-wider">STATUS</span>
+        <!-- Interactive Legend - Bottom Right -->
+        <div class="legend absolute bottom-8 right-8 z-[1000] px-4 py-3 rounded-2xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+            <span class="font-semibold text-[10px] tracking-wider text-gray-400">STATUS</span>
           </div>
-          <div class="space-y-1 text-sm">
-            <div onclick="filterByStatus('Available')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-green-500 rounded-full"></div> 
+          <div class="flex gap-4 text-xs">
+            <div onclick="filterByStatus('Available')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div> 
               <span>Available</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Available">0</span>
+              <span class="text-gray-500" id="count-Available">0</span>
             </div>
-            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-orange-500 rounded-full"></div> 
+            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-orange-500 rounded-full"></div> 
               <span>Reserved</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Reserved">0</span>
+              <span class="text-gray-500" id="count-Reserved">0</span>
             </div>
-            <div onclick="filterByStatus('Sold')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-red-500 rounded-full"></div> 
+            <div onclick="filterByStatus('Sold')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-red-500 rounded-full"></div> 
               <span>Sold</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Sold">0</span>
+              <span class="text-gray-500" id="count-Sold">0</span>
             </div>
-            <div onclick="clearFilters()" class="flex items-center gap-3 px-3 py-2 mt-2 border-t border-gray-700 text-xs text-gray-400 hover:text-white cursor-pointer">
-              <i class="fas fa-times w-3"></i> 
-              <span>Clear Filter</span>
-            </div>
+          </div>
+          <div onclick="clearFilters()" class="mt-2 pt-2 border-t border-gray-700 flex items-center gap-1 text-[10px] text-gray-400 hover:text-white cursor-pointer">
+            <i class="fas fa-times text-[9px]"></i> 
+            <span>Clear</span>
           </div>
         </div>
 
@@ -797,25 +831,60 @@
 
     function confirmImport() {
       let added = 0;
-      importedData.forEach(item => {
-        const no = (item['Plot No'] || `P-${Date.now()}`).toString().trim();
-        if (plots.some(p => p.no === no)) return;
+      let skipped = 0;
+      let errors = [];
+      
+      importedData.forEach((item, index) => {
+        const no = (item['Plot No'] || item['plot_no'] || item['PlotNumber'] || `P-${Date.now()}`).toString().trim();
+        const dev = (item['Development'] || item['development'] || item['Dev'] || "Imported").toString().trim();
+        const size = parseFloat(item['Size'] || item['size'] || item['sqm'] || 1000);
+        const price = parseFloat(item['Price'] || item['price'] || item['AED'] || 3500000);
+        const status = (item['Status'] || item['status'] || "Available").toString().trim();
+        
+        // Validation
+        let rowErrors = [];
+        
+        if (!no || no === "undefined") rowErrors.push("Missing Plot Number");
+        if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) rowErrors.push("Duplicate Plot Number");
+        if (!dev || dev.length < 3) rowErrors.push("Development name too short");
+        if (!size || size < 200 || size > 10000) rowErrors.push("Invalid Size (200-10,000 sqm)");
+        if (!price || price < 500000 || price > 50000000) rowErrors.push("Invalid Price (AED 500K-50M)");
+        if (!['Available', 'Reserved', 'Sold'].includes(status)) rowErrors.push("Invalid Status");
+        
+        if (rowErrors.length > 0) {
+          skipped++;
+          errors.push(`Row ${index + 1} (${no || 'Unknown'}): ${rowErrors.join(", ")}`);
+          return;
+        }
+        
         plots.push({
           id: plots.length + added,
           no: no,
-          dev: item['Development'] || "Imported",
-          size: item['Size'] || "1000",
-          price: item['Price'] || "3500000",
-          status: item['Status'] || "Available",
+          dev: dev,
+          size: size,
+          price: price,
+          status: status,
           lat: 25.25 + Math.random()*0.15,
           lng: 55.27 + Math.random()*0.15
         });
         added++;
       });
-      alert(`✅ Imported ${added} plots!`);
+      
       closeImportModal();
       populateTable();
       addPlotMarkers();
+      
+      let message = `✅ Import Complete!\n\n`;
+      message += `Imported: ${added} plots\n`;
+      message += `Skipped: ${skipped} plots\n`;
+      
+      if (errors.length > 0 && errors.length <= 5) {
+        message += `\nErrors:\n${errors.join("\n")}`;
+      } else if (errors.length > 5) {
+        message += `\n${errors.length} total errors (showing first 5):\n${errors.slice(0, 5).join("\n")}`;
+      }
+      
+      alert(message);
     }
 
     function exportCSV() {
@@ -829,7 +898,145 @@
     }
 
     function printPDF() { window.print(); }
-    function addNewPlot() { alert("New Plot form would open here"); }
+    
+    function addNewPlot() {
+      const formHTML = `
+        <div id="newPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
+          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Add New Plot</h3>
+                <p class="text-sm text-gray-400">Enter plot details manually</p>
+              </div>
+              <button onclick="closeNewPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-5">
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number</label>
+                  <input type="text" id="newPlotNo" value="D-${Date.now().toString().slice(-4)}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Development</label>
+                  <input type="text" id="newDev" value="New Development" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Size (sqm)</label>
+                  <input type="number" id="newSize" value="1200" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label>
+                  <input type="number" id="newPrice" value="4500000" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Status</label>
+                <select id="newStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="Available">Available</option>
+                  <option value="Reserved">Reserved</option>
+                  <option value="Sold">Sold</option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
+              <button onclick="closeNewPlotModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="saveNewPlot()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Add Plot</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', formHTML);
+    }
+
+    function closeNewPlotModal() {
+      const modal = document.getElementById('newPlotModal');
+      if (modal) modal.remove();
+    }
+
+    function saveNewPlot() {
+      const no = document.getElementById('newPlotNo').value.trim();
+      const dev = document.getElementById('newDev').value.trim();
+      const size = parseFloat(document.getElementById('newSize').value);
+      const price = parseFloat(document.getElementById('newPrice').value);
+      const status = document.getElementById('newStatus').value;
+      let lat = parseFloat(document.getElementById('newLat').value);
+      let lng = parseFloat(document.getElementById('newLng').value);
+      const imageInput = document.getElementById('newImage');
+      
+      // Advanced Validation Rules
+      let errors = [];
+      
+      // Plot Number: Must be in format A-123 or B-1234
+      if (!no) {
+        errors.push("Plot Number is required");
+      } else if (!/^[A-Z]-\\d{3,4}$/i.test(no)) {
+        errors.push("Plot Number must be in format: A-123 or B-1234");
+      } else if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
+        errors.push("Plot Number already exists");
+      }
+      
+      // Development: Minimum 3 characters
+      if (!dev) {
+        errors.push("Development is required");
+      } else if (dev.length < 3) {
+        errors.push("Development name must be at least 3 characters");
+      }
+      
+      // Size: 200 - 10,000 sqm
+      if (!size || size <= 0) {
+        errors.push("Size must be greater than 0");
+      } else if (size < 200) {
+        errors.push("Size must be at least 200 sqm");
+      } else if (size > 10000) {
+        errors.push("Size cannot exceed 10,000 sqm");
+      }
+      
+      // Price: AED 500,000 - 50,000,000
+      if (!price || price <= 0) {
+        errors.push("Price must be greater than 0");
+      } else if (price < 500000) {
+        errors.push("Price must be at least AED 500,000");
+      } else if (price > 50000000) {
+        errors.push("Price cannot exceed AED 50,000,000");
+      }
+      
+      if (errors.length > 0) {
+        alert("⚠️ Please fix the following:\n\n" + errors.join("\n"));
+        return;
+      }
+      
+      // If no coordinates provided, place randomly near center
+      if (!lat || !lng) {
+        lat = 25.25 + Math.random() * 0.15;
+        lng = 55.27 + Math.random() * 0.15;
+      }
+      
+      const newPlot = {
+        id: plots.length,
+        no: no,
+        lat: lat,
+        lng: lng,
+        dev: dev,
+        size: size,
+        price: price,
+        status: status
+      };
+      
+      plots.push(newPlot);
+      addPlotMarkers();
+      populateTable();
+      closeNewPlotModal();
+      
+      alert(`✅ New plot ${no} added successfully!`);
+    }
+    
     function linkToDeal() { alert("Plot linked to new deal!"); }
 
     // ==================== DISTANCE CALCULATOR ====================
@@ -986,6 +1193,7 @@
                 </div>
               </button>
               
+              <!-- Video Call Option -->
               <button onclick="startVideoCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
                 <div class="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <i class="fas fa-video text-white text-xl"></i>
@@ -996,13 +1204,14 @@
                 </div>
               </button>
               
-              <button onclick="showScheduleModal(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
-                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-calendar-alt text-white text-xl"></i>
+              <!-- Audio Call Option -->
+              <button onclick="startAudioCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-phone text-white text-xl"></i>
                 </div>
                 <div class="text-left">
-                  <div class="font-semibold">Schedule Viewing</div>
-                  <div class="text-xs text-gray-400">Add to calendar</div>
+                  <div class="font-semibold">Start Audio Call</div>
+                  <div class="text-xs text-gray-400">Voice-only call (no video)</div>
                 </div>
               </button>
             </div>
@@ -1105,6 +1314,38 @@
       setTimeout(() => {
         alert(`✅ Video call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}`);
       }, 1000);
+    }
+
+    // ==================== AUDIO CALL ====================
+    function startAudioCall(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      // Create unique room name
+      const roomName = `AI-Plot-Audio-${plot.no}-${Date.now().toString().slice(-6)}`;
+      
+      // Jitsi Meet with video muted by default (audio only)
+      const jitsiLink = `https://meet.jit.si/${roomName}#config.startWithAudioMuted=false&config.startWithVideoMuted=true`;
+      
+      // Open Jitsi Meet in new tab
+      window.open(jitsiLink, '_blank');
+      
+      // Show helpful message
+      setTimeout(() => {
+        alert(`✅ Audio call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}\n\n(Voice only - video disabled by default)`);
+      }, 1000);
+    }
+
+    // ==================== QUICK VIDEO CALL ====================
+    function quickVideoCall() {
+      const roomName = `AI-Plot-Call-${Date.now().toString().slice(-8)}`;
+      const jitsiLink = `https://meet.jit.si/${roomName}`;
+      
+      window.open(jitsiLink, '_blank');
+      
+      setTimeout(() => {
+        alert(`✅ Video call started!\n\nRoom: ${roomName}\n\nShare this link: ${jitsiLink}`);
+      }, 800);
     }
 
     // ==================== CALENDAR SCHEDULING ====================
@@ -1287,6 +1528,96 @@ END:VCALENDAR`;
       if (modal) modal.remove();
     }
 
+    // ==================== CUSTOM VALIDATION RULES ====================
+    let customValidationRules = {
+      minPrice: 500000,
+      maxPrice: 50000000,
+      minSize: 200,
+      maxSize: 10000,
+      plotNumberPattern: "^[A-Z]-\\d{3,4}$"
+    };
+
+    function loadCustomRules() {
+      const saved = localStorage.getItem('aiPlotValidationRules');
+      if (saved) {
+        customValidationRules = JSON.parse(saved);
+      }
+    }
+
+    function showValidationRulesModal() {
+      loadCustomRules();
+      
+      const modalHTML = `
+        <div id="validationRulesModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
+          <div class="bg-gray-900 rounded-3xl w-[480px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Custom Validation Rules</h3>
+                <p class="text-sm text-gray-400">Set your market-specific rules</p>
+              </div>
+              <button onclick="closeValidationRulesModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-6">
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Minimum Price (AED)</label>
+                <input type="number" id="ruleMinPrice" value="${customValidationRules.minPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Maximum Price (AED)</label>
+                <input type="number" id="ruleMaxPrice" value="${customValidationRules.maxPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Minimum Size (sqm)</label>
+                  <input type="number" id="ruleMinSize" value="${customValidationRules.minSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Maximum Size (sqm)</label>
+                  <input type="number" id="ruleMaxSize" value="${customValidationRules.maxSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Plot Number Pattern (Regex)</label>
+                <input type="text" id="rulePlotPattern" value="${customValidationRules.plotNumberPattern}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Example: ^[A-Z]-\\d{3,4}$</p>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeValidationRulesModal()" class="flex-1 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm">Cancel</button>
+              <button onclick="saveValidationRules()" class="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Save Rules</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeValidationRulesModal() {
+      const modal = document.getElementById('validationRulesModal');
+      if (modal) modal.remove();
+    }
+
+    function saveValidationRules() {
+      customValidationRules = {
+        minPrice: parseInt(document.getElementById('ruleMinPrice').value) || 500000,
+        maxPrice: parseInt(document.getElementById('ruleMaxPrice').value) || 50000000,
+        minSize: parseInt(document.getElementById('ruleMinSize').value) || 200,
+        maxSize: parseInt(document.getElementById('ruleMaxSize').value) || 10000,
+        plotNumberPattern: document.getElementById('rulePlotPattern').value || "^[A-Z]-\\d{3,4}$"
+      };
+      
+      localStorage.setItem('aiPlotValidationRules', JSON.stringify(customValidationRules));
+      closeValidationRulesModal();
+      
+      alert("✅ Custom validation rules saved successfully!");
+    }
+
     // ==================== MOBILE SIDEBAR ====================
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
@@ -1307,6 +1638,7 @@ END:VCALENDAR`;
 
     // ==================== INITIALIZE ====================
     window.onload = () => {
+      loadCustomRules();
       initMap();
       populateTable();
       togglePlotView('map');
