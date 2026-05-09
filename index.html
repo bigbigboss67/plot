@@ -7,9 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   
-  <!-- Mapbox GL JS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+  <!-- Leaflet (No API Key Required) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -55,6 +55,35 @@
     
     .hamburger { display: none; }
     @media (max-width: 768px) { .hamburger { display: block; } }
+    
+    /* Custom Tooltip Styling */
+    .leaflet-tooltip.custom-tooltip {
+      background: #1f2937 !important;
+      border: 1px solid #374151 !important;
+      color: #f1f5f9 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+      padding: 0 !important;
+      font-family: inherit !important;
+    }
+    
+    .leaflet-tooltip.custom-tooltip::before {
+      border-top-color: #1f2937 !important;
+    }
+    
+    /* Mobile Tooltip Optimization */
+    @media (max-width: 768px) {
+      .leaflet-tooltip.custom-tooltip {
+        font-size: 14px !important;
+        padding: 8px 12px !important;
+        border-radius: 16px !important;
+        min-width: 200px !important;
+      }
+      
+      .leaflet-tooltip.custom-tooltip::before {
+        border-width: 8px !important;
+      }
+    }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100">
@@ -134,28 +163,38 @@
           </div>
         </div>
 
-        <!-- Legend -->
-        <div class="legend absolute top-24 right-8 z-[1000] px-5 py-4 rounded-3xl border border-gray-700 shadow-2xl text-sm">
+        <!-- Interactive Legend -->
+        <div class="legend absolute top-24 right-8 z-[1000] px-5 py-4 rounded-3xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
           <div class="flex items-center gap-2 mb-3">
             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
             <span class="font-semibold text-xs tracking-wider">STATUS</span>
           </div>
-          <div class="space-y-2 text-sm">
-            <div class="flex items-center gap-3"><div class="w-3 h-3 bg-green-500 rounded-full"></div> Available</div>
-            <div class="flex items-center gap-3"><div class="w-3 h-3 bg-orange-500 rounded-full"></div> Reserved</div>
-            <div class="flex items-center gap-3"><div class="w-3 h-3 bg-red-500 rounded-full"></div> Sold</div>
+          <div class="space-y-1 text-sm">
+            <div onclick="filterByStatus('Available')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
+              <div class="w-3 h-3 bg-green-500 rounded-full"></div> 
+              <span>Available</span>
+              <span class="ml-auto text-xs text-gray-500" id="count-Available">0</span>
+            </div>
+            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
+              <div class="w-3 h-3 bg-orange-500 rounded-full"></div> 
+              <span>Reserved</span>
+              <span class="ml-auto text-xs text-gray-500" id="count-Reserved">0</span>
+            </div>
+            <div onclick="filterByStatus('Sold')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
+              <div class="w-3 h-3 bg-red-500 rounded-full"></div> 
+              <span>Sold</span>
+              <span class="ml-auto text-xs text-gray-500" id="count-Sold">0</span>
+            </div>
+            <div onclick="clearFilters()" class="flex items-center gap-3 px-3 py-2 mt-2 border-t border-gray-700 text-xs text-gray-400 hover:text-white cursor-pointer">
+              <i class="fas fa-times w-3"></i> 
+              <span>Clear Filter</span>
+            </div>
           </div>
         </div>
 
         <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
           <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800">
             <div id="map"></div>
-            <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-[999]">
-              <div class="text-center">
-                <div class="loading-spinner mx-auto mb-3"></div>
-                <div class="text-sm text-gray-400">Loading Map...</div>
-              </div>
-            </div>
             
             <!-- Geocoding Search Bar -->
             <div class="absolute top-5 left-5 z-[1000] w-80">
@@ -172,16 +211,16 @@
             <!-- Map Style Switcher -->
             <div class="absolute top-20 right-5 z-[1000]">
               <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl text-sm">
-                <button onclick="setMapStyle('streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle(0)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-road w-4"></i> Streets
                 </button>
-                <button onclick="setMapStyle('satellite-streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle(1)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-satellite w-4"></i> Satellite
                 </button>
-                <button onclick="setMapStyle('outdoors-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle(2)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-mountain w-4"></i> Outdoors
                 </button>
-                <button onclick="setMapStyle('light-v11')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                <button onclick="setMapStyle(3)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
                   <i class="fas fa-sun w-4"></i> Light
                 </button>
               </div>
@@ -254,7 +293,7 @@
   </div>
 
   <script>
-    let map;
+    let map, markerCluster, baseLayers = [];
     let plots = [
       { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
       { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
@@ -264,63 +303,147 @@
     let selectedPlots = new Set();
     let currentVideos = [];
 
-    // ==================== MAPBOX ====================
+    // ==================== LEAFLET MAP ====================
     function initMap() {
-      mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby1tYXBib3giLCJhIjoiY2x0c2V0dXJqMDF0azJqbzJ2d2J6a2J6ZSJ9.YourDemoTokenHere';
+      map = L.map('map').setView([25.2769, 55.2962], 11);
       
-      map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [55.2962, 25.2769],
-        zoom: 11,
-        pitch: 45,
-        bearing: -17
-      });
-
-      map.on('load', () => {
-        // Hide loading spinner
-        const loadingEl = document.getElementById('mapLoading');
-        if (loadingEl) loadingEl.style.display = 'none';
-        
-        map.addLayer({
-          'id': '3d-buildings',
-          'source': 'composite',
-          'source-layer': 'building',
-          'filter': ['==', 'extrude', 'true'],
-          'type': 'fill-extrusion',
-          'minzoom': 15,
-          'paint': {
-            'fill-extrusion-color': '#1f2937',
-            'fill-extrusion-height': ['get', 'height'],
-            'fill-extrusion-base': ['get', 'min_height'],
-            'fill-extrusion-opacity': 0.8
-          }
-        });
-        addPlotMarkers();
-      });
-
-      map.addControl(new mapboxgl.NavigationControl());
-      map.addControl(new mapboxgl.FullscreenControl());
+      baseLayers = [
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }),
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles © Esri'
+        }),
+        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenTopoMap'
+        }),
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        })
+      ];
+      
+      baseLayers[0].addTo(map);
+      
+      markerCluster = L.markerClusterGroup();
+      map.addLayer(markerCluster);
+      
+      addPlotMarkers();
     }
 
     function addPlotMarkers() {
+      markerCluster.clearLayers();
+      
       plots.forEach(plot => {
-        const el = document.createElement('div');
-        el.style.cssText = `width:32px;height:32px;border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;font-size:11px;background:${
-          plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444'
-        }`;
-        el.innerHTML = plot.no;
-
-        new mapboxgl.Marker(el)
-          .setLngLat([plot.lng, plot.lat])
-          .addTo(map)
-          .getElement().addEventListener('click', () => selectPlot(plot.id));
+        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
+        
+        const markerHTML = `
+          <div style="
+            background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%);
+            width: 38px; 
+            height: 38px; 
+            border-radius: 50%; 
+            border: 3px solid white; 
+            color: white; 
+            font-weight: bold; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.3);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+          " 
+          onmouseover="this.style.transform='scale(1.1)'" 
+          onmouseout="this.style.transform='scale(1)'">
+            <span style="font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${plot.no}</span>
+            
+            <!-- Status indicator -->
+            <div style="
+              position: absolute; 
+              bottom: -2px; 
+              right: -2px; 
+              background: white; 
+              width: 14px; 
+              height: 14px; 
+              border-radius: 50%; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">
+              <i class="fas ${statusIcon}" style="font-size: 7px; color: ${color};"></i>
+            </div>
+          </div>
+        `;
+        
+        const marker = L.marker([plot.lat, plot.lng], {
+          icon: L.divIcon({
+            html: markerHTML,
+            iconSize: [38, 38],
+            className: 'custom-marker',
+            popupAnchor: [0, -20]
+          })
+        });
+        
+        // Interactive Tooltip - Mobile Optimized
+        const isMobile = window.innerWidth < 768;
+        
+        marker.bindTooltip(`
+          <div style="min-width: ${isMobile ? '200px' : '160px'}; padding: ${isMobile ? '8px 12px' : '4px'};">
+            <div style="font-weight: 700; font-size: ${isMobile ? '15px' : '14px'}; margin-bottom: 4px;">Plot ${plot.no}</div>
+            <div style="color: #94a3b8; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 6px;">${plot.dev}</div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 4px;">
+              <span style="color: #64748b;">Size:</span>
+              <span style="font-weight: 600;">${plot.size} sqm</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 8px;">
+              <span style="color: #64748b;">Price:</span>
+              <span style="font-weight: 700; color: #22c55e;">AED ${Number(plot.price).toLocaleString()}</span>
+            </div>
+            
+            <div style="
+              background: ${color}; 
+              color: white; 
+              font-size: ${isMobile ? '12px' : '11px'}; 
+              padding: 3px 10px; 
+              border-radius: 9999px; 
+              display: inline-block;
+              font-weight: 600;
+            ">${plot.status}</div>
+          </div>
+        `, {
+          direction: 'top',
+          offset: [0, -10],
+          className: 'custom-tooltip',
+          opacity: 0.95,
+          sticky: isMobile
+        });
+        
+        // Mobile: Show tooltip on tap, hide after 3 seconds
+        if (isMobile) {
+          marker.on('click', function() {
+            marker.openTooltip();
+            setTimeout(() => {
+              marker.closeTooltip();
+            }, 3000);
+          });
+        }
+        
+        marker.on('click', () => selectPlot(plot.id));
+        markerCluster.addLayer(marker);
       });
     }
 
-    function setMapStyle(style) {
-      map.setStyle(`mapbox://styles/mapbox/${style}`);
-      map.once('style.load', () => addPlotMarkers());
+    function setMapStyle(n) {
+      map.eachLayer(layer => {
+        if (layer instanceof L.TileLayer) {
+          map.removeLayer(layer);
+        }
+      });
+      baseLayers[n].addTo(map);
     }
 
     // ==================== GEOCODING ====================
@@ -328,44 +451,47 @@
       const query = document.getElementById('geocodeSearch').value.trim();
       if (!query) return alert('Please enter an address');
 
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
 
-      fetch(url)
+      fetch(url, {
+        headers: {
+          'User-Agent': 'AI-Plot-Portal/1.0'
+        }
+      })
         .then(res => res.json())
         .then(data => {
-          if (data.features && data.features.length > 0) {
-            const feature = data.features[0];
-            const [lng, lat] = feature.center;
+          if (data.length > 0) {
+            const result = data[0];
+            const lat = parseFloat(result.lat);
+            const lng = parseFloat(result.lon);
 
-            map.flyTo({
-              center: [lng, lat],
-              zoom: 16,
-              pitch: 50,
-              duration: 2000
+            map.flyTo([lat, lng], 16, {
+              duration: 2
             });
 
-            const el = document.createElement('div');
-            el.style.cssText = 'width:36px;height:36px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 20px rgba(59,130,246,0.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;';
-            el.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+            const marker = L.marker([lat, lng], {
+              icon: L.divIcon({
+                html: `<div style="background:#3b82f6; width:36px; height:36px; border-radius:50%; border:3px solid white; box-shadow:0 0 20px rgba(59,130,246,0.6); display:flex; align-items:center; justify-content:center; color:white; font-weight:bold;"><i class="fas fa-map-marker-alt"></i></div>`,
+                iconSize: [36, 36]
+              })
+            }).addTo(map);
 
-            const marker = new mapboxgl.Marker(el)
-              .setLngLat([lng, lat])
-              .addTo(map);
-
-            const popup = new mapboxgl.Popup({ offset: 25 })
-              .setHTML(`
+            const popup = L.popup({ offset: [0, -20] })
+              .setLatLng([lat, lng])
+              .setContent(`
                 <div class="text-sm">
-                  <div class="font-bold mb-1">${feature.place_name}</div>
-                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${feature.place_name.replace(/'/g, "\\'")}');" 
+                  <div class="font-bold mb-1">${result.display_name}</div>
+                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${result.display_name.replace(/'/g, "\\'")}');" 
                     class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-xs w-full">
                     Create Plot Here
                   </button>
                 </div>
               `)
-              .addTo(map);
+              .openOn(map);
 
-            marker.setPopup(popup);
-            popup.on('close', () => marker.remove());
+            setTimeout(() => {
+              marker.on('click', () => marker.remove());
+            }, 100);
 
           } else {
             alert('No results found for that address');
@@ -403,19 +529,42 @@
     function applyFilters() {
       const status = document.getElementById('statusFilter').value;
       const query = document.getElementById('mapSearch').value.toLowerCase().trim();
-      populateTable(plots.filter(p => 
+      
+      const filtered = plots.filter(p => 
         (!status || p.status === status) &&
         (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))
-      ));
+      );
+      
+      markerCluster.clearLayers();
+      filtered.forEach(plot => {
+        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        
+        const marker = L.marker([plot.lat, plot.lng], {
+          icon: L.divIcon({
+            html: `<div style="background:${color}; width:32px; height:32px; border-radius:50%; border:3px solid white; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center;">${plot.no}</div>`,
+            iconSize: [32, 32]
+          })
+        });
+        
+        marker.on('click', () => selectPlot(plot.id));
+        markerCluster.addLayer(marker);
+      });
+      
+      populateTable(filtered);
     }
 
     function clearFilters() {
       document.getElementById('statusFilter').value = '';
       document.getElementById('mapSearch').value = '';
       populateTable(plots);
+      addPlotMarkers();
     }
 
-    // Debounced search for better performance
+    function filterByStatus(status) {
+      document.getElementById('statusFilter').value = status;
+      applyFilters();
+    }
+
     let searchTimeout;
     function debounceSearch() {
       clearTimeout(searchTimeout);
@@ -447,6 +596,19 @@
           </td>
         </tr>
       `).join('');
+      
+      // Update legend counts
+      updateLegendCounts(data);
+    }
+
+    function updateLegendCounts(data) {
+      const available = data.filter(p => p.status === 'Available').length;
+      const reserved = data.filter(p => p.status === 'Reserved').length;
+      const sold = data.filter(p => p.status === 'Sold').length;
+      
+      document.getElementById('count-Available').textContent = available;
+      document.getElementById('count-Reserved').textContent = reserved;
+      document.getElementById('count-Sold').textContent = sold;
     }
 
     function toggleSelection(id, checkbox) {
@@ -475,6 +637,7 @@
       document.getElementById('selectAll').checked = false;
       document.getElementById('selectedCount').textContent = '0 selected';
       populateTable();
+      addPlotMarkers();
     }
 
     function bulkExport() {
@@ -571,7 +734,6 @@
           <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl">Delete</button>
         </div>
         
-        <!-- Send To Button -->
         <div class="mt-4">
           <button onclick="showSendOptions(${plot.id})" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-2xl flex items-center justify-center gap-3 text-sm font-medium">
             <i class="fas fa-share-alt"></i> Send To Client (Email / WhatsApp)
@@ -582,7 +744,7 @@
         ${videoHTML}
         ${panoramaHTML}
       `;
-      map.flyTo({ center: [plot.lng, plot.lat], zoom: 16, pitch: 60 });
+      map.flyTo([plot.lat, plot.lng], 16);
     }
 
     function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
@@ -591,6 +753,7 @@
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
       populateTable();
+      addPlotMarkers();
     }
 
     // ==================== IMPORT ====================
@@ -652,6 +815,7 @@
       alert(`✅ Imported ${added} plots!`);
       closeImportModal();
       populateTable();
+      addPlotMarkers();
     }
 
     function exportCSV() {
@@ -683,76 +847,62 @@
       
       alert('Click on the map to select the first point');
       
-      map.getCanvas().style.cursor = 'crosshair';
+      map.getContainer().style.cursor = 'crosshair';
       
       map.once('click', function(e) {
-        firstPoint = [e.lngLat.lng, e.lngLat.lat];
+        firstPoint = [e.latlng.lat, e.latlng.lng];
         
         const el1 = document.createElement('div');
         el1.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
         
-        distanceMarker1 = new mapboxgl.Marker(el1)
-          .setLngLat(firstPoint)
-          .addTo(map);
+        distanceMarker1 = L.marker(firstPoint, {
+          icon: L.divIcon({
+            html: `<div style="background:#a855f7; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 15px #a855f7;"></div>`,
+            iconSize: [20, 20]
+          })
+        }).addTo(map);
         
         alert('Now click on the second point');
         
         map.once('click', function(e2) {
-          const secondPoint = [e2.lngLat.lng, e2.lngLat.lat];
+          const secondPoint = [e2.latlng.lat, e2.latlng.lng];
           
           const el2 = document.createElement('div');
           el2.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
           
-          distanceMarker2 = new mapboxgl.Marker(el2)
-            .setLngLat(secondPoint)
-            .addTo(map);
+          distanceMarker2 = L.marker(secondPoint, {
+            icon: L.divIcon({
+              html: `<div style="background:#a855f7; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 15px #a855f7;"></div>`,
+              iconSize: [20, 20]
+            })
+          }).addTo(map);
           
-          const distance = calculateDistance(firstPoint[1], firstPoint[0], secondPoint[1], secondPoint[0]);
+          const distance = calculateDistance(firstPoint[0], firstPoint[1], secondPoint[0], secondPoint[1]);
           
-          if (map.getSource('distance-line')) {
-            map.removeLayer('distance-line');
-            map.removeSource('distance-line');
-          }
+          const line = L.polyline([firstPoint, secondPoint], {
+            color: '#a855f7',
+            weight: 3,
+            dashArray: '5, 5'
+          }).addTo(map);
           
-          map.addSource('distance-line', {
-            'type': 'geojson',
-            'data': {
-              'type': 'Feature',
-              'geometry': {
-                'type': 'LineString',
-                'coordinates': [firstPoint, secondPoint]
-              }
-            }
-          });
-          
-          map.addLayer({
-            'id': 'distance-line',
-            'type': 'line',
-            'source': 'distance-line',
-            'layout': {},
-            'paint': {
-              'line-color': '#a855f7',
-              'line-width': 3,
-              'line-dasharray': [2, 1]
-            }
-          });
-          
-          const popup = new mapboxgl.Popup({ closeOnClick: false })
-            .setLngLat([
+          const popup = L.popup({ closeOnClick: false })
+            .setLatLng([
               (firstPoint[0] + secondPoint[0]) / 2,
               (firstPoint[1] + secondPoint[1]) / 2
             ])
-            .setHTML(`
+            .setContent(`
               <div class="text-center p-2">
                 <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
                 <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
                 <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
               </div>
             `)
-            .addTo(map);
+            .openOn(map);
           
-          map.getCanvas().style.cursor = '';
+          map.getContainer().style.cursor = '';
           distanceMode = false;
+          
+          window.currentDistanceLine = line;
         });
       });
     }
@@ -775,15 +925,13 @@
     function clearDistanceMeasurement() {
       if (distanceMarker1) distanceMarker1.remove();
       if (distanceMarker2) distanceMarker2.remove();
+      if (window.currentDistanceLine) window.currentDistanceLine.remove();
       
-      if (map.getLayer('distance-line')) map.removeLayer('distance-line');
-      if (map.getSource('distance-line')) map.removeSource('distance-line');
-      
-      document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
       
       distanceMode = false;
       firstPoint = null;
-      map.getCanvas().style.cursor = '';
+      map.getContainer().style.cursor = '';
     }
 
     // ==================== SEND TO CLIENT ====================
@@ -863,4 +1011,306 @@
               <button onclick="connectGoogleCalendar()" class="w-full flex items-center justify-center gap-3 py-3 text-sm text-blue-400 hover:text-blue-300">
                 <i class="fab fa-google"></i> Connect Google Calendar (API)
               </button>
-            </div
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeSendModal() {
+      const modal = document.getElementById('sendModal');
+      if (modal) modal.remove();
+    }
+
+    function sendViaEmail(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      const subject = `Plot ${plot.no} - ${plot.dev} | AED ${Number(plot.price).toLocaleString()}`;
+      
+      let body = `Hi,\n\nI wanted to share this amazing plot with you:\n\n` +
+        `📍 Plot: ${plot.no}\n` +
+        `🏗️ Development: ${plot.dev}\n` +
+        `📐 Size: ${plot.size} sqm\n` +
+        `💰 Price: AED ${Number(plot.price).toLocaleString()}\n` +
+        `📊 Status: ${plot.status}\n\n` +
+        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
+      
+      if (customMsg) {
+        body += `${customMsg}\n\n`;
+      }
+      
+      body += `Best regards`;
+      
+      const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailtoLink, '_blank');
+    }
+
+    function sendViaWhatsApp(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      let message = `🏠 *Plot ${plot.no}*\n` +
+        `📍 ${plot.dev}\n` +
+        `📐 ${plot.size} sqm\n` +
+        `💰 *AED ${Number(plot.price).toLocaleString()}*\n` +
+        `📊 Status: ${plot.status}\n\n` +
+        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
+      
+      if (customMsg) {
+        message += `${customMsg}\n\n`;
+      }
+      
+      message += `What do you think?`;
+      
+      const whatsappLink = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(whatsappLink, '_blank');
+    }
+
+    function sendViaSMS(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      let message = `Plot ${plot.no} - ${plot.dev}\n` +
+        `Size: ${plot.size} sqm | Price: AED ${Number(plot.price).toLocaleString()}\n` +
+        `Status: ${plot.status}\n` +
+        `Location: https://maps.google.com/?q=${plot.lat},${plot.lng}`;
+      
+      if (customMsg) {
+        message += `\n\n${customMsg}`;
+      }
+      
+      const smsLink = `sms:?body=${encodeURIComponent(message)}`;
+      window.open(smsLink, '_blank');
+    }
+
+    // ==================== VIDEO CALL ====================
+    function startVideoCall(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const roomName = `AI-Plot-${plot.no}-${Date.now().toString().slice(-6)}`;
+      const jitsiLink = `https://meet.jit.si/${roomName}`;
+      
+      window.open(jitsiLink, '_blank');
+      
+      setTimeout(() => {
+        alert(`✅ Video call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}`);
+      }, 1000);
+    }
+
+    // ==================== CALENDAR SCHEDULING ====================
+    function showScheduleModal(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const today = new Date();
+      const defaultDate = today.toISOString().split('T')[0];
+      const defaultTime = "10:00";
+      
+      const modalHTML = `
+        <div id="scheduleModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
+          <div class="bg-gray-900 rounded-3xl w-[480px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Schedule Viewing</h3>
+                <p class="text-sm text-gray-400">Plot ${plot.no} • ${plot.dev}</p>
+              </div>
+              <button onclick="closeScheduleModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-5">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Date</label>
+                  <input type="date" id="scheduleDate" value="${defaultDate}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Time</label>
+                  <input type="time" id="scheduleTime" value="${defaultTime}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Duration</label>
+                <select id="scheduleDuration" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="30">30 minutes</option>
+                  <option value="60" selected>1 hour</option>
+                  <option value="90">1.5 hours</option>
+                  <option value="120">2 hours</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Notes (optional)</label>
+                <textarea id="scheduleNotes" rows="2" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Client prefers morning..."></textarea>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeScheduleModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="scheduleEvent(${plotId})" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl text-sm font-medium">Add to Calendar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeScheduleModal() {
+      const modal = document.getElementById('scheduleModal');
+      if (modal) modal.remove();
+    }
+
+    function scheduleEvent(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const date = document.getElementById('scheduleDate').value;
+      const time = document.getElementById('scheduleTime').value;
+      const duration = parseInt(document.getElementById('scheduleDuration').value);
+      const notes = document.getElementById('scheduleNotes').value.trim();
+      
+      if (!date || !time) {
+        alert('Please select date and time');
+        return;
+      }
+      
+      const startDateTime = new Date(`${date}T${time}`);
+      const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+      
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AI Plot Portal//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:plot-${plot.no}-${Date.now()}@aiplotportal.com
+DTSTART:${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTEND:${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+SUMMARY:Viewing - Plot ${plot.no} (${plot.dev})
+DESCRIPTION:Plot Viewing Appointment\\n\\nPlot: ${plot.no}\\nDevelopment: ${plot.dev}\\nSize: ${plot.size} sqm\\nPrice: AED ${Number(plot.price).toLocaleString()}\\nStatus: ${plot.status}\\n\\nLocation: https://maps.google.com/?q=${plot.lat},${plot.lng}\\n\\n${notes ? 'Notes: ' + notes : ''}
+LOCATION:${plot.dev}
+STATUS:CONFIRMED
+SEQUENCE:0
+END:VEVENT
+END:VCALENDAR`;
+      
+      const blob = new Blob([icsContent], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Plot_${plot.no}_Viewing.ics`;
+      a.click();
+      
+      const googleLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Viewing%20-%20Plot%20${plot.no}&dates=${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=Plot%20${plot.no}%20-%20${plot.dev}%0ASize:%20${plot.size}%20sqm%0APrice:%20AED%20${Number(plot.price).toLocaleString()}&location=${plot.dev}`;
+      
+      closeScheduleModal();
+      
+      setTimeout(() => {
+        if (confirm('Calendar event downloaded!\n\nWould you also like to open Google Calendar?')) {
+          window.open(googleLink, '_blank');
+        }
+      }, 500);
+    }
+
+    // ==================== GOOGLE CALENDAR API ====================
+    function connectGoogleCalendar() {
+      const modalHTML = `
+        <div id="googleCalendarModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[6000]">
+          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <i class="fab fa-google text-2xl text-blue-400"></i>
+                <h3 class="text-2xl font-semibold">Google Calendar API</h3>
+              </div>
+              <button onclick="closeGoogleCalendarModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8">
+              <div class="bg-gray-800 rounded-2xl p-6 mb-6">
+                <div class="flex items-start gap-4">
+                  <i class="fas fa-info-circle text-blue-400 text-xl mt-1"></i>
+                  <div class="text-sm">
+                    <p class="font-semibold mb-2">Full Google Calendar Sync</p>
+                    <p class="text-gray-400">To enable automatic two-way sync with Google Calendar, you need to set up Google Cloud Console + OAuth.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-4 text-sm">
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">1</div>
+                  <div>Go to <a href="https://console.cloud.google.com" target="_blank" class="text-blue-400 underline">Google Cloud Console</a></div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">2</div>
+                  <div>Enable <strong>Google Calendar API</strong></div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">3</div>
+                  <div>Create OAuth 2.0 credentials</div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">4</div>
+                  <div>Add your domain to authorized origins</div>
+                </div>
+              </div>
+              
+              <div class="mt-6 p-4 bg-yellow-900/30 border border-yellow-600 rounded-2xl text-xs text-yellow-400">
+                <strong>Note:</strong> Full API integration requires a backend server. The current .ics download method works perfectly for most users.
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeGoogleCalendarModal()" class="flex-1 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm">Close</button>
+              <button onclick="window.open('https://console.cloud.google.com/apis/library/calendar-json.googleapis.com', '_blank'); closeGoogleCalendarModal()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Open Google Cloud Console</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeGoogleCalendarModal() {
+      const modal = document.getElementById('googleCalendarModal');
+      if (modal) modal.remove();
+    }
+
+    // ==================== MOBILE SIDEBAR ====================
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('open');
+    }
+
+    document.addEventListener('click', function(e) {
+      const sidebar = document.getElementById('sidebar');
+      const hamburger = document.querySelector('.hamburger');
+      
+      if (window.innerWidth < 768 && 
+          sidebar.classList.contains('open') && 
+          !sidebar.contains(e.target) && 
+          !hamburger.contains(e.target)) {
+        sidebar.classList.remove('open');
+      }
+    });
+
+    // ==================== INITIALIZE ====================
+    window.onload = () => {
+      initMap();
+      populateTable();
+      togglePlotView('map');
+    };
+  </script>
+</body>
+</html>
