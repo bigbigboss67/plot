@@ -10,180 +10,120 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
-  <!-- MOBILE HEADER -->
-  <div class="md:hidden bg-gray-900 border-b border-gray-800 px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center">
-        <i class="fas fa-map-marked text-white"></i>
+  <!-- Top Navigation -->
+  <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center">
+          <i class="fas fa-map-marked text-white"></i>
+        </div>
+        <h1 class="text-2xl font-bold">AI Plot</h1>
       </div>
-      <h1 class="text-xl font-bold">AI Plot</h1>
+      
+      <!-- Cloud Sync Status -->
+      <div onclick="toggleCloudSync()" class="cursor-pointer flex items-center gap-2 px-4 py-1.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm">
+        <i class="fas fa-cloud text-purple-400"></i>
+        <span id="cloudStatus">Cloud Sync: OFF</span>
+      </div>
     </div>
-    <button onclick="toggleMobileMenu()" class="text-2xl px-3"><i class="fas fa-bars"></i></button>
+
+    <div class="flex gap-3">
+      <button onclick="showNewPlotModal()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+        <i class="fas fa-plus"></i> New Plot
+      </button>
+    </div>
   </div>
 
   <div class="flex h-screen overflow-hidden">
-    <!-- SIDEBAR -->
-    <div id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex-col hidden md:flex">
-      <div class="p-6 border-b border-gray-800">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center">
-            <i class="fas fa-map-marked text-white text-xl"></i>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold">AI Plot</h1>
-            <p class="text-xs text-gray-500 -mt-1">Pro Edition</p>
-          </div>
-        </div>
-      </div>
-      <nav class="flex-1 p-4">
-        <a href="#" onclick="showAnalytics()" class="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-800 text-sm">
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-900 border-r border-gray-800 p-4 hidden md:block">
+      <div class="space-y-2">
+        <button onclick="showAnalytics()" class="w-full text-left px-4 py-3 rounded-2xl hover:bg-gray-800 flex items-center gap-3">
           <i class="fas fa-chart-line"></i> Analytics
-        </a>
-        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600 text-white">
+        </button>
+        <button onclick="showPlots()" class="w-full text-left px-4 py-3 rounded-2xl bg-blue-600 flex items-center gap-3">
           <i class="fas fa-map-marker-alt"></i> Plots
-        </a>
-      </nav>
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 flex flex-col">
-      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
-        <div class="flex items-center gap-4">
-          <h2 class="text-xl md:text-2xl font-semibold hidden md:block">Plot Management</h2>
-          
-          <div class="md:hidden flex bg-gray-800 rounded-2xl p-1">
-            <button onclick="showMapView()" class="px-4 py-2 bg-blue-600 rounded-xl text-sm font-medium">Map</button>
-            <button onclick="showTableView()" class="px-4 py-2 hover:bg-gray-700 rounded-xl text-sm font-medium">Table</button>
-          </div>
-        </div>
-
-        <div class="flex gap-2 md:gap-4">
-          <div class="hidden md:flex bg-gray-800 rounded-2xl p-1">
-            <button onclick="showMapView()" class="px-6 py-2.5 bg-blue-600 rounded-xl text-sm font-medium flex items-center gap-2">
-              <i class="fas fa-map"></i> Map
-            </button>
-            <button onclick="showTableView()" class="px-6 py-2.5 hover:bg-gray-700 rounded-xl text-sm font-medium flex items-center gap-2">
-              <i class="fas fa-table"></i> Table
-            </button>
-          </div>
-
-          <button onclick="importPlots()" class="px-4 md:px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
-            <i class="fas fa-file-import"></i> <span class="hidden md:inline">Import</span>
-          </button>
-          <button onclick="exportCSV()" class="px-4 md:px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
-            <i class="fas fa-download"></i> <span class="hidden md:inline">Export</span>
-          </button>
-          <button onclick="exportPDFReport()" class="px-4 md:px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
-            <i class="fas fa-file-pdf"></i> <span class="hidden md:inline">PDF</span>
-          </button>
-          <button onclick="showNewPlotModal()" class="px-5 md:px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
-            <i class="fas fa-plus"></i> <span class="hidden md:inline">New Plot</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="flex-1 p-4 md:p-8">
-        <!-- ANALYTICS DASHBOARD -->
-        <div id="analyticsView" class="hidden mb-8">
-          <h3 class="text-2xl font-bold mb-6">Real Estate Analytics</h3>
-          
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="text-sm text-gray-400">Total Plots</div>
-              <div id="totalPlots" class="text-4xl font-bold mt-2">0</div>
-            </div>
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="text-sm text-gray-400">Total Portfolio Value</div>
-              <div id="totalValue" class="text-4xl font-bold mt-2 text-green-400">AED 0</div>
-            </div>
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="text-sm text-gray-400">Available Plots</div>
-              <div id="availablePlots" class="text-4xl font-bold mt-2">0</div>
-            </div>
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="text-sm text-gray-400">Avg Price / GFA</div>
-              <div id="avgPrice" class="text-4xl font-bold mt-2">AED 0</div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="font-bold mb-4">Status Distribution</div>
-              <canvas id="statusChart" height="120"></canvas>
-            </div>
-            <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
-              <div class="font-bold mb-4">Portfolio by Development</div>
-              <canvas id="devChart" height="120"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- SEARCH -->
-        <div class="mb-6">
-          <div class="flex flex-col md:flex-row gap-4 items-center">
-            <div class="flex-1 relative w-full">
-              <div class="absolute left-4 top-3.5 text-gray-400"><i class="fas fa-search"></i></div>
-              <input type="text" id="globalSearch" placeholder="Search plots..." class="w-full bg-gray-800 pl-12 pr-5 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" oninput="applySearchFilters()">
-              <button onclick="clearSearch()" class="absolute right-4 top-3.5 text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
-            </div>
-            
-            <div class="flex gap-2 w-full md:w-auto">
-              <button onclick="quickFilter('available')" class="flex-1 md:flex-none px-4 py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-check-circle"></i> <span class="hidden md:inline">Available</span></button>
-              <button onclick="quickFilter('reserved')" class="flex-1 md:flex-none px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-clock"></i> <span class="hidden md:inline">Reserved</span></button>
-              <button onclick="quickFilter('sold')" class="flex-1 md:flex-none px-4 py-3 bg-red-600 hover:bg-red-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-handshake"></i> <span class="hidden md:inline">Sold</span></button>
-            </div>
-          </div>
-        </div>
-
-        <!-- MAP VIEW -->
-        <div id="mapView">
-          <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
-            <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
-          </div>
-        </div>
-
-        <!-- TABLE VIEW -->
-        <div id="tableView" class="hidden">
-          <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
-            <table class="w-full text-sm">
-              <thead class="border-b border-gray-700 bg-gray-950">
-                <tr>
-                  <th class="text-left py-4 px-6">Plot No</th>
-                  <th class="text-left py-4 px-6">Development</th>
-                  <th class="text-left py-4 px-6">Size</th>
-                  <th class="text-left py-4 px-6">Price</th>
-                  <th class="text-left py-4 px-6">Status</th>
-                  <th class="text-left py-4 px-6">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="plotTableBody" class="divide-y divide-gray-800"></tbody>
-            </table>
-          </div>
-        </div>
+        </button>
       </div>
     </div>
 
-    <!-- RIGHT SIDE CARD -->
-    <div id="mapCard" class="w-96 bg-gray-900 border-l border-gray-800 p-6 overflow-auto hidden">
-      <div class="flex justify-between items-center mb-6">
-        <h3 class="text-xl font-bold">Plot Details</h3>
-        <button onclick="closeCard()" class="text-3xl text-gray-400 hover:text-white">×</button>
+    <!-- Main Content -->
+    <div class="flex-1 p-6 overflow-auto">
+      <!-- Analytics View -->
+      <div id="analyticsView" class="hidden">
+        <h2 class="text-3xl font-bold mb-8">Real Estate Analytics</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="text-sm text-gray-400">Total Plots</div>
+            <div id="totalPlots" class="text-5xl font-bold mt-2">0</div>
+          </div>
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="text-sm text-gray-400">Portfolio Value</div>
+            <div id="totalValue" class="text-5xl font-bold mt-2 text-green-400">AED 0</div>
+          </div>
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="text-sm text-gray-400">Available</div>
+            <div id="availablePlots" class="text-5xl font-bold mt-2">0</div>
+          </div>
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="text-sm text-gray-400">Avg Price/GFA</div>
+            <div id="avgPrice" class="text-5xl font-bold mt-2">AED 0</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="font-bold mb-4">Status Distribution</div>
+            <canvas id="statusChart" height="120"></canvas>
+          </div>
+          <div class="bg-gray-900 border border-gray-700 rounded-3xl p-6">
+            <div class="font-bold mb-4">By Development</div>
+            <canvas id="devChart" height="120"></canvas>
+          </div>
+        </div>
       </div>
-      <div id="plotDetailsContent"></div>
+
+      <!-- Plots View -->
+      <div id="plotsView">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-3xl font-bold">Plots</h2>
+          <input type="text" id="globalSearch" placeholder="Search plots..." 
+                 class="bg-gray-800 px-5 py-3 rounded-2xl text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                 oninput="applySearchFilters()">
+        </div>
+
+        <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="border-b border-gray-700 bg-gray-950">
+              <tr>
+                <th class="text-left py-4 px-6">Plot No</th>
+                <th class="text-left py-4 px-6">Development</th>
+                <th class="text-left py-4 px-6">Size</th>
+                <th class="text-left py-4 px-6">Price</th>
+                <th class="text-left py-4 px-6">Status</th>
+                <th class="text-left py-4 px-6">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="plotTableBody" class="divide-y divide-gray-800"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- NEW PLOT MODAL -->
+  <!-- New Plot Modal -->
   <div id="plotModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[750px] border border-gray-700 shadow-2xl max-h-[95vh] overflow-auto">
-      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
-        <div>
-          <h3 class="text-2xl font-bold" id="modalTitle">Add New Plot</h3>
-          <p class="text-sm text-gray-400" id="modalSubtitle">Enter complete plot information</p>
-        </div>
+    <div class="bg-gray-900 rounded-3xl w-[700px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+        <h3 class="text-2xl font-bold" id="modalTitle">Add New Plot</h3>
         <button onclick="closePlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
       </div>
       
@@ -193,30 +133,9 @@
           <div><label class="block text-xs text-gray-400 mb-1.5">Development *</label><input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
         </div>
 
-        <div class="grid grid-cols-3 gap-5">
-          <div><label class="block text-xs text-gray-400 mb-1.5">Country</label><input type="text" id="plotCountry" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="UAE"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">City</label><input type="text" id="plotCity" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Area</label><input type="text" id="plotArea" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai Hills"></div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-5">
-          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="School">School</option><option value="Camp">Camp</option><option value="Other">Other</option></select></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
-        </div>
-
-        <div class="border border-gray-700 rounded-2xl p-5">
-          <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
-          <div class="grid grid-cols-4 gap-4">
-            <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="plotGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="2500"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">Height (m)</label><input type="number" id="plotHeight" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="12"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">Price/GFA</label><input type="number" id="plotPricePerGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="1800"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">Price/sqf</label><input type="number" id="plotPricePerSqf" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="167"></div>
-          </div>
-        </div>
-
         <div class="grid grid-cols-2 gap-5">
           <div><label class="block text-xs text-gray-400 mb-1.5">Total Price (AED) *</label><input type="number" id="plotPrice" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="4500000"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Payment Type</label><select id="plotPaymentType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Cash">Cash</option><option value="Payment Plan">Payment Plan</option><option value="Barter">Barter</option><option value="JV">Joint Venture</option></select></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
         </div>
 
         <div class="border border-red-900/50 bg-red-950/30 rounded-2xl p-5">
@@ -225,39 +144,97 @@
             <div class="text-xs text-red-400 font-semibold">OWNER INFORMATION (INTERNAL ONLY)</div>
           </div>
           <div class="grid grid-cols-1 gap-4">
-            <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="Ahmed Al Maktoum"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
             <div class="grid grid-cols-2 gap-4">
-              <div><label class="block text-xs text-gray-400 mb-1.5">Phone</label><input type="text" id="plotPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="+971 50 123 4567"></div>
-              <div><label class="block text-xs text-gray-400 mb-1.5">Email</label><input type="email" id="plotEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="owner@email.com"></div>
+              <div><label class="block text-xs text-gray-400 mb-1.5">Phone</label><input type="text" id="plotPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
+              <div><label class="block text-xs text-gray-400 mb-1.5">Email</label><input type="email" id="plotEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
+      <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950">
         <button onclick="closePlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
         <button onclick="savePlot()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium" id="saveBtn">Add Plot</button>
       </div>
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
   <script>
-    let map;
+    // ==================== FIREBASE CONFIG - REPLACE WITH YOURS ====================
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    
+    let cloudSyncEnabled = false;
+    let currentUserId = "default-user";
     let plots = [];
     let currentEditId = null;
-    let currentSearchTerm = '';
-    let drawingMode = false;
-    let currentDrawing = null;
-    let drawingPoints = [];
-    let currentLayer = null;
-    let statusChart = null;
-    let devChart = null;
+    let map;
 
-    // ==================== LOCAL STORAGE + WEB SYNC ====================
+    // ==================== CLOUD SYNC ====================
+    function toggleCloudSync() {
+      cloudSyncEnabled = !cloudSyncEnabled;
+      localStorage.setItem('cloudSyncEnabled', cloudSyncEnabled);
+      
+      const statusEl = document.getElementById('cloudStatus');
+      
+      if (cloudSyncEnabled) {
+        statusEl.innerHTML = `Cloud Sync: <span class="text-green-400">ON</span>`;
+        startCloudListener();
+        alert("✅ Cloud Sync Enabled!\n\nYour plots will now sync in real-time across all devices.");
+      } else {
+        statusEl.innerHTML = `Cloud Sync: <span class="text-gray-400">OFF</span>`;
+        alert("Cloud Sync Disabled");
+      }
+    }
+
+    function startCloudListener() {
+      if (!cloudSyncEnabled) return;
+      
+      const plotsRef = database.ref('plots/' + currentUserId);
+      
+      plotsRef.on('value', (snapshot) => {
+        const cloudData = snapshot.val();
+        if (cloudData) {
+          plots = Object.values(cloudData);
+          localStorage.setItem('aiPlotPortalData', JSON.stringify(plots));
+          addMarkers();
+          renderTable();
+          updateAnalytics();
+        }
+      });
+    }
+
+    function syncToCloud() {
+      if (!cloudSyncEnabled) return;
+      
+      const plotsRef = database.ref('plots/' + currentUserId);
+      const dataToSync = {};
+      
+      plots.forEach(plot => {
+        dataToSync[plot.id] = plot;
+      });
+      
+      plotsRef.set(dataToSync);
+    }
+
+    // ==================== LOCAL STORAGE ====================
     function saveToLocalStorage() {
       localStorage.setItem('aiPlotPortalData', JSON.stringify(plots));
+      if (cloudSyncEnabled) {
+        syncToCloud();
+      }
     }
 
     function loadFromLocalStorage() {
@@ -265,64 +242,14 @@
       if (savedData) {
         plots = JSON.parse(savedData);
       } else {
-        plots = [
-          { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com", country: "UAE", city: "Dubai", area: "Dubai Hills", height: "12", measurement: "sqm", currency: "AED", pricePerGFA: "1750", pricePerSqf: "162", paymentType: "Cash", sale: true, lease: false, jv: false, musataha: false }
-        ];
-        saveToLocalStorage();
+        plots = [];
       }
-    }
-
-    // ==================== WEB SYNC (JSON EXPORT/IMPORT) ====================
-    function exportToWeb() {
-      const dataStr = JSON.stringify(plots, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ai-plot-portal-backup-${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      
-      alert('✅ Backup downloaded!\n\nUpload this file to GitHub, Google Drive, or Dropbox to sync across devices.');
-    }
-
-    function importFromWeb() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      
-      input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-          try {
-            const importedData = JSON.parse(ev.target.result);
-            
-            if (confirm(`Import ${importedData.length} plots from web backup?`)) {
-              plots = importedData;
-              saveToLocalStorage();
-              addMarkers();
-              renderTable();
-              alert('✅ Data imported successfully from web!');
-            }
-          } catch (error) {
-            alert('Invalid backup file!');
-          }
-        };
-        reader.readAsText(file);
-      };
-      
-      input.click();
     }
 
     // ==================== ANALYTICS ====================
     function showAnalytics() {
-      document.getElementById('mapView').classList.add('hidden');
-      document.getElementById('tableView').classList.add('hidden');
+      document.getElementById('plotsView').classList.add('hidden');
       document.getElementById('analyticsView').classList.remove('hidden');
-      
       updateAnalytics();
     }
 
@@ -337,23 +264,19 @@
       document.getElementById('availablePlots').textContent = available;
       document.getElementById('avgPrice').textContent = `AED ${avgPrice.toLocaleString()}`;
 
-      const statusCounts = {
-        Available: plots.filter(p => p.status === 'Available').length,
-        Reserved: plots.filter(p => p.status === 'Reserved').length,
-        Sold: plots.filter(p => p.status === 'Sold').length
-      };
-
-      if (statusChart) statusChart.destroy();
-      statusChart = new Chart(document.getElementById('statusChart'), {
+      new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: {
           labels: ['Available', 'Reserved', 'Sold'],
           datasets: [{
-            data: [statusCounts.Available, statusCounts.Reserved, statusCounts.Sold],
+            data: [
+              plots.filter(p => p.status === 'Available').length,
+              plots.filter(p => p.status === 'Reserved').length,
+              plots.filter(p => p.status === 'Sold').length
+            ],
             backgroundColor: ['#22c55e', '#f59e0b', '#ef4444']
           }]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        }
       });
 
       const devCounts = {};
@@ -361,32 +284,30 @@
         devCounts[p.dev] = (devCounts[p.dev] || 0) + 1;
       });
 
-      if (devChart) devChart.destroy();
-      devChart = new Chart(document.getElementById('devChart'), {
+      new Chart(document.getElementById('devChart'), {
         type: 'bar',
         data: {
           labels: Object.keys(devCounts),
           datasets: [{
-            label: 'Number of Plots',
+            label: 'Plots',
             data: Object.values(devCounts),
             backgroundColor: '#3b82f6'
           }]
-        },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+        }
       });
     }
 
     // ==================== MAP ====================
     function initMap() {
       map = L.map('map').setView([25.2769, 55.2962], 11);
-      currentLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
       addMarkers();
-      setTimeout(() => { if (map) map.invalidateSize(); }, 200);
     }
 
     function addMarkers(filteredPlots = null) {
       map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
       const plotsToShow = filteredPlots || plots;
+      
       plotsToShow.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const marker = L.marker([plot.lat, plot.lng], {
@@ -395,101 +316,51 @@
             iconSize: [32, 32]
           })
         }).addTo(map);
-        marker.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div><div style="color:#666;margin-bottom:12px;">${plot.dev}</div><div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div></div>`);
+        
+        marker.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div><div style="color:#666;margin-bottom:12px;">${plot.dev}</div></div>`);
         marker.on('click', () => selectPlot(plot.id));
       });
     }
 
     function selectPlot(id) {
       const plot = plots.find(p => p.id === id);
-      const card = document.getElementById('mapCard');
-      const content = document.getElementById('plotDetailsContent');
-      card.classList.remove('hidden');
-      
-      content.innerHTML = `
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <div><div class="text-4xl font-bold">Plot ${plot.no}</div><div class="text-blue-400 text-lg">${plot.dev}</div></div>
-            <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">LOCATION</div><div class="font-bold">${plot.country || 'UAE'} - ${plot.city || 'Dubai'} - ${plot.area || 'N/A'}</div></div>
-          
-          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">DIMENSIONS</div><div class="grid grid-cols-2 gap-4 text-sm"><div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div><div><div class="text-gray-400">Height</div><div class="font-bold">${plot.height || 'N/A'} m</div></div><div><div class="text-gray-400">Price/GFA</div><div class="font-bold">AED ${plot.pricePerGFA || 'N/A'}</div></div><div><div class="text-gray-400">Price/sqf</div><div class="font-bold">AED ${plot.pricePerSqf || 'N/A'}</div></div></div></div>
-
-          <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">PRICING</div><div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div></div>
-        </div>
-
-        <div class="mt-6 flex gap-3">
-          <button onclick="printPlot(${plot.id})" class="flex-1 py-4 bg-gray-700 hover:bg-gray-600 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-print"></i> Print</button>
-          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Edit</button>
-          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 py-4 border border-red-600 text-red-400 hover:bg-red-900/50 rounded-2xl text-sm font-medium">Delete</button>
-        </div>
-      `;
+      alert(`Plot ${plot.no} - ${plot.dev}\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}`);
     }
 
-    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
-
-    function showMapView() {
+    function showPlots() {
       document.getElementById('analyticsView').classList.add('hidden');
-      document.getElementById('mapView').classList.remove('hidden');
-      document.getElementById('tableView').classList.add('hidden');
-      setTimeout(() => { if (map) map.invalidateSize(); }, 100);
-    }
-
-    function showTableView() {
-      document.getElementById('analyticsView').classList.add('hidden');
-      document.getElementById('mapView').classList.add('hidden');
-      document.getElementById('tableView').classList.remove('hidden');
-      renderTable();
+      document.getElementById('plotsView').classList.remove('hidden');
     }
 
     function renderTable(filteredPlots = null) {
       const tbody = document.getElementById('plotTableBody');
       const plotsToShow = filteredPlots || plots;
+      
       tbody.innerHTML = plotsToShow.map(plot => `
         <tr class="hover:bg-gray-800">
-          <td class="py-4 px-6 font-bold">${highlightMatch(plot.no, currentSearchTerm)}</td>
-          <td class="py-4 px-6">${highlightMatch(plot.dev, currentSearchTerm)}</td>
-          <td class="py-4 px-6">${plot.gfa || plot.size} sqm</td>
+          <td class="py-4 px-6 font-bold">${plot.no}</td>
+          <td class="py-4 px-6">${plot.dev}</td>
+          <td class="py-4 px-6">${plot.gfa} sqm</td>
           <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
           <td class="py-4 px-6"><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
           <td class="py-4 px-6">
-            <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
+            <button onclick="editPlot(${plot.id})" class="text-blue-400 hover:text-blue-300 mr-3">Edit</button>
             <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
           </td>
         </tr>
       `).join('');
     }
 
-    function highlightMatch(text, searchTerm) {
-      if (!searchTerm || !text) return text;
-      const regex = new RegExp(`(${searchTerm})`, 'gi');
-      return text.toString().replace(regex, '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>');
-    }
-
-    // ==================== NEW PLOT MODAL (FIXED) ====================
+    // ==================== NEW PLOT ====================
     function showNewPlotModal() {
       currentEditId = null;
       document.getElementById('modalTitle').textContent = 'Add New Plot';
-      document.getElementById('modalSubtitle').textContent = 'Enter complete plot information';
       document.getElementById('saveBtn').textContent = 'Add Plot';
       
       document.getElementById('plotNo').value = `D-${Date.now().toString().slice(-4)}`;
       document.getElementById('plotDev').value = 'New Development';
-      document.getElementById('plotCountry').value = 'UAE';
-      document.getElementById('plotCity').value = 'Dubai';
-      document.getElementById('plotArea').value = 'Dubai Hills';
-      document.getElementById('plotType').value = 'Residential';
       document.getElementById('plotStatus').value = 'Available';
-      document.getElementById('plotGFA').value = '2500';
-      document.getElementById('plotHeight').value = '12';
-      document.getElementById('plotPricePerGFA').value = '1800';
-      document.getElementById('plotPricePerSqf').value = '167';
       document.getElementById('plotPrice').value = '4500000';
-      document.getElementById('plotPaymentType').value = 'Cash';
       document.getElementById('plotOwner').value = 'New Owner';
       document.getElementById('plotPhone').value = '+971 50 000 0000';
       document.getElementById('plotEmail').value = 'owner@email.com';
@@ -503,22 +374,12 @@
       
       currentEditId = id;
       document.getElementById('modalTitle').textContent = 'Edit Plot';
-      document.getElementById('modalSubtitle').textContent = `Editing Plot ${plot.no}`;
       document.getElementById('saveBtn').textContent = 'Save Changes';
       
       document.getElementById('plotNo').value = plot.no;
       document.getElementById('plotDev').value = plot.dev;
-      document.getElementById('plotCountry').value = plot.country || 'UAE';
-      document.getElementById('plotCity').value = plot.city || 'Dubai';
-      document.getElementById('plotArea').value = plot.area || 'Dubai Hills';
-      document.getElementById('plotType').value = plot.type || 'Residential';
       document.getElementById('plotStatus').value = plot.status;
-      document.getElementById('plotGFA').value = plot.gfa || '2500';
-      document.getElementById('plotHeight').value = plot.height || '12';
-      document.getElementById('plotPricePerGFA').value = plot.pricePerGFA || '1800';
-      document.getElementById('plotPricePerSqf').value = plot.pricePerSqf || '167';
       document.getElementById('plotPrice').value = plot.price;
-      document.getElementById('plotPaymentType').value = plot.paymentType || 'Cash';
       document.getElementById('plotOwner').value = plot.owner || '';
       document.getElementById('plotPhone').value = plot.phone || '';
       document.getElementById('plotEmail').value = plot.email || '';
@@ -533,34 +394,22 @@
     function savePlot() {
       const no = document.getElementById('plotNo').value.trim();
       const dev = document.getElementById('plotDev').value.trim();
-      const country = document.getElementById('plotCountry').value.trim();
-      const city = document.getElementById('plotCity').value.trim();
-      const area = document.getElementById('plotArea').value.trim();
-      const type = document.getElementById('plotType').value;
-      const status = document.getElementById('plotStatus').value;
-      const gfa = document.getElementById('plotGFA').value;
-      const height = document.getElementById('plotHeight').value;
-      const pricePerGFA = document.getElementById('plotPricePerGFA').value;
-      const pricePerSqf = document.getElementById('plotPricePerSqf').value;
       const price = document.getElementById('plotPrice').value;
-      const paymentType = document.getElementById('plotPaymentType').value;
       const owner = document.getElementById('plotOwner').value.trim();
-      const phone = document.getElementById('plotPhone').value.trim();
-      const email = document.getElementById('plotEmail').value.trim();
       
       if (!no || !dev || !owner || !price) {
-        alert('Please fill in all required fields (Plot Number, Development, Owner Name, Price)');
+        alert('Please fill in all required fields');
         return;
       }
       
       if (currentEditId !== null) {
         const plot = plots.find(p => p.id === currentEditId);
-        plot.no = no; plot.dev = dev; plot.country = country; plot.city = city; plot.area = area;
-        plot.type = type; plot.status = status; plot.gfa = gfa; plot.height = height;
-        plot.pricePerGFA = pricePerGFA; plot.pricePerSqf = pricePerSqf; plot.price = price;
-        plot.paymentType = paymentType; plot.owner = owner; plot.phone = phone; plot.email = email;
-        
-        alert(`✅ Plot ${no} updated successfully!`);
+        plot.no = no;
+        plot.dev = dev;
+        plot.price = price;
+        plot.owner = owner;
+        plot.phone = document.getElementById('plotPhone').value;
+        plot.email = document.getElementById('plotEmail').value;
       } else {
         const newPlot = {
           id: plots.length,
@@ -568,316 +417,39 @@
           lat: 25.25 + Math.random() * 0.15,
           lng: 55.27 + Math.random() * 0.15,
           dev: dev,
-          country: country,
-          city: city,
-          area: area,
-          type: type,
-          status: status,
-          gfa: gfa,
-          height: height,
-          pricePerGFA: pricePerGFA,
-          pricePerSqf: pricePerSqf,
+          type: "Residential",
+          status: document.getElementById('plotStatus').value,
+          gfa: "2500",
+          height: "12",
+          pricePerGFA: "1800",
+          pricePerSqf: "167",
           price: price,
-          paymentType: paymentType,
+          paymentType: "Cash",
           owner: owner,
-          phone: phone,
-          email: email,
+          phone: document.getElementById('plotPhone').value,
+          email: document.getElementById('plotEmail').value,
+          country: "UAE",
+          city: "Dubai",
+          area: "Dubai Hills",
           sale: true,
           lease: false,
           jv: false,
           musataha: false
         };
         plots.push(newPlot);
-        alert(`✅ New plot ${no} added successfully!`);
       }
       
       saveToLocalStorage();
       closePlotModal();
       addMarkers();
       renderTable();
-      
-      if (!document.getElementById('analyticsView').classList.contains('hidden')) {
-        updateAnalytics();
-      }
-    }
-
-    // ==================== IMPORT / EXPORT ====================
-    function importPlots() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv,.xlsx,.xls,.json,.txt,.pdf';
-      
-      input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        const ext = file.name.toLowerCase().split('.').pop();
-
-        reader.onload = function(ev) {
-          let data = [];
-
-          try {
-            if (['csv', 'txt'].includes(ext)) {
-              data = parseCSV(ev.target.result);
-            } else if (['xlsx', 'xls'].includes(ext)) {
-              const wb = XLSX.read(ev.target.result, { type: 'binary' });
-              data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-            } else if (ext === 'json') {
-              data = JSON.parse(ev.target.result);
-            } else if (ext === 'pdf') {
-              const text = new TextDecoder().decode(ev.target.result);
-              data = parsePDFText(text);
-            }
-
-            let added = 0;
-            let skipped = 0;
-
-            data.forEach((item, index) => {
-              const no = (item['Plot No'] || item['plot_no'] || `P-${Date.now() + index}`).toString().trim();
-              const dev = (item['Development'] || item['development'] || 'Imported').toString().trim();
-              const price = parseFloat(item['Price'] || item['price'] || 3500000);
-              const status = (item['Status'] || item['status'] || 'Available').toString().trim();
-              const owner = (item['Owner'] || item['owner'] || 'Imported Owner').toString().trim();
-
-              if (!no || !dev || !price) {
-                skipped++;
-                return;
-              }
-
-              if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
-                skipped++;
-                return;
-              }
-
-              plots.push({
-                id: plots.length,
-                no: no,
-                lat: 25.25 + Math.random() * 0.15,
-                lng: 55.27 + Math.random() * 0.15,
-                dev: dev,
-                type: item['Type'] || item['type'] || 'Residential',
-                gfa: item['GFA'] || item['gfa'] || '2000',
-                nfa: item['NFA'] || item['nfa'] || '1700',
-                far: item['FAR'] || item['far'] || '2.0',
-                bua: item['BUA'] || item['bua'] || '1500',
-                price: price,
-                status: ['Available', 'Reserved', 'Sold'].includes(status) ? status : 'Available',
-                owner: owner,
-                phone: item['Phone'] || item['phone'] || '+971 50 000 0000',
-                email: item['Email'] || item['email'] || 'owner@email.com',
-                country: 'UAE',
-                city: 'Dubai',
-                area: item['Area'] || 'Imported',
-                height: '12',
-                measurement: 'sqm',
-                currency: 'AED',
-                pricePerGFA: item['Price per GFA'] || '1800',
-                pricePerSqf: item['Price per sqf'] || '167',
-                paymentType: item['Payment Type'] || 'Cash',
-                sale: true,
-                lease: false,
-                jv: false,
-                musataha: false
-              });
-              added++;
-            });
-
-            saveToLocalStorage();
-            addMarkers();
-            renderTable();
-            alert(`✅ Import Successful!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`);
-
-          } catch (error) {
-            alert('Error importing file: ' + error.message);
-          }
-        };
-
-        if (['xlsx', 'xls'].includes(ext)) {
-          reader.readAsBinaryString(file);
-        } else if (ext === 'pdf') {
-          reader.readAsArrayBuffer(file);
-        } else {
-          reader.readAsText(file);
-        }
-      };
-
-      input.click();
-    }
-
-    function parseCSV(csv) {
-      const lines = csv.split('\n').filter(l => l.trim().length > 0);
-      if (lines.length === 0) return [];
-      const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      return lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const obj = {};
-        header.forEach((h, i) => { obj[h] = values[i] || ''; });
-        return obj;
-      }).filter(r => Object.keys(r).length > 1);
-    }
-
-    function parsePDFText(text) {
-      const lines = text.split('\n').filter(l => l.trim().length > 10);
-      return lines.slice(0, 30).map((line, index) => ({
-        'Plot No': `P-${1000 + index}`,
-        'Development': line.substring(0, 60).trim(),
-        'Price': Math.floor(Math.random() * 5000000) + 2000000,
-        'Status': 'Available',
-        'Owner': 'Imported Owner'
-      }));
-    }
-
-    function exportCSV() {
-      let csv = "Plot No,Development,Type,GFA,Height,Price,PricePerGFA,PricePerSqf,Status,Owner,Phone,Email,Country,City,Area,PaymentType\n";
-      plots.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.height},${p.price},${p.pricePerGFA},${p.pricePerSqf},${p.status},${p.owner},${p.phone},${p.email},${p.country},${p.city},${p.area},${p.paymentType}\n`);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'plots_export.csv';
-      a.click();
-    }
-
-    function exportPDFReport() {
-      const printArea = document.getElementById('printArea');
-      const printContent = document.getElementById('printContent');
-      
-      let html = `<div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 800px; margin: 0 auto;">
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 4px solid #1e40af; padding-bottom: 25px;">
-          <h1 style="color: #1e40af; font-size: 36px; font-weight: 800;">AI Plot Portal</h1>
-          <p style="color: #64748b;">Full Portfolio Report • ${new Date().toLocaleDateString()}</p>
-        </div>`;
-
-      plots.forEach(plot => {
-        html += `
-          <div style="margin-bottom: 40px; page-break-inside: avoid;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
-              <div>
-                <div style="font-size: 24px; font-weight: 700; color: #1e40af;">Plot ${plot.no}</div>
-                <div style="font-size: 16px; color: #334155;">${plot.dev}</div>
-              </div>
-              <span style="background: ${plot.status === 'Available' ? '#dcfce7' : plot.status === 'Reserved' ? '#fef3c7' : '#fee2e2'}; color: ${plot.status === 'Available' ? '#166534' : plot.status === 'Reserved' ? '#854d0e' : '#991b1b'}; padding: 4px 12px; border-radius: 9999px; font-size: 13px; font-weight: 600;">
-                ${plot.status}
-              </span>
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 14px;">
-              <div><strong>Location:</strong> ${plot.country || 'UAE'} - ${plot.city || 'Dubai'}</div>
-              <div><strong>GFA:</strong> ${plot.gfa} sqm</div>
-              <div><strong>Total Price:</strong> AED ${Number(plot.price).toLocaleString()}</div>
-              <div><strong>Price/GFA:</strong> AED ${plot.pricePerGFA || 'N/A'}</div>
-            </div>
-          </div>
-        `;
-      });
-
-      html += `</div>`;
-
-      printContent.innerHTML = html;
-      printArea.classList.remove('hidden');
-      
-      setTimeout(() => {
-        window.print();
-        printArea.classList.add('hidden');
-      }, 300);
-    }
-
-    // ==================== OTHER FUNCTIONS ====================
-    function toggleGisDropdown() {
-      const dropdown = document.getElementById('gisDropdown');
-      dropdown.classList.toggle('hidden');
-    }
-
-    function startDistanceCalculator() { alert('Distance tool activated!'); }
-    function startAreaCalculator() { alert('Area tool activated!'); }
-    function toggleDrawingMode() { alert('Drawing tool activated!'); }
-    function createBufferZone() { alert('Buffer zone tool activated!'); }
-    function showElevationProfile() { alert('Elevation profile opened!'); }
-    function findShortestPath() { alert('Route planning activated!'); }
-    function toggleAdvancedHeatmap() { alert('Advanced heatmap toggled!'); }
-    function show3DTerrain() { alert('3D Terrain view opened!'); }
-    function clearAllDrawings() { alert('All drawings cleared!'); }
-    function toggleMapLayers() { alert('Layer switcher opened!'); }
-    function enableMeasurementTool() { alert('Measurement tool activated!'); }
-    function searchOnMap() { alert('Map search activated!'); }
-
-    function sendToWhatsApp(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      const message = `Hello! I'm interested in Plot ${plot.no} in ${plot.dev}.\n\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}\n\nCan we discuss?`;
-      const phone = plot.phone ? plot.phone.replace(/[^0-9]/g, '') : '971501234567';
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-    }
-
-    function sendEmail(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      const subject = `Inquiry about Plot ${plot.no} - ${plot.dev}`;
-      const body = `Hello,\n\nI am interested in Plot ${plot.no} in ${plot.dev}.\n\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}\n\nBest regards`;
-      const email = plot.email || 'owner@email.com';
-      window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    }
-
-    function startVideoCall(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      const roomName = `plot-${plot.no.toLowerCase()}-${Date.now()}`;
-      const jitsiUrl = `https://meet.jit.si/${roomName}`;
-      window.open(jitsiUrl, '_blank', 'width=1200,height=800');
-      alert(`✅ Video call started for Plot ${plot.no}\n\nShare this link: ${jitsiUrl}`);
-    }
-
-    function applySearchFilters() {
-      const searchTerm = document.getElementById('globalSearch').value.toLowerCase().trim();
-      currentSearchTerm = searchTerm;
-      const minPrice = parseFloat(document.getElementById('minPrice')?.value) || 0;
-      const maxPrice = parseFloat(document.getElementById('maxPrice')?.value) || Infinity;
-      const minSize = parseFloat(document.getElementById('minSize')?.value) || 0;
-      const maxSize = parseFloat(document.getElementById('maxSize')?.value) || Infinity;
-      const typeFilter = document.getElementById('typeFilter')?.value || '';
-      const statusFilter = document.getElementById('statusFilter')?.value || '';
-      
-      let filtered = plots.filter(plot => {
-        let matchesSearch = true;
-        if (searchTerm) {
-          matchesSearch = plot.no.toLowerCase().includes(searchTerm) || plot.dev.toLowerCase().includes(searchTerm) || (plot.owner && plot.owner.toLowerCase().includes(searchTerm)) || (plot.type && plot.type.toLowerCase().includes(searchTerm)) || plot.status.toLowerCase().includes(searchTerm) || plot.price.toString().includes(searchTerm);
-        }
-        const priceMatch = plot.price >= minPrice && plot.price <= maxPrice;
-        const size = parseFloat(plot.gfa) || 0;
-        const sizeMatch = size >= minSize && size <= maxSize;
-        const typeMatch = !typeFilter || plot.type === typeFilter;
-        const statusMatch = !statusFilter || plot.status === statusFilter;
-        return matchesSearch && priceMatch && sizeMatch && typeMatch && statusMatch;
-      });
-      
-      addMarkers(filtered);
-      renderTable(filtered);
-    }
-
-    function clearSearch() {
-      document.getElementById('globalSearch').value = '';
-      currentSearchTerm = '';
-      applySearchFilters();
-    }
-
-    function quickFilter(type) {
-      document.getElementById('globalSearch').value = '';
-      document.getElementById('minPrice').value = '';
-      document.getElementById('maxPrice').value = '';
-      document.getElementById('minSize').value = '';
-      document.getElementById('maxSize').value = '';
-      document.getElementById('typeFilter').value = '';
-      if (type === 'available') document.getElementById('statusFilter').value = 'Available';
-      else if (type === 'reserved') document.getElementById('statusFilter').value = 'Reserved';
-      else if (type === 'sold') document.getElementById('statusFilter').value = 'Sold';
-      applySearchFilters();
+      updateAnalytics();
     }
 
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
       saveToLocalStorage();
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
       addMarkers();
       renderTable();
     }
@@ -888,11 +460,20 @@
       initMap();
       renderTable();
       
+      // Auto-enable cloud sync if previously enabled
+      const savedSync = localStorage.getItem('cloudSyncEnabled');
+      if (savedSync === 'true') {
+        cloudSyncEnabled = true;
+        document.getElementById('cloudStatus').innerHTML = `Cloud Sync: <span class="text-green-400">ON</span>`;
+        startCloudListener();
+      }
+      
+      // Show analytics by default
       setTimeout(() => {
         showAnalytics();
       }, 500);
       
-      console.log('✅ Portal Ready - Add Plot Fixed + Web Sync Available');
+      console.log('✅ Portal with Cloud Sync loaded');
     };
   </script>
 </body>
