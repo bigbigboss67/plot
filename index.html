@@ -11,20 +11,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
-  <!-- Firebase -->
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  
-  <style>
-    .offline-banner {
-      background: linear-gradient(90deg, #ef4444, #f97316);
-      animation: pulse 2s infinite;
-    }
-  </style>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
-  <!-- Top Bar -->
+  <!-- Header -->
   <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
     <div class="flex items-center gap-4">
       <div class="flex items-center gap-3">
@@ -33,17 +26,15 @@
         </div>
         <h1 class="text-2xl font-bold">AI Plot</h1>
       </div>
-      
-      <!-- Online/Offline Status -->
-      <div id="connectionStatus" class="flex items-center gap-2 px-3 py-1 bg-green-900/30 text-green-400 rounded-2xl text-xs font-medium">
-        <i class="fas fa-wifi"></i>
-        <span>Online</span>
+      <div id="cloudStatus" class="hidden md:flex items-center gap-2 px-3 py-1 bg-gray-800 rounded-2xl text-xs">
+        <i class="fas fa-cloud text-green-400"></i>
+        <span>Cloud Sync: <span id="syncStatus">OFF</span></span>
       </div>
     </div>
 
-    <div class="flex gap-3">
+    <div class="flex gap-2 md:gap-4">
       <button onclick="toggleCloudSync()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium flex items-center gap-2">
-        <i class="fas fa-cloud"></i> <span class="hidden md:inline">Cloud Sync</span>
+        <i class="fas fa-sync-alt"></i> <span class="hidden md:inline">Cloud Sync</span>
       </button>
       
       <button onclick="showNewPlotModal()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
@@ -67,7 +58,7 @@
 
     <!-- Main Content -->
     <div class="flex-1 p-6 overflow-auto">
-      <!-- Analytics -->
+      <!-- Analytics View -->
       <div id="analyticsView" class="hidden">
         <h2 class="text-3xl font-bold mb-8">Real Estate Analytics</h2>
         
@@ -106,9 +97,11 @@
       <div id="plotsView">
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-3xl font-bold">Plots</h2>
-          <input type="text" id="globalSearch" placeholder="Search plots..." 
-                 class="bg-gray-800 px-5 py-3 rounded-2xl text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                 oninput="applySearchFilters()">
+          <div class="flex gap-3">
+            <input type="text" id="globalSearch" placeholder="Search..." 
+                   class="bg-gray-800 px-5 py-3 rounded-2xl text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   oninput="applySearchFilters()">
+          </div>
         </div>
 
         <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
@@ -144,15 +137,36 @@
           <div><label class="block text-xs text-gray-400 mb-1.5">Development *</label><input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
         </div>
 
+        <div class="grid grid-cols-3 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Country</label><input type="text" id="plotCountry" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="UAE"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">City</label><input type="text" id="plotCity" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Area</label><input type="text" id="plotArea" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="Dubai Hills"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-5">
+          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="School">School</option><option value="Camp">Camp</option><option value="Other">Other</option></select></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
+        </div>
+
+        <div class="border border-gray-700 rounded-2xl p-5">
+          <div class="text-xs text-gray-400 mb-3 font-semibold">PRICING</div>
+          <div class="grid grid-cols-4 gap-4">
+            <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="plotGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="2500"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Height (m)</label><input type="number" id="plotHeight" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="12"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Price/GFA</label><input type="number" id="plotPricePerGFA" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="1800"></div>
+            <div><label class="block text-xs text-gray-400 mb-1.5">Price/sqf</label><input type="number" id="plotPricePerSqf" class="w-full bg-gray-800 rounded-2xl px-4 py-2.5 text-sm" value="167"></div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-2 gap-5">
           <div><label class="block text-xs text-gray-400 mb-1.5">Total Price (AED) *</label><input type="number" id="plotPrice" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="4500000"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Payment Type</label><select id="plotPaymentType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Cash">Cash</option><option value="Payment Plan">Payment Plan</option><option value="Barter">Barter</option><option value="JV">Joint Venture</option></select></div>
         </div>
 
         <div class="border border-red-900/50 bg-red-950/30 rounded-2xl p-5">
           <div class="flex items-center gap-2 mb-3">
             <i class="fas fa-lock text-red-400"></i>
-            <div class="text-xs text-red-400 font-semibold">OWNER INFORMATION (INTERNAL ONLY)</div>
+            <div class="text-xs text-red-400 font-semibold">OWNER (INTERNAL ONLY)</div>
           </div>
           <div class="grid grid-cols-1 gap-4">
             <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
@@ -172,7 +186,7 @@
   </div>
 
   <script>
-    // ==================== FIREBASE CONFIG ====================
+    // ==================== FIREBASE CONFIG (REPLACE WITH YOURS) ====================
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -183,61 +197,34 @@
       appId: "YOUR_APP_ID"
     };
 
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
-    
     let cloudSyncEnabled = false;
-    let currentUserId = "default-user";
-    let isOnline = navigator.onLine;
+    let currentUserId = "default-user"; // You can make this dynamic later
 
     let map;
     let plots = [];
     let currentEditId = null;
 
-    // ==================== OFFLINE + ONLINE DETECTION ====================
-    window.addEventListener('online', () => {
-      isOnline = true;
-      updateConnectionStatus();
-      if (cloudSyncEnabled) {
-        syncToCloud();
-      }
-    });
-
-    window.addEventListener('offline', () => {
-      isOnline = false;
-      updateConnectionStatus();
-    });
-
-    function updateConnectionStatus() {
-      const statusEl = document.getElementById('connectionStatus');
-      
-      if (isOnline) {
-        statusEl.innerHTML = `<i class="fas fa-wifi"></i> <span>Online</span>`;
-        statusEl.className = "flex items-center gap-2 px-3 py-1 bg-green-900/30 text-green-400 rounded-2xl text-xs font-medium";
-      } else {
-        statusEl.innerHTML = `<i class="fas fa-wifi-slash"></i> <span>Offline</span>`;
-        statusEl.className = "flex items-center gap-2 px-3 py-1 bg-red-900/30 text-red-400 rounded-2xl text-xs font-medium";
-      }
-    }
-
     // ==================== CLOUD SYNC ====================
     function toggleCloudSync() {
       cloudSyncEnabled = !cloudSyncEnabled;
-      localStorage.setItem('cloudSyncEnabled', cloudSyncEnabled);
+      const status = document.getElementById('syncStatus');
       
-      if (cloudSyncEnabled && isOnline) {
+      if (cloudSyncEnabled) {
+        status.textContent = "ON";
+        status.className = "text-green-400";
         startCloudListener();
-        alert("✅ Cloud Sync Enabled - Changes will sync in real-time");
-      } else if (cloudSyncEnabled && !isOnline) {
-        alert("Cloud Sync enabled. Will sync when back online.");
+        alert("✅ Real-time Cloud Sync Enabled!\n\nYour plots will now sync across all devices in real-time.");
       } else {
-        alert("Cloud Sync Disabled");
+        status.textContent = "OFF";
+        status.className = "text-gray-400";
+        alert("Cloud Sync Disabled. Data will only be saved locally.");
       }
     }
 
     function startCloudListener() {
-      if (!cloudSyncEnabled || !isOnline) return;
-      
       const plotsRef = database.ref('plots/' + currentUserId);
       
       plotsRef.on('value', (snapshot) => {
@@ -253,7 +240,7 @@
     }
 
     function syncToCloud() {
-      if (!cloudSyncEnabled || !isOnline) return;
+      if (!cloudSyncEnabled) return;
       
       const plotsRef = database.ref('plots/' + currentUserId);
       const dataToSync = {};
@@ -262,15 +249,19 @@
         dataToSync[plot.id] = plot;
       });
       
-      plotsRef.set(dataToSync);
+      plotsRef.set(dataToSync)
+        .then(() => {
+          console.log("✅ Synced to cloud");
+        })
+        .catch(error => {
+          console.error("Cloud sync failed:", error);
+        });
     }
 
-    // ==================== LOCAL STORAGE ====================
+    // ==================== DATA PERSISTENCE ====================
     function saveToLocalStorage() {
       localStorage.setItem('aiPlotPortalData', JSON.stringify(plots));
-      
-      // If online and cloud sync enabled, also sync to cloud
-      if (cloudSyncEnabled && isOnline) {
+      if (cloudSyncEnabled) {
         syncToCloud();
       }
     }
@@ -302,21 +293,25 @@
       document.getElementById('availablePlots').textContent = available;
       document.getElementById('avgPrice').textContent = `AED ${avgPrice.toLocaleString()}`;
 
+      // Status Chart
+      const statusCounts = {
+        Available: plots.filter(p => p.status === 'Available').length,
+        Reserved: plots.filter(p => p.status === 'Reserved').length,
+        Sold: plots.filter(p => p.status === 'Sold').length
+      };
+
       new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: {
           labels: ['Available', 'Reserved', 'Sold'],
           datasets: [{
-            data: [
-              plots.filter(p => p.status === 'Available').length,
-              plots.filter(p => p.status === 'Reserved').length,
-              plots.filter(p => p.status === 'Sold').length
-            ],
+            data: [statusCounts.Available, statusCounts.Reserved, statusCounts.Sold],
             backgroundColor: ['#22c55e', '#f59e0b', '#ef4444']
           }]
         }
       });
 
+      // Development Chart
       const devCounts = {};
       plots.forEach(p => {
         devCounts[p.dev] = (devCounts[p.dev] || 0) + 1;
@@ -365,7 +360,12 @@
       alert(`Plot ${plot.no} - ${plot.dev}\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}`);
     }
 
-    function showPlots() {
+    function showMapView() {
+      document.getElementById('analyticsView').classList.add('hidden');
+      document.getElementById('plotsView').classList.remove('hidden');
+    }
+
+    function showTableView() {
       document.getElementById('analyticsView').classList.add('hidden');
       document.getElementById('plotsView').classList.remove('hidden');
     }
@@ -389,7 +389,7 @@
       `).join('');
     }
 
-    // ==================== NEW PLOT ====================
+    // ==================== NEW PLOT MODAL ====================
     function showNewPlotModal() {
       currentEditId = null;
       document.getElementById('modalTitle').textContent = 'Add New Plot';
@@ -397,8 +397,17 @@
       
       document.getElementById('plotNo').value = `D-${Date.now().toString().slice(-4)}`;
       document.getElementById('plotDev').value = 'New Development';
+      document.getElementById('plotCountry').value = 'UAE';
+      document.getElementById('plotCity').value = 'Dubai';
+      document.getElementById('plotArea').value = 'Dubai Hills';
+      document.getElementById('plotType').value = 'Residential';
       document.getElementById('plotStatus').value = 'Available';
+      document.getElementById('plotGFA').value = '2500';
+      document.getElementById('plotHeight').value = '12';
+      document.getElementById('plotPricePerGFA').value = '1800';
+      document.getElementById('plotPricePerSqf').value = '167';
       document.getElementById('plotPrice').value = '4500000';
+      document.getElementById('plotPaymentType').value = 'Cash';
       document.getElementById('plotOwner').value = 'New Owner';
       document.getElementById('plotPhone').value = '+971 50 000 0000';
       document.getElementById('plotEmail').value = 'owner@email.com';
@@ -416,8 +425,17 @@
       
       document.getElementById('plotNo').value = plot.no;
       document.getElementById('plotDev').value = plot.dev;
+      document.getElementById('plotCountry').value = plot.country || 'UAE';
+      document.getElementById('plotCity').value = plot.city || 'Dubai';
+      document.getElementById('plotArea').value = plot.area || 'Dubai Hills';
+      document.getElementById('plotType').value = plot.type || 'Residential';
       document.getElementById('plotStatus').value = plot.status;
+      document.getElementById('plotGFA').value = plot.gfa || '2500';
+      document.getElementById('plotHeight').value = plot.height || '12';
+      document.getElementById('plotPricePerGFA').value = plot.pricePerGFA || '1800';
+      document.getElementById('plotPricePerSqf').value = plot.pricePerSqf || '167';
       document.getElementById('plotPrice').value = plot.price;
+      document.getElementById('plotPaymentType').value = plot.paymentType || 'Cash';
       document.getElementById('plotOwner').value = plot.owner || '';
       document.getElementById('plotPhone').value = plot.phone || '';
       document.getElementById('plotEmail').value = plot.email || '';
@@ -455,20 +473,20 @@
           lat: 25.25 + Math.random() * 0.15,
           lng: 55.27 + Math.random() * 0.15,
           dev: dev,
-          type: "Residential",
+          type: document.getElementById('plotType').value,
           status: document.getElementById('plotStatus').value,
-          gfa: "2500",
-          height: "12",
-          pricePerGFA: "1800",
-          pricePerSqf: "167",
+          gfa: document.getElementById('plotGFA').value,
+          height: document.getElementById('plotHeight').value,
+          pricePerGFA: document.getElementById('plotPricePerGFA').value,
+          pricePerSqf: document.getElementById('plotPricePerSqf').value,
           price: price,
-          paymentType: "Cash",
+          paymentType: document.getElementById('plotPaymentType').value,
           owner: owner,
           phone: document.getElementById('plotPhone').value,
           email: document.getElementById('plotEmail').value,
-          country: "UAE",
-          city: "Dubai",
-          area: "Dubai Hills",
+          country: document.getElementById('plotCountry').value,
+          city: document.getElementById('plotCity').value,
+          area: document.getElementById('plotArea').value,
           sale: true,
           lease: false,
           jv: false,
@@ -484,6 +502,7 @@
       updateAnalytics();
     }
 
+    // ==================== DELETE ====================
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
@@ -497,23 +516,17 @@
       loadFromLocalStorage();
       initMap();
       renderTable();
-      updateConnectionStatus();
       
       // Auto-enable cloud sync if previously enabled
       const savedSync = localStorage.getItem('cloudSyncEnabled');
       if (savedSync === 'true') {
         cloudSyncEnabled = true;
-        if (isOnline) {
-          startCloudListener();
-        }
+        document.getElementById('syncStatus').textContent = "ON";
+        document.getElementById('syncStatus').className = "text-green-400";
+        startCloudListener();
       }
       
-      // Show analytics by default
-      setTimeout(() => {
-        showAnalytics();
-      }, 500);
-      
-      console.log('✅ Portal with Offline Sync loaded successfully');
+      console.log('✅ Portal with Real-time Cloud Sync loaded');
     };
   </script>
 </body>
