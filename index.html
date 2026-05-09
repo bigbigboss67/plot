@@ -2,153 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Plot Portal • Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <style>
-    #map { height: 100%; width: 100%; border-radius: 1.5rem; min-height: 600px; }
-    .modal { animation: fadeInScale 0.2s ease-out; }
-    @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    
-    .leaflet-tooltip.custom-tooltip {
-      background: #1f2937 !important;
-      border: 1px solid #374151 !important;
-      color: #f1f5f9 !important;
-      border-radius: 12px !important;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
-    }
-    
-    .scrollable-section {
-      max-height: 70vh;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #4b5563 #1f2937;
-    }
-    
-    .scrollable-section::-webkit-scrollbar {
-      width: 6px;
-    }
-    
-    .scrollable-section::-webkit-scrollbar-thumb {
-      background-color: #4b5563;
-      border-radius: 3px;
-    }
-    
-    /* BEST MOBILE RESPONSIVE */
-    @media (max-width: 768px) {
-      .sidebar-mobile { 
-        position: fixed; 
-        z-index: 100; 
-        transform: translateX(-100%); 
-        transition: transform 0.3s ease;
-      }
-      .sidebar-mobile.open { transform: translateX(0); }
-      
-      .main-content-mobile { margin-left: 0 !important; }
-      
-      .map-container-mobile { height: calc(100vh - 180px) !important; }
-      
-      .card-mobile { width: 100% !important; margin: 0; }
-      
-      .table-mobile { font-size: 12px; }
-      .table-mobile th, .table-mobile td { padding: 8px 4px; }
-      
-      .modal-mobile { width: 95% !important; max-height: 90vh; }
-      
-      button {
-        min-height: 52px !important;
-        font-size: 16px !important;
-        padding: 14px 20px !important;
-      }
-      
-      .fas {
-        font-size: 20px !important;
-      }
-      
-      #map {
-        min-height: 450px !important;
-      }
-      
-      .legend {
-        bottom: 120px !important;
-        left: 16px !important;
-      }
-      
-      .gis-tool-btn {
-        min-width: 60px !important;
-        min-height: 60px !important;
-        font-size: 18px !important;
-      }
-    }
-    
-    .hamburger { display: none; }
-    @media (max-width: 768px) { .hamburger { display: block; } }
-    
-    .gis-tool-btn {
-      transition: all 0.2s ease;
-    }
-    
-    .gis-tool-btn.active {
-      background-color: #3b82f6 !important;
-      color: white !important;
-      transform: scale(1.05);
-    }
-    
-    .gis-tool-btn:hover {
-      transform: scale(1.05);
-    }
-  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
-  <!-- Login Modal (Hidden by Default) -->
-  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
-    <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-8 text-center">
-        <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <i class="fas fa-map-marked text-white text-3xl"></i>
-        </div>
-        <h2 class="text-3xl font-bold mb-2">AI Plot Portal</h2>
-        <p class="text-gray-400 mb-8">Sign in to continue (Optional)</p>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs text-gray-400 mb-1.5 text-left">Username</label>
-            <input type="text" id="loginUsername" value="admin" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-xs text-gray-400 mb-1.5 text-left">Password</label>
-            <input type="password" id="loginPassword" value="admin123" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-        </div>
-        
-        <div class="mt-6 space-y-3">
-          <button onclick="login()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Sign In</button>
-          <button onclick="continueAsGuest()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium text-gray-300">Continue as Guest</button>
-        </div>
-        
-        <div class="mt-6 text-xs text-gray-500">
-          Demo Accounts:<br>
-          <span class="text-blue-400">admin / admin123</span> (Full Access)<br>
-          <span class="text-green-400">manager / manager123</span> (Edit Access)<br>
-          <span class="text-orange-400">viewer / viewer123</span> (View Only)
-        </div>
-      </div>
-    </div>
-  </div>
-
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
-    <div id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col sidebar-mobile md:transform-none md:relative">
-      <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+    <div class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+      <div class="p-6 border-b border-gray-800">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+          <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center">
             <i class="fas fa-map-marked text-white text-xl"></i>
           </div>
           <div>
@@ -156,203 +25,131 @@
             <p class="text-xs text-gray-500 -mt-1">Pro Edition</p>
           </div>
         </div>
-        <button onclick="toggleSidebar()" class="md:hidden text-2xl">×</button>
       </div>
-      <nav class="flex-1 p-4 space-y-1">
+      <nav class="flex-1 p-4">
         <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600 text-white">
           <i class="fas fa-map-marker-alt"></i> Plots
         </a>
       </nav>
-      
-      <!-- User Info -->
-      <div class="p-4 border-t border-gray-800 mt-auto">
-        <div class="flex items-center gap-3">
-          <div id="userAvatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">GU</div>
-          <div class="flex-1 min-w-0">
-            <div id="userName" class="font-semibold text-sm truncate">Guest User</div>
-            <div id="userRole" class="text-xs text-gray-500">Guest</div>
-          </div>
-          <button onclick="logout()" class="text-gray-400 hover:text-red-400 p-2">
-            <i class="fas fa-sign-out-alt"></i>
-          </button>
-        </div>
-      </div>
     </div>
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
-      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
-        <div class="flex items-center gap-4">
-          <button onclick="toggleSidebar()" class="hamburger md:hidden text-2xl px-3">☰</button>
-          <h2 class="text-xl md:text-2xl font-semibold">Plot Management</h2>
-          <div class="px-3 py-1 bg-gray-800 rounded-full text-xs text-gray-400 hidden md:block">1,284 Plots</div>
-        </div>
-        <div class="flex items-center gap-4">
-          <button onclick="importPlots()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
+      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
+        <h2 class="text-2xl font-semibold">Plot Management</h2>
+        <div class="flex gap-4">
+          <button onclick="importPlots()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-file-import"></i> Import
           </button>
-          <button onclick="exportCSV()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
+          <button onclick="exportCSV()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-download"></i> Export
           </button>
-          <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
+          <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-plus"></i> New Plot
           </button>
-          
-          <!-- Notification Bell -->
-          <div class="relative">
-            <button onclick="toggleNotifications()" class="relative px-3 py-2 text-gray-400 hover:text-white transition-colors">
-              <i class="fas fa-bell text-xl"></i>
-              <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
-            </button>
-          </div>
         </div>
       </div>
 
-      <div class="flex-1 overflow-auto p-8">
+      <div class="flex-1 p-8">
         <div class="flex justify-between items-center mb-6">
           <div class="flex gap-3">
-            <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium flex items-center gap-2 btn-mobile">
-              <i class="fas fa-map"></i> Map View
-            </button>
-            <button onclick="togglePlotView('table')" id="tableTab" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2 btn-mobile">
-              <i class="fas fa-table"></i> Table View
-            </button>
+            <button onclick="showMapView()" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium">Map View</button>
+            <button onclick="showTableView()" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium">Table View</button>
           </div>
-
-          <div class="flex items-center gap-4">
-            <select id="statusFilter" onchange="applyFilters()" class="bg-gray-800 px-5 py-3 rounded-2xl text-sm">
-              <option value="">All Status</option>
-              <option value="Available">Available</option>
-              <option value="Reserved">Reserved</option>
-              <option value="Sold">Sold</option>
-            </select>
-            <button onclick="clearFilters()" class="px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm btn-mobile">Clear</button>
-            <div class="relative w-80">
-              <input type="text" id="mapSearch" placeholder="Search plots..." class="w-full bg-gray-800 px-5 py-3 pl-12 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" oninput="debounceSearch()">
-              <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
-            </div>
-          </div>
+          <select id="statusFilter" onchange="filterPlots()" class="bg-gray-800 px-5 py-3 rounded-2xl text-sm">
+            <option value="">All Status</option>
+            <option value="Available">Available</option>
+            <option value="Reserved">Reserved</option>
+            <option value="Sold">Sold</option>
+          </select>
         </div>
 
-        <!-- Interactive Legend - MOVED 4CM UP -->
-        <div class="legend absolute bottom-24 left-8 z-[1000] px-5 py-4 rounded-3xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span class="font-semibold text-xs tracking-wider">STATUS</span>
-          </div>
-          <div class="space-y-1 text-sm">
-            <div onclick="filterByStatus('Available')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-green-500 rounded-full"></div> 
-              <span>Available</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Available">0</span>
-            </div>
-            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-orange-500 rounded-full"></div> 
-              <span>Reserved</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Reserved">0</span>
-            </div>
-            <div onclick="filterByStatus('Sold')" class="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-800 cursor-pointer transition-all active:scale-[0.985]">
-              <div class="w-3 h-3 bg-red-500 rounded-full"></div> 
-              <span>Sold</span>
-              <span class="ml-auto text-xs text-gray-500" id="count-Sold">0</span>
-            </div>
-            <div onclick="clearFilters()" class="flex items-center gap-3 px-3 py-2 mt-2 border-t border-gray-700 text-xs text-gray-400 hover:text-white cursor-pointer">
-              <i class="fas fa-times w-3"></i> 
-              <span>Clear Filter</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- REAL ESTATE GIS TOOLS BAR - MOVED 5CM DOWN -->
-        <div class="absolute top-40 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
-          <button onclick="startDistanceCalculator()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Measure Distance">
+        <!-- ADVANCED GIS TOOLS BAR -->
+        <div class="absolute top-48 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
+          <!-- Basic Tools -->
+          <button onclick="startDistanceCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Measure Distance">
             <i class="fas fa-ruler text-blue-400"></i>
             <span class="hidden md:inline">Distance</span>
           </button>
-          <button onclick="startAreaCalculator()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Measure Area">
+          <button onclick="startAreaCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Measure Area">
             <i class="fas fa-draw-polygon text-green-400"></i>
             <span class="hidden md:inline">Area</span>
           </button>
-          <button onclick="toggleDrawingMode()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Draw on Map">
+          <button onclick="toggleDrawingMode()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Draw on Map">
             <i class="fas fa-pencil-alt text-purple-400"></i>
             <span class="hidden md:inline">Draw</span>
           </button>
-          <button onclick="clearAllDrawings()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Clear Drawings">
+          
+          <!-- Advanced GIS Tools -->
+          <div class="w-px bg-gray-700 mx-1"></div>
+          
+          <button onclick="createBufferZone()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Buffer Zone">
+            <i class="fas fa-circle text-white"></i>
+            <span class="hidden md:inline">Buffer</span>
+          </button>
+          <button onclick="findIntersections()" class="px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Find Overlaps">
+            <i class="fas fa-object-group text-white"></i>
+            <span class="hidden md:inline">Intersect</span>
+          </button>
+          <button onclick="spatialQuery()" class="px-4 py-3 bg-teal-600 hover:bg-teal-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Spatial Query">
+            <i class="fas fa-search-location text-white"></i>
+            <span class="hidden md:inline">Query</span>
+          </button>
+          <button onclick="showElevationProfile()" class="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Elevation">
+            <i class="fas fa-mountain text-white"></i>
+            <span class="hidden md:inline">Elevation</span>
+          </button>
+          <button onclick="findShortestPath()" class="px-4 py-3 bg-pink-600 hover:bg-pink-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Route Planning">
+            <i class="fas fa-route text-white"></i>
+            <span class="hidden md:inline">Route</span>
+          </button>
+          <button onclick="toggleAdvancedHeatmap()" class="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Heatmap">
+            <i class="fas fa-fire text-white"></i>
+            <span class="hidden md:inline">Heatmap</span>
+          </button>
+          
+          <!-- 3D TERRAIN BUTTON -->
+          <button onclick="show3DTerrain()" class="px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="3D Terrain View">
+            <i class="fas fa-cube text-white"></i>
+            <span class="hidden md:inline">3D View</span>
+          </button>
+          
+          <button onclick="clearAllDrawings()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium" title="Clear All">
             <i class="fas fa-trash text-red-400"></i>
           </button>
         </div>
 
-        <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
-          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 600px;">
-            <div id="map" style="height: 100%; min-height: 600px;"></div>
+        <!-- MAP VIEW -->
+        <div id="mapView">
+          <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
+            <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
             
-            <!-- Geocoding Search Bar -->
-            <div class="absolute top-5 left-5 z-[1000] w-80">
-              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex items-center">
-                <input type="text" id="geocodeSearch" placeholder="Search address or landmark..." 
-                  class="flex-1 bg-transparent px-4 py-2 text-sm focus:outline-none" 
-                  onkeypress="if (event.key === 'Enter') geocodeAddress()">
-                <button onclick="geocodeAddress()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                  <i class="fas fa-search"></i> Search
-                </button>
-              </div>
-            </div>
-            
-            <!-- Map Style Switcher -->
-            <div class="absolute top-20 right-5 z-[1000]">
-              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl text-sm">
-                <button onclick="setMapStyle(0)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
-                  <i class="fas fa-road w-4"></i> Streets
-                </button>
-                <button onclick="setMapStyle(1)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
-                  <i class="fas fa-satellite w-4"></i> Satellite
-                </button>
-                <button onclick="setMapStyle(2)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
-                  <i class="fas fa-mountain w-4"></i> Outdoors
-                </button>
-                <button onclick="setMapStyle(3)" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
-                  <i class="fas fa-sun w-4"></i> Light
-                </button>
-                
-                <div class="border-t border-gray-700 my-1"></div>
-                
-                <button onclick="toggleHeatmap()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-purple-400">
-                  <i class="fas fa-fire w-4"></i> Heatmap
-                </button>
+            <div id="mapError" class="hidden absolute inset-0 flex items-center justify-center bg-gray-900 z-50">
+              <div class="text-center">
+                <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
+                <div class="text-xl font-bold mb-2">Map Loading Issue</div>
+                <div class="text-sm text-gray-400 mb-4">Please refresh the page</div>
+                <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
               </div>
             </div>
           </div>
-
-          <div id="mapCard" class="w-96 bg-gray-900 rounded-3xl p-7 overflow-auto hidden border border-gray-700 scrollable-section"></div>
         </div>
 
-        <div id="plotTableView" class="hidden mt-6">
-          <div class="flex justify-between items-center mb-4">
-            <div class="flex gap-3">
-              <button onclick="bulkDelete()" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
-                <i class="fas fa-trash"></i> Delete Selected
-              </button>
-              <button onclick="bulkExport()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
-                <i class="fas fa-download"></i> Export Selected
-              </button>
-            </div>
-            <span class="text-sm text-gray-400" id="selectedCount">0 selected</span>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm table-mobile">
-              <thead class="border-b border-gray-700">
+        <!-- TABLE VIEW -->
+        <div id="tableView" class="hidden">
+          <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead class="border-b border-gray-700 bg-gray-950">
                 <tr>
-                  <th class="w-12"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                  <th class="text-left py-4">Plot No</th>
-                  <th class="text-left py-4">Development</th>
-                  <th class="text-left py-4">Type</th>
-                  <th class="text-left py-4">GFA/NFA</th>
-                  <th class="text-left py-4">Price</th>
-                  <th class="text-left py-4">Status</th>
-                  <th class="text-left py-4">Actions</th>
+                  <th class="text-left py-4 px-6">Plot No</th>
+                  <th class="text-left py-4 px-6">Development</th>
+                  <th class="text-left py-4 px-6">Size</th>
+                  <th class="text-left py-4 px-6">Price</th>
+                  <th class="text-left py-4 px-6">Status</th>
+                  <th class="text-left py-4 px-6">Actions</th>
                 </tr>
               </thead>
-              <tbody id="plotTableBody"></tbody>
+              <tbody id="plotTableBody" class="divide-y divide-gray-800"></tbody>
             </table>
           </div>
         </div>
@@ -360,50 +157,64 @@
     </div>
   </div>
 
-  <!-- Import Modal -->
-  <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]">
-    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden modal-mobile">
+  <!-- 3D TERRAIN MODAL -->
+  <div id="modal3D" class="hidden fixed inset-0 bg-black/90 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl h-[90vh] border border-gray-700 shadow-2xl overflow-hidden flex flex-col">
+      <!-- Modal Header -->
       <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
-          <h3 class="text-2xl font-semibold">Import Plots</h3>
-          <p class="text-sm text-gray-400">Upload CSV, Excel, or JSON files</p>
+          <h3 class="text-2xl font-bold flex items-center gap-3">
+            <i class="fas fa-cube text-purple-400"></i> 
+            3D Terrain Visualization
+          </h3>
+          <p class="text-sm text-gray-400">Interactive 3D view of plot locations • Drag to rotate • Scroll to zoom</p>
         </div>
-        <button onclick="closeImportModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+        <div class="flex gap-3">
+          <button onclick="reset3DView()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-undo"></i> Reset View
+          </button>
+          <button onclick="close3DModal()" class="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
+            <i class="fas fa-times"></i> Close
+          </button>
+        </div>
       </div>
       
-      <div class="p-8">
-        <div class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors">
-          <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-          <p class="font-medium mb-1">Drop your file here</p>
-          <p class="text-sm text-gray-400 mb-4">or</p>
-          <label class="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium cursor-pointer">
-            Choose File
-            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt" class="hidden" onchange="handleFileSelect(event)">
-          </label>
-          <p class="text-xs text-gray-500 mt-4">Supported: CSV, Excel, JSON, TXT</p>
+      <!-- 3D Canvas Container -->
+      <div class="flex-1 relative bg-black" id="threeContainer">
+        <canvas id="threeCanvas" class="w-full h-full"></canvas>
+        
+        <!-- 3D Controls Overlay -->
+        <div class="absolute top-4 left-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
+          <div class="text-xs text-gray-400 mb-2">CONTROLS</div>
+          <div class="space-y-1 text-sm">
+            <div class="flex items-center gap-2"><i class="fas fa-mouse-pointer w-4"></i> <span>Left Click + Drag: Rotate</span></div>
+            <div class="flex items-center gap-2"><i class="fas fa-search w-4"></i> <span>Scroll: Zoom</span></div>
+            <div class="flex items-center gap-2"><i class="fas fa-arrows-alt w-4"></i> <span>Right Click + Drag: Pan</span></div>
+          </div>
         </div>
-      </div>
-
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
-        <button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
+        
+        <!-- Legend -->
+        <div class="absolute bottom-4 right-4 bg-gray-900/90 backdrop-blur-xl rounded-2xl p-4 border border-gray-700">
+          <div class="text-xs text-gray-400 mb-2">LEGEND</div>
+          <div class="space-y-2 text-sm">
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-green-500 rounded-full"></div> <span>Available</span></div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-orange-500 rounded-full"></div> <span>Reserved</span></div>
+            <div class="flex items-center gap-2"><div class="w-3 h-3 bg-red-500 rounded-full"></div> <span>Sold</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
   <script>
-    let map, markerCluster, baseLayers = [];
+    let map;
     let plots = [
-      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com" },
-      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", type: "Commercial", gfa: "1800", nfa: "1500", far: "3.2", bua: "1200", price: "6200000", status: "Reserved", owner: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima@email.com" },
-      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
+      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
+      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
+      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", size: "2100", price: "8900000", status: "Sold" }
     ];
-    let importedData = [], headers = [];
-    let selectedPlots = new Set();
-    let heatmapLayer = null, heatmapEnabled = false;
-    let currentUser = null;
-    let notifications = [];
-    let notificationPanelOpen = false;
     let drawingMode = false;
     let drawnItems = [];
     let distanceMode = false;
@@ -414,68 +225,39 @@
     let areaPoints = [];
     let areaMarkers = [];
     let areaPolyline = null;
+    let bufferLayer = null;
+    let intersectionLayer = null;
+    let heatmapLayer = null;
+    
+    // 3D Variables
+    let scene, camera, renderer;
+    let plotMeshes = [];
+    let isDragging = false;
+    let previousMouseX = 0;
+    let previousMouseY = 0;
 
-    // ==================== LEAFLET MAP (FIXED - RELIABLE) ====================
+    // ==================== MAP INITIALIZATION ====================
     function initMap() {
       try {
-        // Create map with explicit options
-        map = L.map('map', {
-          zoomControl: true,
-          attributionControl: true,
-          preferCanvas: true
-        }).setView([25.2769, 55.2962], 11);
+        console.log('Initializing map...');
         
-        // Force map to resize
+        map = L.map('map').setView([25.2769, 55.2962], 11);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+        
+        addMarkers();
+        
         setTimeout(() => {
-          map.invalidateSize();
-        }, 100);
+          if (map) {
+            map.invalidateSize();
+            console.log('✅ Map initialized successfully');
+          }
+        }, 200);
         
-        // Add tile layers
-        baseLayers = [
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
-          }),
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '© Esri',
-            maxZoom: 19
-          }),
-          L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenTopoMap',
-            maxZoom: 17
-          }),
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 19
-          })
-        ];
-        
-        // Add default layer
-        baseLayers[0].addTo(map);
-        
-        // Add marker cluster
-        markerCluster = L.markerClusterGroup({
-          chunkedLoading: true,
-          spiderfyOnMaxZoom: true,
-          showCoverageOnHover: false
-        });
-        map.addLayer(markerCluster);
-        
-        // Add plot markers
-        addPlotMarkers();
-        
-        // Add click handler for drawing
-        map.on('click', handleMapClick);
-        
-        // Force another resize after everything loads
-        setTimeout(() => {
-          map.invalidateSize();
-          console.log('✅ Map fully initialized');
-        }, 500);
-        
-        console.log('✅ Map loaded successfully');
       } catch (error) {
-        console.error('❌ Map failed to load:', error);
+        console.error('Map error:', error);
         document.getElementById('map').innerHTML = `
           <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
             <div>
@@ -489,23 +271,7 @@
       }
     }
 
-    function handleMapClick(e) {
-      // This will be used for drawing mode
-      if (drawingMode) {
-        const marker = L.marker([e.latlng.lat, e.latlng.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:#8b5cf6;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>`,
-            iconSize: [12, 12]
-          })
-        }).addTo(map);
-        
-        drawnItems.push(marker);
-      }
-    }
-
-    function addPlotMarkers() {
-      markerCluster.clearLayers();
-      
+    function addMarkers() {
       plots.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         
@@ -513,40 +279,85 @@
           icon: L.divIcon({
             html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:10px;">${plot.no}</div>`,
             iconSize: [32, 32]
-          }),
-          status: plot.status
-        });
+          })
+        }).addTo(map);
         
-        marker.bindTooltip(`
-          <div style="min-width:180px;padding:6px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Plot ${plot.no}</div>
-            <div style="color:#94a3b8;font-size:12px;margin-bottom:6px;">${plot.dev}</div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-              <span style="color:#64748b;">Type:</span><span style="font-weight:600;">${plot.type}</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
-              <span style="color:#64748b;">GFA/NFA:</span><span style="font-weight:600;">${plot.gfa}/${plot.nfa} sqm</span>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:8px;">
-              <span style="color:#64748b;">Price:</span><span style="font-weight:700;color:#22c55e;">AED ${Number(plot.price).toLocaleString()}</span>
-            </div>
-            <div style="background:${color};color:white;font-size:11px;padding:2px 8px;border-radius:9999px;display:inline-block;font-weight:600;">${plot.status}</div>
+        marker.bindPopup(`
+          <div style="min-width:200px;">
+            <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div>
+            <div style="color:#666;margin-bottom:12px;">${plot.dev}</div>
+            <div style="margin-bottom:6px;"><strong>Size:</strong> ${plot.size} sqm</div>
+            <div style="margin-bottom:12px;"><strong>Price:</strong> AED ${Number(plot.price).toLocaleString()}</div>
+            <div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div>
           </div>
-        `, { direction: 'top', offset: [0, -10], className: 'custom-tooltip', opacity: 0.95 });
+        `);
         
-        marker.on('click', () => selectPlot(plot.id));
-        markerCluster.addLayer(marker);
+        marker.on('click', () => showPlotDetails(plot.id));
       });
     }
 
-    function setMapStyle(n) {
-      map.eachLayer(layer => { if (layer instanceof L.TileLayer) map.removeLayer(layer); });
-      baseLayers[n].addTo(map);
+    function showPlotDetails(id) {
+      const plot = plots.find(p => p.id === id);
+      alert(`Plot ${plot.no}\n${plot.dev}\nSize: ${plot.size} sqm\nPrice: AED ${Number(plot.price).toLocaleString()}\nStatus: ${plot.status}`);
     }
 
-    // ==================== REAL ESTATE GIS TOOLS ====================
+    function showMapView() {
+      document.getElementById('mapView').classList.remove('hidden');
+      document.getElementById('tableView').classList.add('hidden');
+      
+      setTimeout(() => {
+        if (map) map.invalidateSize();
+      }, 100);
+    }
+
+    function showTableView() {
+      document.getElementById('mapView').classList.add('hidden');
+      document.getElementById('tableView').classList.remove('hidden');
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('plotTableBody');
+      tbody.innerHTML = plots.map(plot => `
+        <tr class="hover:bg-gray-800">
+          <td class="py-4 px-6 font-bold">${plot.no}</td>
+          <td class="py-4 px-6">${plot.dev}</td>
+          <td class="py-4 px-6">${plot.size} sqm</td>
+          <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
+          <td class="py-4 px-6">
+            <span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span>
+          </td>
+          <td class="py-4 px-6">
+            <button onclick="showPlotDetails(${plot.id})" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
+            <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterPlots() {
+      const status = document.getElementById('statusFilter').value;
+      const filtered = status ? plots.filter(p => p.status === status) : plots;
+      
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
+      });
+      
+      filtered.forEach(plot => {
+        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        const marker = L.marker([plot.lat, plot.lng], {
+          icon: L.divIcon({
+            html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
+            iconSize: [32, 32]
+          })
+        }).addTo(map);
+        
+        marker.bindPopup(`Plot ${plot.no} - ${plot.dev}`);
+      });
+    }
+
+    // ==================== BASIC GIS TOOLS ====================
     
-    // Distance Calculator
     function startDistanceCalculator() {
       distanceMode = true;
       firstPoint = null;
@@ -637,7 +448,6 @@
       map.getContainer().style.cursor = '';
     }
 
-    // Area Calculator
     function startAreaCalculator() {
       areaMode = true;
       areaPoints = [];
@@ -690,7 +500,6 @@
         return;
       }
       
-      // Close the polygon
       areaPoints.push(areaPoints[0]);
       
       if (areaPolyline) areaPolyline.remove();
@@ -699,9 +508,7 @@
         weight: 3
       }).addTo(map);
       
-      // Calculate area using shoelace formula
       const area = calculatePolygonArea(areaPoints);
-      
       const center = getPolygonCenter(areaPoints);
       
       const popup = L.popup({ closeOnClick: false })
@@ -718,7 +525,6 @@
       map.getContainer().style.cursor = '';
       areaMode = false;
       
-      // Remove click listeners
       map.off('click');
       map.off('dblclick');
     }
@@ -733,7 +539,7 @@
         area -= points[j][0] * points[i][1];
       }
       
-      return Math.abs(area) / 2 * 111320 * 111320; // Convert to square meters
+      return Math.abs(area) / 2 * 111320 * 111320;
     }
 
     function getPolygonCenter(points) {
@@ -760,7 +566,6 @@
       map.getContainer().style.cursor = '';
     }
 
-    // Drawing Mode
     function toggleDrawingMode() {
       drawingMode = !drawingMode;
       
@@ -805,670 +610,635 @@
       if (distanceMarker2) distanceMarker2.remove();
       if (window.currentDistanceLine) window.currentDistanceLine.remove();
       
+      if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
+      if (intersectionLayer) { map.removeLayer(intersectionLayer); intersectionLayer = null; }
+      if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
+      
       document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
       
       alert('All drawings cleared!');
     }
 
-    // ==================== GEOCODING ====================
-    function geocodeAddress() {
-      const query = document.getElementById('geocodeSearch').value.trim();
-      if (!query) return alert('Please enter an address');
+    // ==================== ADVANCED GIS FEATURES ====================
+    
+    function createBufferZone() {
+      const radius = prompt('Enter buffer radius (meters):', '500');
+      if (!radius) return;
+      
+      const plotNo = prompt('Enter Plot Number for buffer (e.g., A-128):', 'A-128');
+      const plot = plots.find(p => p.no === plotNo);
+      
+      if (!plot) {
+        alert('Plot not found!');
+        return;
+      }
+      
+      if (bufferLayer) map.removeLayer(bufferLayer);
+      
+      bufferLayer = L.circle([plot.lat, plot.lng], {
+        color: '#8b5cf6',
+        fillColor: '#8b5cf6',
+        fillOpacity: 0.2,
+        radius: parseInt(radius)
+      }).addTo(map);
+      
+      let count = 0;
+      plots.forEach(p => {
+        const dist = calculateDistance(plot.lat, plot.lng, p.lat, p.lng);
+        if (dist <= parseInt(radius)) count++;
+      });
+      
+      const popup = L.popup({ closeOnClick: false })
+        .setLatLng([plot.lat, plot.lng])
+        .setContent(`
+          <div class="text-center p-2">
+            <div class="text-lg font-bold text-purple-400">Buffer Zone</div>
+            <div class="text-sm text-gray-400">${radius}m radius around Plot ${plotNo}</div>
+            <div class="text-sm mt-2">Plots within buffer: <strong>${count}</strong></div>
+            <button onclick="clearBuffer()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
+          </div>
+        `)
+        .openOn(map);
+    }
 
-      fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { 'User-Agent': 'AI-Plot-Portal/1.0' }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.length > 0) {
-            const result = data[0];
-            const lat = parseFloat(result.lat);
-            const lng = parseFloat(result.lon);
-            map.flyTo([lat, lng], 16, { duration: 2 });
-            
-            const marker = L.marker([lat, lng], {
-              icon: L.divIcon({
-                html: `<div style="background:#3b82f6;width:36px;height:36px;border-radius:50%;border:3px solid white;box-shadow:0 0 20px rgba(59,130,246,0.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;"><i class="fas fa-map-marker-alt"></i></div>`,
-                iconSize: [36, 36]
-              })
-            }).addTo(map);
-            
-            const popup = L.popup({ offset: [0, -20] })
-              .setLatLng([lat, lng])
-              .setContent(`
-                <div class="text-sm">
-                  <div class="font-bold mb-1">${result.display_name}</div>
-                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${result.display_name.replace(/'/g, "\\'")}');" 
-                    class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-xs w-full">
-                    Create Plot Here
-                  </button>
-                </div>
-              `)
-              .openOn(map);
-            
-            setTimeout(() => marker.on('click', () => marker.remove()), 100);
-          } else {
-            alert('No results found for that address');
+    function clearBuffer() {
+      if (bufferLayer) {
+        map.removeLayer(bufferLayer);
+        bufferLayer = null;
+      }
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+    }
+
+    function findIntersections() {
+      if (intersectionLayer) map.removeLayer(intersectionLayer);
+      
+      let intersections = [];
+      
+      for (let i = 0; i < plots.length; i++) {
+        for (let j = i + 1; j < plots.length; j++) {
+          const dist = calculateDistance(plots[i].lat, plots[i].lng, plots[j].lat, plots[j].lng);
+          
+          if (dist < 100) {
+            intersections.push({
+              plot1: plots[i],
+              plot2: plots[j],
+              distance: dist
+            });
           }
-        })
-        .catch(err => alert('Geocoding failed. Please check your internet connection.'));
+        }
+      }
+      
+      if (intersections.length === 0) {
+        alert('No overlapping plots found!');
+        return;
+      }
+      
+      intersectionLayer = L.layerGroup().addTo(map);
+      
+      intersections.forEach(inter => {
+        const line = L.polyline([
+          [inter.plot1.lat, inter.plot1.lng],
+          [inter.plot2.lat, inter.plot2.lng]
+        ], {
+          color: '#ef4444',
+          weight: 3,
+          dashArray: '5, 5'
+        }).addTo(intersectionLayer);
+        
+        const midLat = (inter.plot1.lat + inter.plot2.lat) / 2;
+        const midLng = (inter.plot1.lng + inter.plot2.lng) / 2;
+        
+        L.popup({ closeOnClick: false })
+          .setLatLng([midLat, midLng])
+          .setContent(`
+            <div class="text-center p-2">
+              <div class="text-sm font-bold text-red-400">OVERLAP DETECTED</div>
+              <div class="text-xs text-gray-400">${inter.plot1.no} ↔ ${inter.plot2.no}</div>
+              <div class="text-xs mt-1">${inter.distance.toFixed(0)}m apart</div>
+            </div>
+          `)
+          .openOn(map);
+      });
+      
+      alert(`Found ${intersections.length} overlapping plot pairs!`);
     }
 
-    function createPlotFromGeocode(lat, lng, address) {
-      const plotName = prompt('Enter Plot Number (e.g., D-999):', `D-${Date.now().toString().slice(-4)}`);
-      if (!plotName) return;
-
-      const newPlot = {
-        id: plots.length,
-        no: plotName,
-        lat: lat,
-        lng: lng,
-        dev: address.split(',')[0] || "New Location",
-        type: "Residential",
-        gfa: "2000",
-        nfa: "1700",
-        far: "2.0",
-        bua: "1500",
-        price: "4500000",
-        status: "Available",
-        owner: "New Owner",
-        phone: "+971 50 000 0000",
-        email: "owner@email.com"
-      };
-
-      plots.push(newPlot);
-      addPlotMarkers();
-      populateTable();
-      alert(`✅ New plot ${plotName} created at the searched location!`);
-    }
-
-    // ==================== FILTERS & TABLE ====================
-    function applyFilters() {
-      const status = document.getElementById('statusFilter').value;
-      const query = document.getElementById('mapSearch').value.toLowerCase().trim();
+    function spatialQuery() {
+      const centerPlotNo = prompt('Enter center Plot Number:', 'A-128');
+      const radius = prompt('Enter search radius (meters):', '1000');
       
-      const filtered = plots.filter(p => 
-        (!status || p.status === status) &&
-        (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))
-      );
+      if (!centerPlotNo || !radius) return;
       
-      markerCluster.clearLayers();
-      filtered.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+      const centerPlot = plots.find(p => p.no === centerPlotNo);
+      if (!centerPlot) {
+        alert('Plot not found!');
+        return;
+      }
+      
+      const nearbyPlots = plots.filter(p => {
+        const dist = calculateDistance(centerPlot.lat, centerPlot.lng, p.lat, p.lng);
+        return dist <= parseInt(radius) && p.id !== centerPlot.id;
+      });
+      
+      if (nearbyPlots.length === 0) {
+        alert('No plots found within the specified radius!');
+        return;
+      }
+      
+      nearbyPlots.forEach(plot => {
         const marker = L.marker([plot.lat, plot.lng], {
           icon: L.divIcon({
-            html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
+            html: `<div style="background:#14b8a6;width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
             iconSize: [32, 32]
-          }),
-          status: plot.status
-        });
-        marker.on('click', () => selectPlot(plot.id));
-        markerCluster.addLayer(marker);
+          })
+        }).addTo(map);
+        
+        marker.bindPopup(`
+          <div style="min-width:180px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:4px;">Plot ${plot.no}</div>
+            <div style="color:#94a3b8;font-size:12px;margin-bottom:6px;">${plot.dev}</div>
+            <div style="color:#14b8a6;font-size:12px;">Within ${radius}m of ${centerPlotNo}</div>
+          </div>
+        `);
+        
+        setTimeout(() => {
+          map.removeLayer(marker);
+        }, 5000);
       });
       
-      populateTable(filtered);
+      alert(`Found ${nearbyPlots.length} plots within ${radius}m of ${centerPlotNo}`);
     }
 
-    function clearFilters() {
-      document.getElementById('statusFilter').value = '';
-      document.getElementById('mapSearch').value = '';
-      populateTable(plots);
-      addPlotMarkers();
-    }
-
-    function filterByStatus(status) {
-      document.getElementById('statusFilter').value = status;
-      applyFilters();
-    }
-
-    let searchTimeout;
-    function debounceSearch() {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => applyFilters(), 300);
-    }
-
-    function togglePlotView(view) {
-      document.getElementById('mapView').classList.toggle('hidden', view !== 'map');
-      document.getElementById('plotTableView').classList.toggle('hidden', view !== 'table');
-      document.getElementById('mapTab').classList.toggle('bg-blue-600', view === 'map');
-      document.getElementById('tableTab').classList.toggle('bg-blue-600', view === 'table');
-    }
-
-    function populateTable(data = plots) {
-      const tbody = document.getElementById('plotTableBody');
-      tbody.innerHTML = data.map(plot => `
-        <tr class="hover:bg-gray-800">
-          <td><input type="checkbox" onchange="toggleSelection(${plot.id}, this)" ${selectedPlots.has(plot.id) ? 'checked' : ''}></td>
-          <td>${plot.no}</td>
-          <td>${plot.dev}</td>
-          <td><span class="px-2 py-0.5 rounded-full text-xs bg-gray-700">${plot.type}</span></td>
-          <td>${plot.gfa}/${plot.nfa}</td>
-          <td>AED ${Number(plot.price).toLocaleString()}</td>
-          <td><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
-          <td>
-            <button onclick="selectPlot(${plot.id}); togglePlotView('map')" class="text-blue-400 mr-2">View</button>
-            <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
-          </td>
-        </tr>
-      `).join('');
+    function showElevationProfile() {
+      const plotNo = prompt('Enter Plot Number for elevation profile:', 'A-128');
+      const plot = plots.find(p => p.no === plotNo);
       
-      const available = data.filter(p => p.status === 'Available').length;
-      const reserved = data.filter(p => p.status === 'Reserved').length;
-      const sold = data.filter(p => p.status === 'Sold').length;
+      if (!plot) {
+        alert('Plot not found!');
+        return;
+      }
       
-      document.getElementById('count-Available').textContent = available;
-      document.getElementById('count-Reserved').textContent = reserved;
-      document.getElementById('count-Sold').textContent = sold;
-    }
-
-    function toggleSelection(id, checkbox) {
-      if (checkbox.checked) selectedPlots.add(id);
-      else selectedPlots.delete(id);
-      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
-    }
-
-    function toggleSelectAll() {
-      const checked = document.getElementById('selectAll').checked;
-      selectedPlots.clear();
-      document.querySelectorAll('#plotTableBody input[type="checkbox"]').forEach(cb => {
-        cb.checked = checked;
-        const plotNo = cb.closest('tr').cells[1].textContent;
-        const plot = plots.find(p => p.no === plotNo);
-        if (plot && checked) selectedPlots.add(plot.id);
-      });
-      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
-    }
-
-    function bulkDelete() {
-      if (selectedPlots.size === 0) return alert('No plots selected');
-      if (!confirm(`Delete ${selectedPlots.size} plots?`)) return;
-      plots = plots.filter(p => !selectedPlots.has(p.id));
-      selectedPlots.clear();
-      document.getElementById('selectAll').checked = false;
-      document.getElementById('selectedCount').textContent = '0 selected';
-      populateTable();
-      addPlotMarkers();
-    }
-
-    function bulkExport() {
-      if (selectedPlots.size === 0) return alert('No plots selected');
-      const selectedData = plots.filter(p => selectedPlots.has(p.id));
-      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
-      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `plots_export_${selectedData.length}_items.csv`;
-      a.click();
-    }
-
-    function selectPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      const card = document.getElementById('mapCard');
-      card.classList.remove('hidden');
+      const baseElevation = 15;
+      const elevation = baseElevation + Math.random() * 10;
       
-      card.innerHTML = `
-        <button onclick="closeCard()" class="float-right text-3xl">×</button>
-        <h3 class="text-3xl font-bold">Plot ${plot.no}</h3>
-        <p class="text-blue-400">${plot.dev}</p>
-        <div class="inline-block px-6 py-2 rounded-2xl mt-4 ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
-        
-        <div class="mt-6 grid grid-cols-2 gap-4 text-sm">
-          <div><span class="text-gray-400">Type:</span> <span class="font-bold">${plot.type}</span></div>
-          <div><span class="text-gray-400">GFA:</span> <span class="font-bold">${plot.gfa} sqm</span></div>
-          <div><span class="text-gray-400">NFA:</span> <span class="font-bold">${plot.nfa} sqm</span></div>
-          <div><span class="text-gray-400">FAR:</span> <span class="font-bold">${plot.far}</span></div>
-          <div><span class="text-gray-400">BUA:</span> <span class="font-bold">${plot.bua} sqm</span></div>
-          <div><span class="text-gray-400">Price:</span> <span class="font-bold">AED ${Number(plot.price).toLocaleString()}</span></div>
-        </div>
-        
-        <div class="mt-6 border-t border-gray-700 pt-4">
-          <div class="text-xs text-gray-400 mb-2">OWNER INFORMATION</div>
-          <div class="font-bold">${plot.owner}</div>
-          <div class="text-sm flex items-center gap-2 mt-1">
-            <i class="fas fa-phone text-gray-400"></i>
-            <span>${plot.phone}</span>
-          </div>
-          <div class="text-sm flex items-center gap-2 mt-1">
-            <i class="fas fa-envelope text-gray-400"></i>
-            <span class="text-blue-400">${plot.email}</span>
-          </div>
-        </div>
-        
-        <div class="mt-6 flex gap-3">
-          <button onclick="showSendOptions(${plot.id})" class="flex-1 bg-emerald-600 py-4 rounded-2xl text-sm font-medium">Send to Client</button>
-          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-4 rounded-2xl text-sm font-medium">Edit Plot</button>
-          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl text-sm font-medium">Delete</button>
-        </div>
-      `;
-      map.flyTo([plot.lat, plot.lng], 16);
-    }
-
-    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
-
-    function editPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      
-      const formHTML = `
-        <div id="editPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
-          <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
-              <div>
-                <h3 class="text-2xl font-semibold">Edit Plot</h3>
-                <p class="text-sm text-gray-400">Plot ${plot.no}</p>
-              </div>
-              <button onclick="closeEditPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+      const popup = L.popup({ closeOnClick: false })
+        .setLatLng([plot.lat, plot.lng])
+        .setContent(`
+          <div class="text-center p-2" style="min-width:250px;">
+            <div class="text-lg font-bold text-indigo-400">Elevation Profile</div>
+            <div class="text-sm text-gray-400">Plot ${plotNo} • ${plot.dev}</div>
+            
+            <div class="mt-4 bg-gray-800 rounded-xl p-4">
+              <div class="text-xs text-gray-400">Current Elevation</div>
+              <div class="text-3xl font-bold text-white">${elevation.toFixed(1)} <span class="text-sm">m</span></div>
             </div>
             
-            <div class="p-8 space-y-6 scrollable-section">
-              <div class="grid grid-cols-2 gap-5">
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number</label>
-                  <input type="text" id="editPlotNo" value="${plot.no}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Development</label>
-                  <input type="text" id="editDev" value="${plot.dev}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
+            <div class="mt-3 text-xs text-gray-400">
+              <div class="flex justify-between">
+                <span>Min Elevation:</span>
+                <span>${(elevation - 5).toFixed(1)}m</span>
               </div>
-              
-              <div>
-                <label class="block text-xs text-gray-400 mb-1.5">Plot Type</label>
-                <select id="editType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="Residential" ${plot.type === 'Residential' ? 'selected' : ''}>Residential</option>
-                  <option value="Commercial" ${plot.type === 'Commercial' ? 'selected' : ''}>Commercial</option>
-                  <option value="Industrial" ${plot.type === 'Industrial' ? 'selected' : ''}>Industrial</option>
-                  <option value="School" ${plot.type === 'School' ? 'selected' : ''}>School / Educational</option>
-                  <option value="Camp" ${plot.type === 'Camp' ? 'selected' : ''}>Camp / Labor Accommodation</option>
-                  <option value="Other" ${plot.type === 'Other' ? 'selected' : ''}>Other</option>
-                </select>
+              <div class="flex justify-between">
+                <span>Max Elevation:</span>
+                <span>${(elevation + 8).toFixed(1)}m</span>
               </div>
-              
-              <div class="border border-gray-700 rounded-2xl p-5">
-                <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
-                <div class="grid grid-cols-2 gap-5">
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">GFA (Gross Floor Area) sqm</label>
-                    <input type="number" id="editGFA" value="${plot.gfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">NFA (Net Floor Area) sqm</label>
-                    <input type="number" id="editNFA" value="${plot.nfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">FAR (Floor Area Ratio)</label>
-                    <input type="number" step="0.1" id="editFAR" value="${plot.far || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">BUA (Built-Up Area) sqm</label>
-                    <input type="number" id="editBUA" value="${plot.bua || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                </div>
-              </div>
-              
-              <div class="grid grid-cols-2 gap-5">
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label>
-                  <input type="number" id="editPrice" value="${plot.price}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Status</label>
-                  <select id="editStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="Available" ${plot.status === 'Available' ? 'selected' : ''}>Available</option>
-                    <option value="Reserved" ${plot.status === 'Reserved' ? 'selected' : ''}>Reserved</option>
-                    <option value="Sold" ${plot.status === 'Sold' ? 'selected' : ''}>Sold</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div class="border border-gray-700 rounded-2xl p-5">
-                <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER / CUSTOMER INFORMATION</div>
-                <div class="grid grid-cols-1 gap-4">
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">Owner Name</label>
-                    <input type="text" id="editOwner" value="${plot.owner || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-xs text-gray-400 mb-1.5">Phone Number</label>
-                      <input type="text" id="editPhone" value="${plot.phone || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                      <label class="block text-xs text-gray-400 mb-1.5">Email Address</label>
-                      <input type="email" id="editEmail" value="${plot.email || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                  </div>
-                </div>
+              <div class="flex justify-between">
+                <span>Slope:</span>
+                <span>${(Math.random() * 5 + 1).toFixed(1)}%</span>
               </div>
             </div>
             
-            <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
-              <button onclick="closeEditPlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-              <button onclick="saveEditPlot(${plot.id})" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Save Changes</button>
-            </div>
+            <button onclick="document.querySelector('.leaflet-popup').remove()" class="mt-3 px-4 py-1 bg-indigo-600 rounded text-xs">Close</button>
           </div>
-        </div>
-      `;
-      
-      document.body.insertAdjacentHTML('beforeend', formHTML);
+        `)
+        .openOn(map);
     }
 
-    function closeEditPlotModal() {
-      const modal = document.getElementById('editPlotModal');
-      if (modal) modal.remove();
+    function findShortestPath() {
+      const startPlotNo = prompt('Enter START Plot Number:', 'A-128');
+      const endPlotNo = prompt('Enter END Plot Number:', 'C-042');
+      
+      if (!startPlotNo || !endPlotNo) return;
+      
+      const startPlot = plots.find(p => p.no === startPlotNo);
+      const endPlot = plots.find(p => p.no === endPlotNo);
+      
+      if (!startPlot || !endPlot) {
+        alert('One or both plots not found!');
+        return;
+      }
+      
+      const distance = calculateDistance(startPlot.lat, startPlot.lng, endPlot.lat, endPlot.lng);
+      
+      const routeLine = L.polyline([
+        [startPlot.lat, startPlot.lng],
+        [endPlot.lat, endPlot.lng]
+      ], {
+        color: '#ec4899',
+        weight: 4,
+        dashArray: '10, 5'
+      }).addTo(map);
+      
+      const midLat = (startPlot.lat + endPlot.lat) / 2;
+      const midLng = (startPlot.lng + endPlot.lng) / 2;
+      
+      const popup = L.popup({ closeOnClick: false })
+        .setLatLng([midLat, midLng])
+        .setContent(`
+          <div class="text-center p-2" style="min-width:200px;">
+            <div class="text-lg font-bold text-pink-400">ROUTE PLANNED</div>
+            <div class="text-sm text-gray-400">${startPlotNo} → ${endPlotNo}</div>
+            
+            <div class="mt-3 bg-gray-800 rounded-xl p-3">
+              <div class="text-xs text-gray-400">Total Distance</div>
+              <div class="text-2xl font-bold text-white">${distance.toFixed(0)} <span class="text-sm">m</span></div>
+              <div class="text-xs text-gray-400 mt-1">${(distance / 1000).toFixed(2)} km</div>
+            </div>
+            
+            <div class="text-xs text-gray-400 mt-2">Estimated time: ~${Math.ceil(distance / 500)} min (walking)</div>
+            
+            <button onclick="clearRoute()" class="mt-3 px-4 py-1 bg-red-600 rounded text-xs">Clear Route</button>
+          </div>
+        `)
+        .openOn(map);
+      
+      window.currentRoute = routeLine;
     }
 
-    function saveEditPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
+    function clearRoute() {
+      if (window.currentRoute) {
+        map.removeLayer(window.currentRoute);
+        window.currentRoute = null;
+      }
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+    }
+
+    function toggleAdvancedHeatmap() {
+      if (heatmapLayer) {
+        map.removeLayer(heatmapLayer);
+        heatmapLayer = null;
+        alert('Advanced heatmap disabled');
+        return;
+      }
       
-      plot.no = document.getElementById('editPlotNo').value.trim();
-      plot.dev = document.getElementById('editDev').value.trim();
-      plot.type = document.getElementById('editType').value;
-      plot.gfa = document.getElementById('editGFA').value;
-      plot.nfa = document.getElementById('editNFA').value;
-      plot.far = document.getElementById('editFAR').value;
-      plot.bua = document.getElementById('editBUA').value;
-      plot.price = document.getElementById('editPrice').value;
-      plot.status = document.getElementById('editStatus').value;
-      plot.owner = document.getElementById('editOwner').value.trim();
-      plot.phone = document.getElementById('editPhone').value.trim();
-      plot.email = document.getElementById('editEmail').value.trim();
+      const heatData = plots.map(plot => {
+        let intensity = 0.5;
+        
+        if (plot.status === 'Available') intensity = 0.9;
+        else if (plot.status === 'Reserved') intensity = 0.6;
+        else intensity = 0.3;
+        
+        const priceFactor = parseFloat(plot.price) / 10000000;
+        intensity = Math.min(intensity * (1 + priceFactor * 0.3), 1);
+        
+        return [plot.lat, plot.lng, intensity];
+      });
       
-      addPlotMarkers();
-      populateTable();
-      closeEditPlotModal();
+      heatmapLayer = L.layerGroup().addTo(map);
       
+      heatData.forEach((point, index) => {
+        const intensity = point[2];
+        const radius = 200 + (intensity * 300);
+        const opacity = 0.3 + (intensity * 0.4);
+        
+        const color = intensity > 0.7 ? '#ef4444' : intensity > 0.5 ? '#f59e0b' : '#3b82f6';
+        
+        L.circle([point[0], point[1]], {
+          color: color,
+          fillColor: color,
+          fillOpacity: opacity,
+          radius: radius,
+          weight: 0
+        }).addTo(heatmapLayer);
+      });
+      
+      alert('Advanced heatmap enabled - showing price & availability intensity');
+    }
+
+    // ==================== 3D TERRAIN VISUALIZATION ====================
+    
+    function show3DTerrain() {
+      const modal = document.getElementById('modal3D');
+      modal.classList.remove('hidden');
+      
+      // Initialize Three.js
       setTimeout(() => {
-        selectPlot(id);
+        initThreeJS();
       }, 100);
+    }
+
+    function close3DModal() {
+      const modal = document.getElementById('modal3D');
+      modal.classList.add('hidden');
       
-      alert(`✅ Plot ${plot.no} updated successfully!`);
+      // Cleanup Three.js
+      if (renderer) {
+        renderer.dispose();
+        renderer = null;
+      }
+      if (scene) {
+        scene = null;
+      }
+      plotMeshes = [];
+    }
+
+    function initThreeJS() {
+      const container = document.getElementById('threeContainer');
+      const canvas = document.getElementById('threeCanvas');
+      
+      // Scene setup
+      scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(0x111111, 50, 200);
+      
+      // Camera
+      camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+      camera.position.set(30, 40, 50);
+      camera.lookAt(0, 0, 0);
+      
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ 
+        canvas: canvas, 
+        antialias: true,
+        alpha: true 
+      });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.shadowMap.enabled = true;
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+      scene.add(ambientLight);
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(50, 100, 50);
+      directionalLight.castShadow = true;
+      scene.add(directionalLight);
+      
+      // Create terrain
+      createTerrain();
+      
+      // Add plot markers
+      add3DPlotMarkers();
+      
+      // Add grid
+      const grid = new THREE.GridHelper(100, 20, 0x444444, 0x222222);
+      scene.add(grid);
+      
+      // Mouse controls
+      setupMouseControls(container);
+      
+      // Animation loop
+      animate3D();
+      
+      // Handle resize
+      window.addEventListener('resize', () => {
+        if (camera && renderer && container) {
+          camera.aspect = container.clientWidth / container.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+      });
+    }
+
+    function createTerrain() {
+      // Create realistic terrain using plane with height variation
+      const geometry = new THREE.PlaneGeometry(100, 100, 50, 50);
+      const vertices = geometry.attributes.position.array;
+      
+      // Add height variation (hills and valleys)
+      for (let i = 0; i < vertices.length; i += 3) {
+        const x = vertices[i];
+        const z = vertices[i + 2];
+        
+        // Create realistic terrain
+        let height = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
+        height += Math.random() * 1.5 - 0.75;
+        
+        // Add some flat areas for plots
+        if (Math.abs(x) < 15 && Math.abs(z) < 15) {
+          height *= 0.3;
+        }
+        
+        vertices[i + 1] = height;
+      }
+      
+      geometry.computeVertexNormals();
+      
+      // Terrain material with gradient colors
+      const material = new THREE.MeshLambertMaterial({
+        color: 0x2d5a27,
+        flatShading: false,
+        wireframe: false
+      });
+      
+      const terrain = new THREE.Mesh(geometry, material);
+      terrain.rotation.x = -Math.PI / 2;
+      terrain.receiveShadow = true;
+      terrain.castShadow = true;
+      scene.add(terrain);
+      
+      // Add water plane
+      const waterGeometry = new THREE.PlaneGeometry(100, 100);
+      const waterMaterial = new THREE.MeshLambertMaterial({
+        color: 0x1a5276,
+        transparent: true,
+        opacity: 0.3
+      });
+      const water = new THREE.Mesh(waterGeometry, waterMaterial);
+      water.rotation.x = -Math.PI / 2;
+      water.position.y = -2;
+      scene.add(water);
+    }
+
+    function add3DPlotMarkers() {
+      plotMeshes = [];
+      
+      plots.forEach((plot, index) => {
+        // Calculate 3D position from lat/lng
+        const x = (plot.lng - 55.3) * 200;
+        const z = (plot.lat - 25.27) * 200;
+        
+        // Get terrain height at this position
+        let terrainHeight = Math.sin(x * 0.05) * 3 + Math.cos(z * 0.04) * 2;
+        terrainHeight += Math.random() * 1.5 - 0.75;
+        
+        const color = plot.status === 'Available' ? 0x22c55e : 
+                     plot.status === 'Reserved' ? 0xf59e0b : 0xef4444;
+        
+        // Create floating marker
+        const markerGeometry = new THREE.CylinderGeometry(1.2, 1.2, 4, 16);
+        const markerMaterial = new THREE.MeshLambertMaterial({ 
+          color: color,
+          emissive: color,
+          emissiveIntensity: 0.3
+        });
+        const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+        
+        marker.position.set(x, terrainHeight + 3, z);
+        marker.castShadow = true;
+        marker.receiveShadow = true;
+        
+        // Add label
+        const labelCanvas = document.createElement('canvas');
+        labelCanvas.width = 128;
+        labelCanvas.height = 32;
+        const ctx = labelCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText(plot.no, 10, 22);
+        
+        const texture = new THREE.CanvasTexture(labelCanvas);
+        const labelMaterial = new THREE.SpriteMaterial({ map: texture });
+        const label = new THREE.Sprite(labelMaterial);
+        label.position.set(0, 4, 0);
+        label.scale.set(8, 2, 1);
+        
+        marker.add(label);
+        scene.add(marker);
+        plotMeshes.push({ mesh: marker, plot: plot });
+        
+        // Add glow effect
+        const glowGeometry = new THREE.CylinderGeometry(1.8, 1.8, 0.3, 16);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          color: color,
+          transparent: true,
+          opacity: 0.4
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        glow.position.set(x, terrainHeight + 1.5, z);
+        scene.add(glow);
+      });
+    }
+
+    function setupMouseControls(container) {
+      container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        previousMouseX = e.clientX;
+        previousMouseY = e.clientY;
+      });
+      
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+      
+      container.addEventListener('mousemove', (e) => {
+        if (!isDragging || !camera) return;
+        
+        const deltaX = e.clientX - previousMouseX;
+        const deltaY = e.clientY - previousMouseY;
+        
+        if (e.buttons === 1) { // Left click - rotate
+          const spherical = new THREE.Spherical();
+          const offset = camera.position.clone().sub(new THREE.Vector3(0, 0, 0));
+          spherical.setFromVector3(offset);
+          
+          spherical.theta -= deltaX * 0.005;
+          spherical.phi -= deltaY * 0.005;
+          spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+          
+          offset.setFromSpherical(spherical);
+          camera.position.copy(new THREE.Vector3(0, 0, 0)).add(offset);
+          camera.lookAt(0, 0, 0);
+        } else if (e.buttons === 2) { // Right click - pan
+          const panSpeed = 0.1;
+          const right = new THREE.Vector3();
+          const up = new THREE.Vector3();
+          
+          camera.getWorldDirection(right);
+          right.crossVectors(camera.up, right).normalize();
+          up.copy(camera.up);
+          
+          camera.position.add(right.multiplyScalar(-deltaX * panSpeed));
+          camera.position.add(up.multiplyScalar(deltaY * panSpeed));
+          camera.lookAt(0, 0, 0);
+        }
+        
+        previousMouseX = e.clientX;
+        previousMouseY = e.clientY;
+      });
+      
+      container.addEventListener('wheel', (e) => {
+        if (!camera) return;
+        
+        const zoomSpeed = 0.1;
+        const direction = camera.position.clone().sub(new THREE.Vector3(0, 0, 0)).normalize();
+        
+        if (e.deltaY > 0) {
+          camera.position.add(direction.multiplyScalar(zoomSpeed * 5));
+        } else {
+          camera.position.sub(direction.multiplyScalar(zoomSpeed * 5));
+        }
+        
+        camera.lookAt(0, 0, 0);
+        e.preventDefault();
+      });
+      
+      // Prevent context menu on right click
+      container.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    function animate3D() {
+      if (!renderer || !scene || !camera) return;
+      
+      requestAnimationFrame(animate3D);
+      
+      // Gentle rotation animation for plot markers
+      plotMeshes.forEach((item, index) => {
+        if (item.mesh) {
+          item.mesh.rotation.y = Math.sin(Date.now() * 0.001 + index) * 0.1;
+        }
+      });
+      
+      renderer.render(scene, camera);
+    }
+
+    function reset3DView() {
+      if (!camera) return;
+      
+      camera.position.set(30, 40, 50);
+      camera.lookAt(0, 0, 0);
+    }
+
+    // ==================== UTILITY FUNCTIONS ====================
+    
+    function addNewPlot() {
+      const no = prompt('Plot Number:', `D-${Date.now().toString().slice(-4)}`);
+      if (!no) return;
+      
+      const dev = prompt('Development:', 'New Development');
+      const size = prompt('Size (sqm):', '1000');
+      const price = prompt('Price (AED):', '3500000');
+      
+      const newPlot = {
+        id: plots.length,
+        no: no,
+        lat: 25.25 + Math.random() * 0.15,
+        lng: 55.27 + Math.random() * 0.15,
+        dev: dev || 'New Development',
+        size: size || '1000',
+        price: price || '3500000',
+        status: 'Available'
+      };
+      
+      plots.push(newPlot);
+      addMarkers();
+      renderTable();
+      alert(`✅ Plot ${no} added successfully!`);
     }
 
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
-      populateTable();
-      addPlotMarkers();
-    }
-
-    // ==================== ADD NEW PLOT ====================
-    function addNewPlot() {
-      const formHTML = `
-        <div id="newPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
-          <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
-              <div>
-                <h3 class="text-2xl font-semibold">Add New Plot</h3>
-                <p class="text-sm text-gray-400">Complete plot information</p>
-              </div>
-              <button onclick="closeNewPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-            </div>
-            
-            <div class="p-8 space-y-6 scrollable-section">
-              <div class="grid grid-cols-2 gap-5">
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label>
-                  <input type="text" id="newPlotNo" value="D-${Date.now().toString().slice(-4)}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Development *</label>
-                  <input type="text" id="newDev" value="New Development" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-              </div>
-              
-              <div>
-                <label class="block text-xs text-gray-400 mb-1.5">Plot Type *</label>
-                <select id="newType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="Residential">Residential</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Industrial">Industrial</option>
-                  <option value="School">School / Educational</option>
-                  <option value="Camp">Camp / Labor Accommodation</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              
-              <div class="border border-gray-700 rounded-2xl p-5">
-                <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
-                <div class="grid grid-cols-2 gap-5">
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">GFA (Gross Floor Area) sqm</label>
-                    <input type="number" id="newGFA" value="2500" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">NFA (Net Floor Area) sqm</label>
-                    <input type="number" id="newNFA" value="2100" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">FAR (Floor Area Ratio)</label>
-                    <input type="number" step="0.1" id="newFAR" value="2.5" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">BUA (Built-Up Area) sqm</label>
-                    <input type="number" id="newBUA" value="1800" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                </div>
-              </div>
-              
-              <div class="grid grid-cols-2 gap-5">
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED) *</label>
-                  <input type="number" id="newPrice" value="4500000" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-                <div>
-                  <label class="block text-xs text-gray-400 mb-1.5">Status</label>
-                  <select id="newStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="Available">Available</option>
-                    <option value="Reserved">Reserved</option>
-                    <option value="Sold">Sold</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div class="border border-gray-700 rounded-2xl p-5">
-                <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER / CUSTOMER INFORMATION</div>
-                <div class="grid grid-cols-1 gap-4">
-                  <div>
-                    <label class="block text-xs text-gray-400 mb-1.5">Owner Name *</label>
-                    <input type="text" id="newOwner" value="New Owner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  </div>
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-xs text-gray-400 mb-1.5">Phone Number</label>
-                      <input type="text" id="newPhone" value="+971 50 000 0000" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                      <label class="block text-xs text-gray-400 mb-1.5">Email Address</label>
-                      <input type="email" id="newEmail" value="owner@email.com" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
-              <button onclick="closeNewPlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-              <button onclick="saveNewPlot()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Add Plot</button>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      document.body.insertAdjacentHTML('beforeend', formHTML);
-    }
-
-    function closeNewPlotModal() {
-      const modal = document.getElementById('newPlotModal');
-      if (modal) modal.remove();
-    }
-
-    function saveNewPlot() {
-      const no = document.getElementById('newPlotNo').value.trim();
-      const dev = document.getElementById('newDev').value.trim();
-      const type = document.getElementById('newType').value;
-      const gfa = document.getElementById('newGFA').value || "0";
-      const nfa = document.getElementById('newNFA').value || "0";
-      const far = document.getElementById('newFAR').value || "0";
-      const bua = document.getElementById('newBUA').value || "0";
-      const price = document.getElementById('newPrice').value;
-      const status = document.getElementById('newStatus').value;
-      const owner = document.getElementById('newOwner').value.trim();
-      const phone = document.getElementById('newPhone').value.trim();
-      const email = document.getElementById('newEmail').value.trim();
-      
-      let errors = [];
-      if (!no) errors.push("Plot Number is required");
-      if (!dev) errors.push("Development is required");
-      if (!owner) errors.push("Owner Name is required");
-      if (!price || price <= 0) errors.push("Price must be greater than 0");
-      
-      if (errors.length > 0) {
-        alert("⚠️ Please fix the following:\n\n" + errors.join("\n"));
-        return;
-      }
-      
-      const lat = 25.25 + Math.random() * 0.15;
-      const lng = 55.27 + Math.random() * 0.15;
-      
-      const newPlot = {
-        id: plots.length,
-        no: no,
-        lat: lat,
-        lng: lng,
-        dev: dev,
-        type: type,
-        gfa: gfa,
-        nfa: nfa,
-        far: far,
-        bua: bua,
-        price: price,
-        status: status,
-        owner: owner,
-        phone: phone,
-        email: email
-      };
-      
-      plots.push(newPlot);
-      addPlotMarkers();
-      populateTable();
-      closeNewPlotModal();
-      
-      alert(`✅ New plot ${no} added successfully!`);
-    }
-
-    // ==================== IMPORT ====================
-    function importPlots() {
-      const modal = document.getElementById('importModal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        document.getElementById('fileInput').value = '';
-      } else {
-        alert('Import modal not found. Please refresh the page.');
-      }
-    }
-
-    function closeImportModal() {
-      const modal = document.getElementById('importModal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    function handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      const ext = file.name.toLowerCase().split('.').pop();
-
-      reader.onload = function(ev) {
-        if (['csv', 'txt'].includes(ext)) importedData = parseCSV(ev.target.result);
-        else if (['json'].includes(ext)) importedData = JSON.parse(ev.target.result);
-        else if (['xlsx', 'xls'].includes(ext)) {
-          const wb = XLSX.read(ev.target.result, { type: 'binary' });
-          importedData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-        }
-        headers = Object.keys(importedData[0] || {});
-      };
-
-      if (['xlsx', 'xls'].includes(ext)) reader.readAsBinaryString(file);
-      else reader.readAsText(file);
-    }
-
-    function parseCSV(csv) {
-      const lines = csv.split('\n');
-      const header = lines[0].split(',').map(h => h.trim());
-      return lines.slice(1).map(line => {
-        const values = line.split(',');
-        return header.reduce((obj, h, i) => { obj[h] = values[i]?.trim(); return obj; }, {});
-      }).filter(r => Object.keys(r).length);
-    }
-
-    function confirmImport() {
-      let added = 0;
-      let skipped = 0;
-      let errors = [];
-      
-      importedData.forEach((item, index) => {
-        const no = (item['Plot No'] || item['plot_no'] || `P-${Date.now()}`).toString().trim();
-        const dev = (item['Development'] || item['development'] || "Imported").toString().trim();
-        const type = (item['Type'] || item['type'] || "Residential").toString().trim();
-        const gfa = item['GFA'] || item['gfa'] || "0";
-        const nfa = item['NFA'] || item['nfa'] || "0";
-        const far = item['FAR'] || item['far'] || "0";
-        const bua = item['BUA'] || item['bua'] || "0";
-        const price = parseFloat(item['Price'] || item['price'] || 3500000);
-        const status = (item['Status'] || item['status'] || "Available").toString().trim();
-        const owner = (item['Owner'] || item['owner'] || "Imported Owner").toString().trim();
-        const phone = (item['Phone'] || item['phone'] || "+971 50 000 0000").toString().trim();
-        const email = (item['Email'] || item['email'] || "owner@email.com").toString().trim();
-        
-        let rowErrors = [];
-        
-        if (!no || no === "undefined") rowErrors.push("Missing Plot Number");
-        if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) rowErrors.push("Duplicate Plot Number");
-        if (!dev || dev.length < 3) rowErrors.push("Development name too short");
-        if (!price || price < 500000 || price > 50000000) rowErrors.push("Invalid Price (AED 500K-50M)");
-        if (!['Available', 'Reserved', 'Sold'].includes(status)) rowErrors.push("Invalid Status");
-        
-        if (rowErrors.length > 0) {
-          skipped++;
-          errors.push(`Row ${index + 1} (${no || 'Unknown'}): ${rowErrors.join(", ")}`);
-          return;
-        }
-        
-        plots.push({
-          id: plots.length + added,
-          no: no,
-          dev: dev,
-          type: type,
-          gfa: gfa,
-          nfa: nfa,
-          far: far,
-          bua: bua,
-          price: price,
-          status: status,
-          owner: owner,
-          phone: phone,
-          email: email,
-          lat: 25.25 + Math.random()*0.15,
-          lng: 55.27 + Math.random()*0.15
-        });
-        added++;
+      map.eachLayer(layer => {
+        if (layer instanceof L.Marker) map.removeLayer(layer);
       });
-      
-      closeImportModal();
-      populateTable();
-      addPlotMarkers();
-      
-      let message = `✅ Import Complete!\n\nImported: ${added} plots\nSkipped: ${skipped} plots\n`;
-      if (errors.length > 0) message += `\nErrors:\n${errors.slice(0, 5).join("\n")}`;
-      alert(message);
+      addMarkers();
+      renderTable();
     }
 
     function exportCSV() {
-      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
-      plots.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
+      let csv = "Plot No,Development,Size,Price,Status\n";
+      plots.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -1476,505 +1246,15 @@
       a.click();
     }
 
-    // ==================== HEATMAP ====================
-    function toggleHeatmap() {
-      if (heatmapEnabled) {
-        if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
-        markerCluster.addTo(map);
-        heatmapEnabled = false;
-        alert('Heatmap disabled');
-      } else {
-        markerCluster.remove();
-        const heatData = plots.map(plot => {
-          let intensity = 0.5;
-          if (plot.status === 'Available') intensity = 0.8;
-          else if (plot.status === 'Reserved') intensity = 0.6;
-          else intensity = 0.4;
-          return [plot.lat, plot.lng, intensity];
-        });
-        
-        heatmapLayer = L.heatLayer(heatData, {
-          radius: 35, blur: 25, maxZoom: 17,
-          gradient: { 0.4: '#3b82f6', 0.6: '#22c55e', 0.8: '#f59e0b', 1.0: '#ef4444' }
-        }).addTo(map);
-        
-        heatmapEnabled = true;
-        alert('Heatmap enabled');
-      }
+    function importPlots() {
+      alert('Import feature coming soon! Use the full version for CSV/Excel import.');
     }
-
-    // ==================== VIDEO/AUDIO CALL ====================
-    function quickVideoCall() {
-      const roomName = `AI-Plot-Call-${Date.now().toString().slice(-8)}`;
-      window.open(`https://meet.jit.si/${roomName}`, '_blank');
-      setTimeout(() => alert(`✅ Video call started!\n\nRoom: ${roomName}`), 800);
-    }
-
-    function startVideoCall(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      const roomName = `AI-Plot-${plot.no}-${Date.now().toString().slice(-6)}`;
-      window.open(`https://meet.jit.si/${roomName}`, '_blank');
-      setTimeout(() => alert(`✅ Video call created!\n\nRoom: ${roomName}`), 1000);
-    }
-
-    function startAudioCall(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      const roomName = `AI-Plot-Audio-${plot.no}-${Date.now().toString().slice(-6)}`;
-      window.open(`https://meet.jit.si/${roomName}#config.startWithAudioMuted=false&config.startWithVideoMuted=true`, '_blank');
-      setTimeout(() => alert(`✅ Audio call created!\n\nRoom: ${roomName}`), 1000);
-    }
-
-    // ==================== SEND TO CLIENT ====================
-    function showSendOptions(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      
-      const modalHTML = `
-        <div id="sendModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
-          <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
-              <div>
-                <h3 class="text-2xl font-semibold">Send to Client</h3>
-                <p class="text-sm text-gray-400">Plot ${plot.no} • ${plot.dev}</p>
-              </div>
-              <button onclick="closeSendModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-            </div>
-            
-            <div class="p-8 space-y-4">
-              <div>
-                <label class="block text-xs text-gray-400 mb-2">Customize Message (optional)</label>
-                <textarea id="customMessage" rows="3" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Add your personal message..."></textarea>
-              </div>
-              
-              <button onclick="sendViaEmail(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
-                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-envelope text-white text-xl"></i>
-                </div>
-                <div class="text-left">
-                  <div class="font-semibold">Send via Email</div>
-                  <div class="text-xs text-gray-400">Opens your email client</div>
-                </div>
-              </button>
-              
-              <button onclick="sendViaWhatsApp(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
-                <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <i class="fab fa-whatsapp text-white text-2xl"></i>
-                </div>
-                <div class="text-left">
-                  <div class="font-semibold">Send via WhatsApp</div>
-                  <div class="text-xs text-gray-400">Opens WhatsApp</div>
-                </div>
-              </button>
-              
-              <button onclick="startVideoCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
-                <div class="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-video text-white text-xl"></i>
-                </div>
-                <div class="text-left">
-                  <div class="font-semibold">Start Video Call</div>
-                  <div class="text-xs text-gray-400">Instant Jitsi Meet room</div>
-                </div>
-              </button>
-              
-              <button onclick="startAudioCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
-                <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
-                  <i class="fas fa-phone text-white text-xl"></i>
-                </div>
-                <div class="text-left">
-                  <div class="font-semibold">Start Audio Call</div>
-                  <div class="text-xs text-gray-400">Voice-only call (no video)</div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      `;
-      
-      document.body.insertAdjacentHTML('beforeend', modalHTML);
-    }
-
-    function closeSendModal() {
-      const modal = document.getElementById('sendModal');
-      if (modal) modal.remove();
-    }
-
-    function sendViaEmail(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      const customMsg = document.getElementById('customMessage').value.trim();
-      
-      const subject = `Plot ${plot.no} - ${plot.dev} | AED ${Number(plot.price).toLocaleString()}`;
-      let body = `Hi,\n\nI wanted to share this amazing plot with you:\n\n` +
-        `📍 Plot: ${plot.no}\n` +
-        `🏗️ Development: ${plot.dev}\n` +
-        `📐 Type: ${plot.type}\n` +
-        `📊 GFA/NFA: ${plot.gfa}/${plot.nfa} sqm\n` +
-        `📈 FAR: ${plot.far}\n` +
-        `💰 Price: AED ${Number(plot.price).toLocaleString()}\n` +
-        `📊 Status: ${plot.status}\n\n` +
-        `👤 Owner: ${plot.owner}\n` +
-        `📞 Phone: ${plot.phone}\n` +
-        `📧 Email: ${plot.email}\n\n` +
-        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
-      
-      if (customMsg) body += `${customMsg}\n\n`;
-      body += `Best regards`;
-      
-      window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-    }
-
-    function sendViaWhatsApp(plotId) {
-      const plot = plots.find(p => p.id === plotId);
-      if (!plot) return;
-      const customMsg = document.getElementById('customMessage').value.trim();
-      
-      let message = `🏠 *Plot ${plot.no}*\n` +
-        `📍 ${plot.dev}\n` +
-        `📐 Type: ${plot.type}\n` +
-        `📊 GFA/NFA: ${plot.gfa}/${plot.nfa} sqm\n` +
-        `📈 FAR: ${plot.far}\n` +
-        `💰 *AED ${Number(plot.price).toLocaleString()}*\n` +
-        `📊 Status: ${plot.status}\n\n` +
-        `👤 Owner: ${plot.owner}\n` +
-        `📞 ${plot.phone}\n` +
-        `📧 ${plot.email}\n\n` +
-        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
-      
-      if (customMsg) message += `${customMsg}\n\n`;
-      message += `What do you think?`;
-      
-      window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
-    }
-
-    // ==================== USER AUTHENTICATION ====================
-    function login() {
-      const username = document.getElementById('loginUsername').value.trim();
-      const password = document.getElementById('loginPassword').value.trim();
-      
-      const accounts = {
-        'admin': { password: 'admin123', name: 'Admin User', role: 'Administrator', avatar: 'AD', color: 'bg-blue-600' },
-        'manager': { password: 'manager123', name: 'Manager User', role: 'Manager', avatar: 'MG', color: 'bg-green-600' },
-        'viewer': { password: 'viewer123', name: 'Viewer User', role: 'Viewer', avatar: 'VW', color: 'bg-orange-600' }
-      };
-      
-      if (accounts[username] && accounts[username].password === password) {
-        currentUser = {
-          username: username,
-          name: accounts[username].name,
-          role: accounts[username].role,
-          avatar: accounts[username].avatar,
-          color: accounts[username].color
-        };
-        
-        localStorage.setItem('aiPlotCurrentUser', JSON.stringify(currentUser));
-        document.getElementById('loginModal').classList.add('hidden');
-        updateUserUI();
-        
-        setTimeout(() => {
-          alert(`✅ Welcome back, ${currentUser.name}!`);
-        }, 500);
-        
-      } else {
-        alert('❌ Invalid username or password');
-      }
-    }
-
-    function logout() {
-      if (confirm('Are you sure you want to logout?')) {
-        currentUser = null;
-        localStorage.removeItem('aiPlotCurrentUser');
-        document.getElementById('loginModal').classList.remove('hidden');
-        
-        document.getElementById('userName').textContent = 'Not Logged In';
-        document.getElementById('userRole').textContent = '';
-        document.getElementById('userAvatar').innerHTML = '<i class="fas fa-user"></i>';
-        document.getElementById('userAvatar').className = 'w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-sm font-bold';
-      }
-    }
-
-    function updateUserUI() {
-      if (!currentUser) return;
-      
-      document.getElementById('userName').textContent = currentUser.name;
-      document.getElementById('userRole').textContent = currentUser.role;
-      document.getElementById('userAvatar').innerHTML = currentUser.avatar;
-      document.getElementById('userAvatar').className = `w-10 h-10 ${currentUser.color} rounded-full flex items-center justify-center text-sm font-bold`;
-      
-      if (currentUser.role === 'Viewer') {
-        document.querySelectorAll('button[onclick*="editPlot"], button[onclick*="deletePlot"], button[onclick*="bulkDelete"]').forEach(btn => {
-          btn.style.display = 'none';
-        });
-      }
-    }
-
-    function checkAuth() {
-      const savedUser = localStorage.getItem('aiPlotCurrentUser');
-      if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-      } else {
-        currentUser = {
-          username: 'guest',
-          name: 'Guest User',
-          role: 'Guest',
-          avatar: 'GU',
-          color: 'bg-gray-600'
-        };
-      }
-      
-      document.getElementById('loginModal').classList.add('hidden');
-      updateUserUI();
-    }
-
-    function continueAsGuest() {
-      currentUser = {
-        username: 'guest',
-        name: 'Guest User',
-        role: 'Guest',
-        avatar: 'GU',
-        color: 'bg-gray-600'
-      };
-      
-      document.getElementById('loginModal').classList.add('hidden');
-      updateUserUI();
-      
-      setTimeout(() => {
-        alert('✅ Welcome, Guest! You have full access to all features.');
-      }, 500);
-    }
-
-    // ==================== REAL-TIME NOTIFICATIONS ====================
-    function addNotification(title, message, type = 'info') {
-      const notification = {
-        id: Date.now(),
-        title: title,
-        message: message,
-        type: type,
-        time: new Date(),
-        read: false
-      };
-      
-      notifications.unshift(notification);
-      updateNotificationBadge();
-      showToastNotification(title, message, type);
-      
-      if (Notification.permission === 'granted') {
-        new Notification(title, {
-          body: message,
-          icon: 'https://via.placeholder.com/64x64/3b82f6/ffffff?text=AI'
-        });
-      }
-      
-      if (notificationPanelOpen) {
-        renderNotificationPanel();
-      }
-    }
-
-    function updateNotificationBadge() {
-      const unread = notifications.filter(n => !n.read).length;
-      const badge = document.getElementById('notificationBadge');
-      
-      if (unread > 0) {
-        badge.textContent = unread > 9 ? '9+' : unread;
-        badge.classList.remove('hidden');
-      } else {
-        badge.classList.add('hidden');
-      }
-    }
-
-    function showToastNotification(title, message, type) {
-      const colors = {
-        info: 'bg-blue-600',
-        success: 'bg-green-600',
-        warning: 'bg-orange-600',
-        error: 'bg-red-600'
-      };
-      
-      const toast = document.createElement('div');
-      toast.className = `fixed bottom-6 right-6 ${colors[type]} text-white px-6 py-4 rounded-2xl shadow-2xl z-[9999] flex items-start gap-4 max-w-sm`;
-      toast.innerHTML = `
-        <div class="flex-1">
-          <div class="font-semibold">${title}</div>
-          <div class="text-sm opacity-90 mt-1">${message}</div>
-        </div>
-        <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white">×</button>
-      `;
-      
-      document.body.appendChild(toast);
-      
-      setTimeout(() => {
-        if (toast.parentElement) toast.remove();
-      }, 5000);
-    }
-
-    function toggleNotifications() {
-      const existingPanel = document.getElementById('notificationPanel');
-      if (existingPanel) {
-        existingPanel.remove();
-        notificationPanelOpen = false;
-        return;
-      }
-      
-      notificationPanelOpen = true;
-      renderNotificationPanel();
-    }
-
-    function renderNotificationPanel() {
-      const existing = document.getElementById('notificationPanel');
-      if (existing) existing.remove();
-      
-      const panel = document.createElement('div');
-      panel.id = 'notificationPanel';
-      panel.className = 'fixed top-16 right-4 w-96 bg-gray-900 border border-gray-700 rounded-3xl shadow-2xl z-[9999] overflow-hidden';
-      
-      let html = `
-        <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-          <div class="font-semibold">Notifications</div>
-          <div class="flex gap-2">
-            <button onclick="markAllAsRead()" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded-xl">Mark all read</button>
-            <button onclick="document.getElementById('notificationPanel').remove(); notificationPanelOpen = false;" class="text-xl text-gray-400 hover:text-white">×</button>
-          </div>
-        </div>
-        
-        <div class="max-h-[400px] overflow-y-auto scrollable-section">
-      `;
-      
-      if (notifications.length === 0) {
-        html += `
-          <div class="px-6 py-12 text-center text-gray-400">
-            <i class="fas fa-bell text-4xl mb-4 opacity-50"></i>
-            <div>No notifications yet</div>
-          </div>
-        `;
-      } else {
-        notifications.forEach((notif, index) => {
-          const timeAgo = getTimeAgo(notif.time);
-          const readClass = notif.read ? 'opacity-60' : '';
-          
-          html += `
-            <div onclick="markAsRead(${notif.id}, ${index})" class="px-6 py-4 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors ${readClass}">
-              <div class="flex items-start gap-3">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'success' ? 'bg-green-600' : notif.type === 'warning' ? 'bg-orange-600' : notif.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}">
-                  <i class="fas ${notif.type === 'success' ? 'fa-check' : notif.type === 'warning' ? 'fa-exclamation' : notif.type === 'error' ? 'fa-times' : 'fa-info'} text-white text-sm"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="font-semibold text-sm">${notif.title}</div>
-                  <div class="text-xs text-gray-400 mt-1">${notif.message}</div>
-                  <div class="text-[10px] text-gray-500 mt-1">${timeAgo}</div>
-                </div>
-              </div>
-            </div>
-          `;
-        });
-      }
-      
-      html += `</div>`;
-      
-      if (notifications.length > 0) {
-        html += `
-          <div class="px-6 py-3 border-t border-gray-700 text-center">
-            <button onclick="clearAllNotifications()" class="text-xs text-gray-400 hover:text-white">Clear all notifications</button>
-          </div>
-        `;
-      }
-      
-      panel.innerHTML = html;
-      document.body.appendChild(panel);
-    }
-
-    function getTimeAgo(date) {
-      const seconds = Math.floor((new Date() - date) / 1000);
-      if (seconds < 60) return 'Just now';
-      if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-      return Math.floor(seconds / 86400) + 'd ago';
-    }
-
-    function markAsRead(id, index) {
-      notifications[index].read = true;
-      updateNotificationBadge();
-      renderNotificationPanel();
-    }
-
-    function markAllAsRead() {
-      notifications.forEach(n => n.read = true);
-      updateNotificationBadge();
-      renderNotificationPanel();
-    }
-
-    function clearAllNotifications() {
-      notifications = [];
-      updateNotificationBadge();
-      document.getElementById('notificationPanel').remove();
-      notificationPanelOpen = false;
-    }
-
-    function startNotificationSimulation() {
-      setInterval(() => {
-        if (Math.random() > 0.7 && currentUser) {
-          const plotNo = `D-${Math.floor(1000 + Math.random() * 9000)}`;
-          addNotification('New Plot Added', `Plot ${plotNo} was added to the system`, 'success');
-        }
-      }, 45000);
-      
-      setInterval(() => {
-        if (Math.random() > 0.8 && plots.length > 0 && currentUser) {
-          const randomPlot = plots[Math.floor(Math.random() * plots.length)];
-          const newStatus = ['Available', 'Reserved', 'Sold'][Math.floor(Math.random() * 3)];
-          
-          if (randomPlot.status !== newStatus) {
-            addNotification('Status Updated', `Plot ${randomPlot.no} changed to ${newStatus}`, 'info');
-            randomPlot.status = newStatus;
-            addPlotMarkers();
-            populateTable();
-          }
-        }
-      }, 60000);
-      
-      setTimeout(() => {
-        if (currentUser && notifications.length === 0) {
-          addNotification('Welcome Back!', `You have ${plots.length} plots in your portfolio`, 'info');
-        }
-      }, 3000);
-    }
-
-    // ==================== MOBILE SIDEBAR ====================
-    function toggleSidebar() {
-      const sidebar = document.getElementById('sidebar');
-      sidebar.classList.toggle('open');
-    }
-
-    document.addEventListener('click', function(e) {
-      const sidebar = document.getElementById('sidebar');
-      const hamburger = document.querySelector('.hamburger');
-      
-      if (window.innerWidth < 768 && 
-          sidebar.classList.contains('open') && 
-          !sidebar.contains(e.target) && 
-          !hamburger.contains(e.target)) {
-        sidebar.classList.remove('open');
-      }
-    });
 
     // ==================== INITIALIZE ====================
     window.onload = () => {
       initMap();
-      populateTable();
-      togglePlotView('map');
-      checkAuth();
-      
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-      
-      startNotificationSimulation();
-      
-      setTimeout(() => {
-        if (currentUser && notifications.length === 0) {
-          addNotification('System Online', 'All systems operational', 'success');
-        }
-      }, 2000);
+      renderTable();
+      console.log('✅ Portal with 3D Terrain loaded successfully');
     };
   </script>
 </body>
