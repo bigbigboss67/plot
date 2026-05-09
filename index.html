@@ -6,18 +6,157 @@
   <title>AI Plot Portal • Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Mapbox GL JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    #map { height: 100%; width: 100%; border-radius: 1.5rem; }
+    .modal { animation: fadeInScale 0.2s ease-out; }
+    @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    
+    /* Performance Optimizations */
+    .loading-spinner {
+      border: 3px solid #374151;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+      .sidebar-mobile { 
+        position: fixed; 
+        z-index: 100; 
+        transform: translateX(-100%); 
+        transition: transform 0.3s ease;
+      }
+      .sidebar-mobile.open { transform: translateX(0); }
+      
+      .main-content-mobile { margin-left: 0 !important; }
+      
+      .map-container-mobile { height: calc(100vh - 180px) !important; }
+      
+      .card-mobile { width: 100% !important; margin: 0; }
+      
+      .table-mobile { font-size: 12px; }
+      .table-mobile th, .table-mobile td { padding: 8px 4px; }
+      
+      .modal-mobile { width: 95% !important; max-height: 90vh; }
+      
+      .btn-mobile { padding: 12px 16px !important; font-size: 14px; }
+    }
+    
+    .hamburger { display: none; }
+    @media (max-width: 768px) { .hamburger { display: block; } }
+    
+    /* Custom Tooltip Styling */
+    .leaflet-tooltip.custom-tooltip {
+      background: #1f2937 !important;
+      border: 1px solid #374151 !important;
+      color: #f1f5f9 !important;
+      border-radius: 12px !important;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
+      padding: 0 !important;
+      font-family: inherit !important;
+    }
+    
+    .leaflet-tooltip.custom-tooltip::before {
+      border-top-color: #1f2937 !important;
+    }
+    
+    /* Mobile Tooltip Optimization */
+    @media (max-width: 768px) {
+      .leaflet-tooltip.custom-tooltip {
+        font-size: 14px !important;
+        padding: 8px 12px !important;
+        border-radius: 16px !important;
+        min-width: 200px !important;
+      }
+      
+      .leaflet-tooltip.custom-tooltip::before {
+        border-width: 8px !important;
+      }
+      
+      /* Better Mobile Responsiveness */
+      .legend {
+        bottom: 16px !important;
+        right: 16px !important;
+        padding: 10px 14px !important;
+        font-size: 11px !important;
+      }
+      
+      #mapCard {
+        width: 100% !important;
+        max-height: 60vh !important;
+        border-radius: 20px 20px 0 0 !important;
+        bottom: 0 !important;
+        position: fixed !important;
+        z-index: 2000 !important;
+      }
+      
+      .main-content-mobile {
+        padding: 16px !important;
+      }
+      
+      .btn-mobile {
+        padding: 14px 18px !important;
+        font-size: 15px !important;
+      }
+    }
+  </style>
 </head>
 <body class="bg-gray-950 text-gray-100">
 
+  <!-- Login Modal (Hidden by Default - Optional) -->
+  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
+    <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-8 text-center">
+        <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+          <i class="fas fa-map-marked text-white text-3xl"></i>
+        </div>
+        <h2 class="text-3xl font-bold mb-2">AI Plot Portal</h2>
+        <p class="text-gray-400 mb-8">Sign in to continue (Optional)</p>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5 text-left">Username</label>
+            <input type="text" id="loginUsername" value="admin" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-400 mb-1.5 text-left">Password</label>
+            <input type="password" id="loginPassword" value="admin123" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </div>
+        </div>
+        
+        <div class="mt-6 space-y-3">
+          <button onclick="login()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Sign In</button>
+          
+          <button onclick="continueAsGuest()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium text-gray-300">Continue as Guest</button>
+        </div>
+        
+        <div class="mt-6 text-xs text-gray-500">
+          Demo Accounts:<br>
+          <span class="text-blue-400">admin / admin123</span> (Full Access)<br>
+          <span class="text-green-400">manager / manager123</span> (Edit Access)<br>
+          <span class="text-orange-400">viewer / viewer123</span> (View Only)
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="flex h-screen overflow-hidden">
     <!-- Sidebar -->
-    <div class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-      <div class="p-6 border-b border-gray-800">
+    <div id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col sidebar-mobile md:transform-none md:relative">
+      <div class="p-6 border-b border-gray-800 flex justify-between items-center">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center">
+          <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
             <i class="fas fa-map-marked text-white text-xl"></i>
           </div>
           <div>
@@ -25,942 +164,809 @@
             <p class="text-xs text-gray-500 -mt-1">Pro Edition</p>
           </div>
         </div>
+        <button onclick="toggleSidebar()" class="md:hidden text-2xl">×</button>
       </div>
-      <nav class="flex-1 p-4">
+      <nav class="flex-1 p-4 space-y-1">
         <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600 text-white">
           <i class="fas fa-map-marker-alt"></i> Plots
         </a>
       </nav>
+      
+      <!-- User Info -->
+      <div class="p-4 border-t border-gray-800 mt-auto">
+        <div class="flex items-center gap-3">
+          <div id="userAvatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">AD</div>
+          <div class="flex-1 min-w-0">
+            <div id="userName" class="font-semibold text-sm truncate">Admin User</div>
+            <div id="userRole" class="text-xs text-gray-500">Administrator</div>
+          </div>
+          <button onclick="logout()" class="text-gray-400 hover:text-red-400 p-2">
+            <i class="fas fa-sign-out-alt"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Main Content -->
     <div class="flex-1 flex flex-col">
-      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
-        <h2 class="text-2xl font-semibold">Plot Management</h2>
-        <div class="flex gap-4">
+      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
+        <div class="flex items-center gap-4">
+          <button onclick="toggleSidebar()" class="hamburger md:hidden text-2xl px-3">☰</button>
+          <h2 class="text-xl md:text-2xl font-semibold">Plot Management</h2>
+          <div class="px-3 py-1 bg-gray-800 rounded-full text-xs text-gray-400 hidden md:block">1,284 Plots</div>
+        </div>
+        <div class="flex items-center gap-4">
           <button onclick="importPlots()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-file-import"></i> Import
           </button>
           <button onclick="exportCSV()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-download"></i> Export
           </button>
-          <button onclick="showNewPlotModal()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+          <button onclick="startDistanceCalculator()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+            <i class="fas fa-ruler"></i> Measure Distance
+          </button>
+          <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-plus"></i> New Plot
           </button>
+          <button onclick="connectGoogleCalendar()" class="px-5 py-2.5 bg-white text-black hover:bg-gray-200 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
+            <i class="fab fa-google"></i> Connect Calendar
+          </button>
+          <button onclick="showValidationRulesModal()" class="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
+            <i class="fas fa-cog"></i> Rules
+          </button>
+          
+          <!-- Mobile Video Call Button -->
+          <button onclick="quickVideoCall()" class="md:hidden px-4 py-2.5 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+            <i class="fas fa-video"></i>
+          </button>
+          
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button onclick="toggleNotifications()" class="relative px-3 py-2 text-gray-400 hover:text-white transition-colors">
+              <i class="fas fa-bell text-xl"></i>
+              <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="flex-1 p-8">
+      <div class="flex-1 overflow-auto p-8">
         <div class="flex justify-between items-center mb-6">
           <div class="flex gap-3">
-            <button onclick="showMapView()" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium">Map View</button>
-            <button onclick="showTableView()" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium">Table View</button>
+            <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium flex items-center gap-2">
+              <i class="fas fa-map"></i> Map View
+            </button>
+            <button onclick="togglePlotView('table')" id="tableTab" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+              <i class="fas fa-table"></i> Table View
+            </button>
           </div>
-          <select id="statusFilter" onchange="filterPlots()" class="bg-gray-800 px-5 py-3 rounded-2xl text-sm">
-            <option value="">All Status</option>
-            <option value="Available">Available</option>
-            <option value="Reserved">Reserved</option>
-            <option value="Sold">Sold</option>
-          </select>
+
+          <div class="flex items-center gap-4">
+            <select id="statusFilter" onchange="applyFilters()" class="bg-gray-800 px-5 py-3 rounded-2xl text-sm">
+              <option value="">All Status</option>
+              <option value="Available">Available</option>
+              <option value="Reserved">Reserved</option>
+              <option value="Sold">Sold</option>
+            </select>
+            <button onclick="clearFilters()" class="px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm">Clear</button>
+            <div class="relative w-80">
+              <input type="text" id="mapSearch" placeholder="Search plots..." class="w-full bg-gray-800 px-5 py-3 pl-12 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" oninput="debounceSearch()">
+              <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+            </div>
+          </div>
         </div>
 
-        <!-- MAP VIEW -->
-        <div id="mapView">
-          <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
-            <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
+        <!-- Interactive Legend - MOVED UP 4CM -->
+        <div class="legend absolute bottom-[100px] left-8 z-[1000] px-5 py-4 rounded-3xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+            <span class="font-semibold text-[10px] tracking-wider text-gray-400">STATUS</span>
+          </div>
+          <div class="flex gap-4 text-xs">
+            <div onclick="filterByStatus('Available')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-green-500 rounded-full"></div> 
+              <span>Available</span>
+              <span class="text-gray-500" id="count-Available">0</span>
+            </div>
+            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-orange-500 rounded-full"></div> 
+              <span>Reserved</span>
+              <span class="text-gray-500" id="count-Reserved">0</span>
+            </div>
+            <div onclick="filterByStatus('Sold')" class="flex items-center gap-1.5 cursor-pointer hover:opacity-80 active:scale-95 transition-all">
+              <div class="w-2 h-2 bg-red-500 rounded-full"></div> 
+              <span>Sold</span>
+              <span class="text-gray-500" id="count-Sold">0</span>
+            </div>
+          </div>
+          <div onclick="clearFilters()" class="mt-2 pt-2 border-t border-gray-700 flex items-center gap-1 text-[10px] text-gray-400 hover:text-white cursor-pointer">
+            <i class="fas fa-times text-[9px]"></i> 
+            <span>Clear</span>
           </div>
         </div>
 
-        <!-- TABLE VIEW WITH BULK EDITING -->
-        <div id="tableView" class="hidden">
-          <!-- BULK ACTION BAR -->
-          <div id="bulkActionBar" class="hidden mb-4 bg-gray-800 rounded-2xl p-4 flex items-center justify-between border border-gray-700">
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-400">
-                <span id="selectedCount">0</span> plots selected
-              </span>
-              <button onclick="clearSelection()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded-xl">Clear Selection</button>
+        <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
+          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 500px;">
+            <div id="map" style="height: 100%; min-height: 500px;"></div>
+            <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-[999]">
+              <div class="text-center">
+                <div class="loading-spinner mx-auto mb-3"></div>
+                <div class="text-sm text-gray-400">Loading Map...</div>
+              </div>
             </div>
             
+            <!-- Geocoding Search Bar -->
+            <div class="absolute top-5 left-5 z-[1000] w-80">
+              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex items-center">
+                <input type="text" id="geocodeSearch" placeholder="Search address or landmark..." 
+                  class="flex-1 bg-transparent px-4 py-2 text-sm focus:outline-none" 
+                  onkeypress="if (event.key === 'Enter') geocodeAddress()">
+                <button onclick="geocodeAddress()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                  <i class="fas fa-search"></i> Search
+                </button>
+              </div>
+            </div>
+            
+            <!-- Map Style Switcher -->
+            <div class="absolute top-20 right-5 z-[1000]">
+              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl text-sm">
+                <button onclick="setMapStyle('streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                  <i class="fas fa-road w-4"></i> Streets
+                </button>
+                <button onclick="setMapStyle('satellite-streets-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                  <i class="fas fa-satellite w-4"></i> Satellite
+                </button>
+                <button onclick="setMapStyle('outdoors-v12')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                  <i class="fas fa-mountain w-4"></i> Outdoors
+                </button>
+                <button onclick="setMapStyle('light-v11')" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700">
+                  <i class="fas fa-sun w-4"></i> Light
+                </button>
+                
+                <div class="border-t border-gray-700 my-1"></div>
+                
+                <button onclick="toggleHeatmap()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-purple-400">
+                  <i class="fas fa-fire w-4"></i> Heatmap
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div id="mapCard" class="w-96 bg-gray-900 rounded-3xl p-7 overflow-auto hidden border border-gray-700"></div>
+        </div>
+
+        <div id="plotTableView" class="hidden mt-6">
+          <div class="flex justify-between items-center mb-4">
             <div class="flex gap-3">
-              <button onclick="bulkChangeStatus()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-sync-alt"></i> Change Status
+              <button onclick="bulkDelete()" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+                <i class="fas fa-trash"></i> Delete Selected
               </button>
-              <button onclick="bulkUpdatePrice()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-dollar-sign"></i> Update Price
-              </button>
-              <button onclick="bulkUpdateOwner()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-user"></i> Update Owner
-              </button>
-              <button onclick="bulkExport()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-download"></i> Export
-              </button>
-              <button onclick="bulkDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-trash"></i> Delete
+              <button onclick="bulkExport()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
+                <i class="fas fa-download"></i> Export Selected
               </button>
             </div>
+            <span class="text-sm text-gray-400" id="selectedCount">0 selected</span>
           </div>
-
-          <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
-            <table class="w-full text-sm">
-              <thead class="border-b border-gray-700 bg-gray-950">
-                <tr>
-                  <th class="w-12 px-6 py-4">
-                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-blue-600">
-                  </th>
-                  <th class="text-left py-4 px-6">Plot No</th>
-                  <th class="text-left py-4 px-6">Development</th>
-                  <th class="text-left py-4 px-6">Size</th>
-                  <th class="text-left py-4 px-6">Price</th>
-                  <th class="text-left py-4 px-6">Status</th>
-                  <th class="text-left py-4 px-6">Owner</th>
-                  <th class="text-left py-4 px-6">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="plotTableBody" class="divide-y divide-gray-800"></tbody>
-            </table>
-          </div>
+          <table class="w-full text-sm">
+            <thead class="border-b border-gray-700">
+              <tr>
+                <th class="w-12"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                <th class="text-left py-4">Plot No</th>
+                <th class="text-left py-4">Development</th>
+                <th class="text-left py-4">Size</th>
+                <th class="text-left py-4">Price</th>
+                <th class="text-left py-4">Status</th>
+                <th class="text-left py-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="plotTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
-
-    <!-- RIGHT SIDE: PLOT INFORMATION CARD -->
-    <div id="mapCard" class="w-96 bg-gray-900 border-l border-gray-800 p-6 overflow-auto hidden">
-      <div class="flex justify-between items-center mb-6">
-        <h3 class="text-xl font-bold">Plot Details</h3>
-        <button onclick="closeCard()" class="text-3xl text-gray-400 hover:text-white">×</button>
-      </div>
-      <div id="plotDetailsContent"></div>
-    </div>
   </div>
 
-  <!-- NEW PLOT MODAL -->
-  <div id="plotModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[700px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
-      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+  <!-- Import Modal -->
+  <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]">
+    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden">
+      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
-          <h3 class="text-2xl font-bold" id="modalTitle">Add New Plot</h3>
-          <p class="text-sm text-gray-400" id="modalSubtitle">Enter complete plot information</p>
+          <h3 class="text-2xl font-semibold">Import Plots</h3>
+          <p class="text-sm text-gray-400">Upload CSV, Excel, or JSON files</p>
         </div>
-        <button onclick="closePlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-      </div>
-      
-      <div class="p-8 space-y-6">
-        <div class="grid grid-cols-2 gap-5">
-          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label><input type="text" id="plotNo" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Development *</label><input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
-        </div>
-
-        <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="School">School</option><option value="Camp">Camp</option><option value="Other">Other</option></select></div>
-
-        <div class="border border-gray-700 rounded-2xl p-5">
-          <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
-          <div class="grid grid-cols-2 gap-5">
-            <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="plotGFA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2500"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">NFA (sqm)</label><input type="number" id="plotNFA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2100"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">FAR</label><input type="number" step="0.1" id="plotFAR" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="2.5"></div>
-            <div><label class="block text-xs text-gray-400 mb-1.5">BUA (sqm)</label><input type="number" id="plotBUA" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="1800"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-5">
-          <div><label class="block text-xs text-gray-400 mb-1.5">Price (AED) *</label><input type="number" id="plotPrice" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" value="4500000"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="plotStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
-        </div>
-
-        <div class="border border-gray-700 rounded-2xl p-5">
-          <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER INFORMATION</div>
-          <div class="grid grid-cols-1 gap-4">
-            <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name *</label><input type="text" id="plotOwner" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="Ahmed Al Maktoum"></div>
-            <div class="grid grid-cols-2 gap-4">
-              <div><label class="block text-xs text-gray-400 mb-1.5">Phone</label><input type="text" id="plotPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="+971 50 123 4567"></div>
-              <div><label class="block text-xs text-gray-400 mb-1.5">Email</label><input type="email" id="plotEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm" placeholder="owner@email.com"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
-        <button onclick="closePlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="savePlot()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium" id="saveBtn">Add Plot</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BULK STATUS CHANGE MODAL -->
-  <div id="bulkStatusModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[400px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Change Status</h3>
-        <p class="text-sm text-gray-400 mt-1">Update status for <span id="bulkStatusCount">0</span> selected plots</p>
+        <button onclick="closeImportModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
       </div>
       
       <div class="p-8">
-        <div class="space-y-3">
-          <button onclick="applyBulkStatus('Available')" class="w-full py-4 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-check-circle"></i> Set to Available
-          </button>
-          <button onclick="applyBulkStatus('Reserved')" class="w-full py-4 bg-orange-600 hover:bg-orange-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-clock"></i> Set to Reserved
-          </button>
-          <button onclick="applyBulkStatus('Sold')" class="w-full py-4 bg-red-600 hover:bg-red-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-handshake"></i> Set to Sold
-          </button>
+        <div class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors">
+          <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+          <p class="font-medium mb-1">Drop your file here</p>
+          <p class="text-sm text-gray-400 mb-4">or</p>
+          <label class="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium cursor-pointer">
+            Choose File
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt" class="hidden" onchange="handleFileSelect(event)">
+          </label>
+          <p class="text-xs text-gray-500 mt-4">Supported: CSV, Excel, JSON, TXT</p>
         </div>
       </div>
+
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
+        <button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
+      </div>
+    </div>
+  <!-- Import Modal -->
+  <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]">
+    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden modal-mobile">
+      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+        <div>
+          <h3 class="text-2xl font-semibold">Import Plots</h3>
+          <p class="text-sm text-gray-400">Upload CSV, Excel, or JSON files</p>
+        </div>
+        <button onclick="closeImportModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+      </div>
       
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end">
-        <button onclick="closeBulkStatusModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+      <div class="p-8">
+        <div class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors">
+          <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+          <p class="font-medium mb-1">Drop your file here</p>
+          <p class="text-sm text-gray-400 mb-4">or</p>
+          <label class="inline-block px-8 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium cursor-pointer">
+            Choose File
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt" class="hidden" onchange="handleFileSelect(event)">
+          </label>
+          <p class="text-xs text-gray-500 mt-4">Supported: CSV, Excel, JSON, TXT</p>
+        </div>
+      </div>
+
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
+        <button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
       </div>
     </div>
   </div>
 
-  <!-- BULK PRICE UPDATE MODAL -->
-  <div id="bulkPriceModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Update Price</h3>
-        <p class="text-sm text-gray-400 mt-1">Update price for <span id="bulkPriceCount">0</span> selected plots</p>
-      </div>
-      
-      <div class="p-8 space-y-5">
-        <div>
-          <label class="block text-xs text-gray-400 mb-2">Update Type</label>
-          <div class="flex gap-3">
-            <button onclick="setPriceUpdateType('percentage')" id="priceTypePercentage" class="flex-1 py-3 bg-blue-600 rounded-2xl text-sm font-medium">Percentage</button>
-            <button onclick="setPriceUpdateType('fixed')" id="priceTypeFixed" class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-2xl text-sm font-medium">Fixed Amount</button>
-          </div>
-        </div>
-        
-        <div>
-          <label class="block text-xs text-gray-400 mb-2" id="priceLabel">Percentage Change</label>
-          <div class="flex items-center gap-3">
-            <input type="number" id="priceValue" class="flex-1 bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value="10" step="0.1">
-            <span class="text-gray-400" id="priceUnit">%</span>
-          </div>
-          <p class="text-xs text-gray-500 mt-1" id="priceHint">Positive = increase, Negative = decrease</p>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl p-4 text-sm">
-          <div class="flex justify-between text-gray-400">
-            <span>Current Total Value:</span>
-            <span id="currentTotalValue">AED 0</span>
-          </div>
-          <div class="flex justify-between text-white font-bold mt-2">
-            <span>New Total Value:</span>
-            <span id="newTotalValue">AED 0</span>
-          </div>
-        </div>
-      </div>
-      
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
-        <button onclick="closeBulkPriceModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="applyBulkPriceUpdate()" class="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium">Apply Changes</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BULK OWNER UPDATE MODAL -->
-  <div id="bulkOwnerModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Update Owner Information</h3>
-        <p class="text-sm text-gray-400 mt-1">Update owner for <span id="bulkOwnerCount">0</span> selected plots</p>
-      </div>
-      
-      <div class="p-8 space-y-4">
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Owner Name</label>
-          <input type="text" id="bulkOwnerName" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter new owner name">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Phone Number</label>
-          <input type="text" id="bulkOwnerPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="+971 50 000 0000">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Email Address</label>
-          <input type="email" id="bulkOwnerEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="owner@email.com">
-        </div>
-        
-        <div class="flex items-center gap-2 text-sm text-gray-400">
-          <input type="checkbox" id="bulkOwnerOverwrite" class="accent-blue-600">
-          <label for="bulkOwnerOverwrite">Overwrite existing owner information</label>
-        </div>
-      </div>
-      
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
-        <button onclick="closeBulkOwnerModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="applyBulkOwnerUpdate()" class="px-8 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Apply Changes</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
   <script>
     let map;
     let plots = [
-      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com" },
-      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", type: "Commercial", gfa: "1800", nfa: "1500", far: "3.2", bua: "1200", price: "6200000", status: "Reserved", owner: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima@email.com" },
-      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
+      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
+      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
+      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", size: "2100", price: "8900000", status: "Sold" }
     ];
-    let currentEditId = null;
+    let importedData = [], headers = [];
     let selectedPlots = new Set();
-    let importedData = [];
-    let currentFile = null;
-    let priceUpdateType = 'percentage';
+    let currentVideos = []; // Temporary storage for new plot videos
 
-    // ==================== MAP ====================
+    // ==================== LEAFLET MAP (SIMPLE & WORKING) ====================
     function initMap() {
-      map = L.map('map').setView([25.2769, 55.2962], 11);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-      
-      addMarkers();
-      setTimeout(() => { if (map) map.invalidateSize(); }, 200);
-    }
-
-    function addMarkers() {
-      plots.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        const marker = L.marker([plot.lat, plot.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3);font-size:10px;">${plot.no}</div>`,
-            iconSize: [32, 32]
-          })
+      try {
+        // Create map
+        map = L.map('map').setView([25.2769, 55.2962], 11);
+        
+        // Add OpenStreetMap tiles (most reliable, no API key needed)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         
-        marker.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div><div style="color:#666;margin-bottom:12px;">${plot.dev}</div><div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div></div>`);
+        // Add plot markers
+        addPlotMarkers();
+        
+        console.log('✅ Map loaded successfully');
+      } catch (error) {
+        console.error('❌ Map failed to load:', error);
+        document.getElementById('map').innerHTML = `
+          <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
+            <div>
+              <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
+              <div class="text-xl font-bold mb-2">Map Loading Issue</div>
+              <div class="text-sm text-gray-400">Please refresh the page (F5)</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function addPlotMarkers() {
+      plots.forEach(plot => {
+        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
+        
+        const markerHTML = `
+          <div style="
+            background: linear-gradient(135deg, ${color} 0%, ${color}dd 100%);
+            width: 38px; 
+            height: 38px; 
+            border-radius: 50%; 
+            border: 3px solid white; 
+            color: white; 
+            font-weight: bold; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.3);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+          " 
+          onmouseover="this.style.transform='scale(1.1)'" 
+          onmouseout="this.style.transform='scale(1)'">
+            <span style="font-size: 11px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${plot.no}</span>
+            
+            <!-- Status indicator -->
+            <div style="
+              position: absolute; 
+              bottom: -2px; 
+              right: -2px; 
+              background: white; 
+              width: 14px; 
+              height: 14px; 
+              border-radius: 50%; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">
+              <i class="fas ${statusIcon}" style="font-size: 7px; color: ${color};"></i>
+            </div>
+          </div>
+        `;
+        
+        const marker = L.marker([plot.lat, plot.lng], {
+          icon: L.divIcon({
+            html: markerHTML,
+            iconSize: [38, 38],
+            className: 'custom-marker',
+            popupAnchor: [0, -20]
+          }),
+          status: plot.status
+        });
+        
+        // Interactive Tooltip - Mobile Optimized
+        const isMobile = window.innerWidth < 768;
+        
+        marker.bindTooltip(`
+          <div style="min-width: ${isMobile ? '200px' : '160px'}; padding: ${isMobile ? '8px 12px' : '4px'};">
+            <div style="font-weight: 700; font-size: ${isMobile ? '15px' : '14px'}; margin-bottom: 4px;">Plot ${plot.no}</div>
+            <div style="color: #94a3b8; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 6px;">${plot.dev}</div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 4px;">
+              <span style="color: #64748b;">Size:</span>
+              <span style="font-weight: 600;">${plot.size} sqm</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 8px;">
+              <span style="color: #64748b;">Price:</span>
+              <span style="font-weight: 700; color: #22c55e;">AED ${Number(plot.price).toLocaleString()}</span>
+            </div>
+            
+            <div style="
+              background: ${color}; 
+              color: white; 
+              font-size: ${isMobile ? '12px' : '11px'}; 
+              padding: 3px 10px; 
+              border-radius: 9999px; 
+              display: inline-block;
+              font-weight: 600;
+            ">${plot.status}</div>
+          </div>
+        `, {
+          direction: 'top',
+          offset: [0, -10],
+          className: 'custom-tooltip',
+          opacity: 0.95,
+          sticky: isMobile // On mobile, tooltip follows finger
+        });
+        
+        // Mobile: Show tooltip on tap, hide after 3 seconds
+        if (isMobile) {
+          marker.on('click', function() {
+            marker.openTooltip();
+            setTimeout(() => {
+              marker.closeTooltip();
+            }, 3000);
+          });
+        }
+        
         marker.on('click', () => selectPlot(plot.id));
+        markerCluster.addLayer(marker);
       });
     }
 
-    function selectPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      const card = document.getElementById('mapCard');
-      const content = document.getElementById('plotDetailsContent');
-      
-      card.classList.remove('hidden');
-      
-      content.innerHTML = `
-        <div class="mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <div class="text-4xl font-bold">Plot ${plot.no}</div>
-              <div class="text-blue-400 text-lg">${plot.dev}</div>
-            </div>
-            <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
-          </div>
-        </div>
-
-        <div class="mb-6">
-          <div class="text-xs text-gray-400 mb-2">CHANGE STATUS</div>
-          <div class="flex gap-2">
-            <button onclick="changePlotStatus(${plot.id}, 'Available')" class="flex-1 py-3 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-medium">Available</button>
-            <button onclick="changePlotStatus(${plot.id}, 'Reserved')" class="flex-1 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl text-sm font-medium">Reserved</button>
-            <button onclick="changePlotStatus(${plot.id}, 'Sold')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium">Sold</button>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">PLOT TYPE</div>
-            <div class="font-bold text-lg">${plot.type || 'Residential'}</div>
-          </div>
-
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">AREA INFORMATION</div>
-            <div class="grid grid-cols-2 gap-4 text-sm">
-              <div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div>
-              <div><div class="text-gray-400">NFA</div><div class="font-bold">${plot.nfa || 'N/A'} sqm</div></div>
-              <div><div class="text-gray-400">FAR</div><div class="font-bold">${plot.far || 'N/A'}</div></div>
-              <div><div class="text-gray-400">BUA</div><div class="font-bold">${plot.bua || 'N/A'} sqm</div></div>
-            </div>
-          </div>
-
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">PRICING</div>
-            <div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div>
-          </div>
-
-          <div class="bg-gray-800 rounded-2xl p-4">
-            <div class="text-xs text-gray-400 mb-3">OWNER INFORMATION</div>
-            <div class="space-y-2">
-              <div class="flex items-center gap-3"><i class="fas fa-user text-gray-400 w-4"></i><span class="font-bold">${plot.owner || 'N/A'}</span></div>
-              <div class="flex items-center gap-3"><i class="fas fa-phone text-gray-400 w-4"></i><span>${plot.phone || 'N/A'}</span></div>
-              <div class="flex items-center gap-3"><i class="fas fa-envelope text-gray-400 w-4"></i><span class="text-blue-400">${plot.email || 'N/A'}</span></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 flex gap-3">
-          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Edit Plot</button>
-          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 py-4 border border-red-600 text-red-400 hover:bg-red-900/50 rounded-2xl text-sm font-medium">Delete</button>
-        </div>
-      `;
+    function setMapStyle(style) {
+      map.setStyle(`mapbox://styles/mapbox/${style}`);
+      map.once('style.load', () => addPlotMarkers());
     }
 
-    function changePlotStatus(id, newStatus) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      
-      plot.status = newStatus;
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      selectPlot(id);
-      alert(`✅ Plot ${plot.no} status changed to ${newStatus}`);
+    // ==================== GEOCODING ====================
+    function geocodeAddress() {
+      const query = document.getElementById('geocodeSearch').value.trim();
+      if (!query) return alert('Please enter an address');
+
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+
+      fetch(url)
+        .then(res => res.json())
+        .then(data => {
+          if (data.features && data.features.length > 0) {
+            const feature = data.features[0];
+            const [lng, lat] = feature.center;
+
+            // Fly to location
+            map.flyTo({
+              center: [lng, lat],
+              zoom: 16,
+              pitch: 50,
+              duration: 2000
+            });
+
+            // Add temporary marker
+            const el = document.createElement('div');
+            el.style.cssText = 'width:36px;height:36px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 20px rgba(59,130,246,0.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;';
+            el.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
+
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([lng, lat])
+              .addTo(map);
+
+            // Show popup with option to create plot
+            const popup = new mapboxgl.Popup({ offset: 25 })
+              .setHTML(`
+                <div class="text-sm">
+                  <div class="font-bold mb-1">${feature.place_name}</div>
+                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${feature.place_name.replace(/'/g, "\\'")}');" 
+                    class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-xs w-full">
+                    Create Plot Here
+                  </button>
+                </div>
+              `)
+              .addTo(map);
+
+            marker.setPopup(popup);
+            popup.on('close', () => marker.remove());
+
+          } else {
+            alert('No results found for that address');
+          }
+        })
+        .catch(err => {
+          alert('Geocoding failed. Please check your internet connection.');
+          console.error(err);
+        });
     }
 
-    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
+    function createPlotFromGeocode(lat, lng, address) {
+      const plotName = prompt('Enter Plot Number (e.g., D-999):', `D-${Date.now().toString().slice(-4)}`);
+      if (!plotName) return;
 
-    function showMapView() {
-      document.getElementById('mapView').classList.remove('hidden');
-      document.getElementById('tableView').classList.add('hidden');
-      setTimeout(() => { if (map) map.invalidateSize(); }, 100);
+      const newPlot = {
+        id: plots.length,
+        no: plotName,
+        lat: lat,
+        lng: lng,
+        dev: address.split(',')[0] || "New Location",
+        size: "1000",
+        price: "4500000",
+        status: "Available"
+      };
+
+      plots.push(newPlot);
+      addPlotMarkers();
+      populateTable();
+
+      alert(`✅ New plot ${plotName} created at the searched location!`);
     }
 
-    function showTableView() {
-      document.getElementById('mapView').classList.add('hidden');
-      document.getElementById('tableView').classList.remove('hidden');
-      renderTable();
+    // ==================== REST OF FUNCTIONS ====================
+    function applyFilters() {
+      const status = document.getElementById('statusFilter').value;
+      const query = document.getElementById('mapSearch').value.toLowerCase().trim();
+      populateTable(plots.filter(p => 
+        (!status || p.status === status) &&
+        (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))
+      ));
     }
 
-    function renderTable() {
+    function clearFilters() {
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('mapSearch').value = '';
+      populateTable(plots);
+      addPlotMarkers();
+    }
+
+    function filterByStatus(status) {
+      document.getElementById('statusFilter').value = status;
+      applyFilters();
+    }
+
+    // Debounced search for better performance
+    let searchTimeout;
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        applyFilters();
+      }, 300); // 300ms delay
+    }
+
+    function togglePlotView(view) {
+      document.getElementById('mapView').classList.toggle('hidden', view !== 'map');
+      document.getElementById('plotTableView').classList.toggle('hidden', view !== 'table');
+      document.getElementById('mapTab').classList.toggle('bg-blue-600', view === 'map');
+      document.getElementById('tableTab').classList.toggle('bg-blue-600', view === 'table');
+    }
+
+    function populateTable(data = plots) {
       const tbody = document.getElementById('plotTableBody');
-      tbody.innerHTML = plots.map(plot => `
+      tbody.innerHTML = data.map(plot => `
         <tr class="hover:bg-gray-800">
-          <td class="px-6 py-4"><input type="checkbox" class="plot-checkbox w-4 h-4 accent-blue-600" data-id="${plot.id}" onchange="togglePlotSelection(${plot.id}, this)"></td>
-          <td class="py-4 px-6 font-bold">${plot.no}</td>
-          <td class="py-4 px-6">${plot.dev}</td>
-          <td class="py-4 px-6">${plot.gfa || plot.size} sqm</td>
-          <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
-          <td class="py-4 px-6"><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
-          <td class="py-4 px-6">${plot.owner || 'N/A'}</td>
-          <td class="py-4 px-6">
-            <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
-            <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
+          <td><input type="checkbox" onchange="toggleSelection(${plot.id}, this)" ${selectedPlots.has(plot.id) ? 'checked' : ''}></td>
+          <td>${plot.no}</td>
+          <td>${plot.dev}</td>
+          <td>${plot.size}</td>
+          <td>AED ${Number(plot.price).toLocaleString()}</td>
+          <td><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
+          <td>
+            <button onclick="selectPlot(${plot.id}); togglePlotView('map')" class="text-blue-400 mr-2">View</button>
+            <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
           </td>
         </tr>
       `).join('');
       
-      updateBulkActionBar();
+      // Update legend counts
+      updateLegendCounts(data);
     }
 
-    function filterPlots() {
-      const status = document.getElementById('statusFilter').value;
-      const filtered = status ? plots.filter(p => p.status === status) : plots;
+    function updateLegendCounts(data) {
+      const available = data.filter(p => p.status === 'Available').length;
+      const reserved = data.filter(p => p.status === 'Reserved').length;
+      const sold = data.filter(p => p.status === 'Sold').length;
       
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      
-      filtered.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        const marker = L.marker([plot.lat, plot.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
-            iconSize: [32, 32]
-          })
-        }).addTo(map);
-        marker.on('click', () => selectPlot(plot.id));
-      });
+      document.getElementById('count-Available').textContent = available;
+      document.getElementById('count-Reserved').textContent = reserved;
+      document.getElementById('count-Sold').textContent = sold;
     }
 
-    // ==================== BULK SELECTION ====================
-    
-    function togglePlotSelection(id, checkbox) {
-      if (checkbox.checked) {
-        selectedPlots.add(id);
-      } else {
-        selectedPlots.delete(id);
-      }
-      updateBulkActionBar();
+    function toggleSelection(id, checkbox) {
+      if (checkbox.checked) selectedPlots.add(id);
+      else selectedPlots.delete(id);
+      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
     }
 
     function toggleSelectAll() {
-      const selectAll = document.getElementById('selectAll').checked;
-      const checkboxes = document.querySelectorAll('.plot-checkbox');
-      
+      const checked = document.getElementById('selectAll').checked;
       selectedPlots.clear();
-      
-      checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAll;
-        const id = parseInt(checkbox.dataset.id);
-        if (selectAll) {
-          selectedPlots.add(id);
-        }
+      document.querySelectorAll('#plotTableBody input[type="checkbox"]').forEach(cb => {
+        cb.checked = checked;
+        const plotNo = cb.closest('tr').cells[1].textContent;
+        const plot = plots.find(p => p.no === plotNo);
+        if (plot && checked) selectedPlots.add(plot.id);
       });
-      
-      updateBulkActionBar();
+      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
     }
 
-    function updateBulkActionBar() {
-      const bulkBar = document.getElementById('bulkActionBar');
-      const countSpan = document.getElementById('selectedCount');
-      
-      countSpan.textContent = selectedPlots.size;
-      
-      if (selectedPlots.size > 0) {
-        bulkBar.classList.remove('hidden');
-      } else {
-        bulkBar.classList.add('hidden');
-      }
-    }
-
-    function clearSelection() {
+    function bulkDelete() {
+      if (selectedPlots.size === 0) return alert('No plots selected');
+      if (!confirm(`Delete ${selectedPlots.size} plots?`)) return;
+      plots = plots.filter(p => !selectedPlots.has(p.id));
       selectedPlots.clear();
-      document.querySelectorAll('.plot-checkbox').forEach(cb => cb.checked = false);
       document.getElementById('selectAll').checked = false;
-      updateBulkActionBar();
-    }
-
-    // ==================== BULK EDITING ====================
-    
-    function bulkChangeStatus() {
-      if (selectedPlots.size === 0) return;
-      
-      document.getElementById('bulkStatusCount').textContent = selectedPlots.size;
-      document.getElementById('bulkStatusModal').classList.remove('hidden');
-    }
-
-    function closeBulkStatusModal() {
-      document.getElementById('bulkStatusModal').classList.add('hidden');
-    }
-
-    function applyBulkStatus(newStatus) {
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          plot.status = newStatus;
-        }
-      });
-      
-      closeBulkStatusModal();
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      clearSelection();
-      
-      alert(`✅ Status updated to ${newStatus} for ${selectedPlots.size} plots`);
-    }
-
-    function bulkUpdatePrice() {
-      if (selectedPlots.size === 0) return;
-      
-      document.getElementById('bulkPriceCount').textContent = selectedPlots.size;
-      document.getElementById('bulkPriceModal').classList.remove('hidden');
-      
-      let total = 0;
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) total += parseFloat(plot.price) || 0;
-      });
-      
-      document.getElementById('currentTotalValue').textContent = `AED ${total.toLocaleString()}`;
-      document.getElementById('newTotalValue').textContent = `AED ${total.toLocaleString()}`;
-      
-      document.getElementById('priceValue').oninput = updatePricePreview;
-    }
-
-    function setPriceUpdateType(type) {
-      priceUpdateType = type;
-      
-      const percentageBtn = document.getElementById('priceTypePercentage');
-      const fixedBtn = document.getElementById('priceTypeFixed');
-      const label = document.getElementById('priceLabel');
-      const unit = document.getElementById('priceUnit');
-      
-      if (type === 'percentage') {
-        percentageBtn.classList.add('bg-blue-600');
-        percentageBtn.classList.remove('bg-gray-700');
-        fixedBtn.classList.remove('bg-blue-600');
-        fixedBtn.classList.add('bg-gray-700');
-        label.textContent = 'Percentage Change';
-        unit.textContent = '%';
-        document.getElementById('priceHint').textContent = 'Positive = increase, Negative = decrease';
-      } else {
-        fixedBtn.classList.add('bg-blue-600');
-        fixedBtn.classList.remove('bg-gray-700');
-        percentageBtn.classList.remove('bg-blue-600');
-        percentageBtn.classList.add('bg-gray-700');
-        label.textContent = 'Fixed Amount (AED)';
-        unit.textContent = 'AED';
-        document.getElementById('priceHint').textContent = 'Enter positive value to increase price';
-      }
-      
-      updatePricePreview();
-    }
-
-    function updatePricePreview() {
-      const value = parseFloat(document.getElementById('priceValue').value) || 0;
-      let total = 0;
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) total += parseFloat(plot.price) || 0;
-      });
-      
-      let newTotal = total;
-      
-      if (priceUpdateType === 'percentage') {
-        newTotal = total * (1 + value / 100);
-      } else {
-        newTotal = total + (value * selectedPlots.size);
-      }
-      
-      document.getElementById('newTotalValue').textContent = `AED ${Math.round(newTotal).toLocaleString()}`;
-    }
-
-    function closeBulkPriceModal() {
-      document.getElementById('bulkPriceModal').classList.add('hidden');
-    }
-
-    function applyBulkPriceUpdate() {
-      const value = parseFloat(document.getElementById('priceValue').value) || 0;
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          if (priceUpdateType === 'percentage') {
-            plot.price = Math.round(plot.price * (1 + value / 100));
-          } else {
-            plot.price = parseFloat(plot.price) + value;
-          }
-        }
-      });
-      
-      closeBulkPriceModal();
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      clearSelection();
-      
-      alert(`✅ Price updated for ${selectedPlots.size} plots`);
-    }
-
-    function bulkUpdateOwner() {
-      if (selectedPlots.size === 0) return;
-      
-      document.getElementById('bulkOwnerCount').textContent = selectedPlots.size;
-      document.getElementById('bulkOwnerModal').classList.remove('hidden');
-    }
-
-    function closeBulkOwnerModal() {
-      document.getElementById('bulkOwnerModal').classList.add('hidden');
-    }
-
-    function applyBulkOwnerUpdate() {
-      const name = document.getElementById('bulkOwnerName').value.trim();
-      const phone = document.getElementById('bulkOwnerPhone').value.trim();
-      const email = document.getElementById('bulkOwnerEmail').value.trim();
-      const overwrite = document.getElementById('bulkOwnerOverwrite').checked;
-      
-      if (!name && !phone && !email) {
-        alert('Please enter at least one field to update');
-        return;
-      }
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          if (name && (overwrite || !plot.owner)) plot.owner = name;
-          if (phone && (overwrite || !plot.phone)) plot.phone = phone;
-          if (email && (overwrite || !plot.email)) plot.email = email;
-        }
-      });
-      
-      closeBulkOwnerModal();
-      renderTable();
-      clearSelection();
-      
-      alert(`✅ Owner information updated for ${selectedPlots.size} plots`);
+      document.getElementById('selectedCount').textContent = '0 selected';
+      populateTable();
     }
 
     function bulkExport() {
-      if (selectedPlots.size === 0) return;
-      
+      if (selectedPlots.size === 0) return alert('No plots selected');
       const selectedData = plots.filter(p => selectedPlots.has(p.id));
-      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
-      
-      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
-      
+      let csv = "Plot No,Development,Size,Price,Status\n";
+      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
       a.download = `plots_export_${selectedData.length}_items.csv`;
       a.click();
-      
-      clearSelection();
     }
 
-    function bulkDelete() {
-      if (selectedPlots.size === 0) return;
-      
-      if (!confirm(`Delete ${selectedPlots.size} selected plots?`)) return;
-      
-      plots = plots.filter(p => !selectedPlots.has(p.id));
-      selectedPlots.clear();
-      
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      
-      alert(`✅ ${selectedPlots.size} plots deleted`);
-    }
-
-    // ==================== NEW PLOT MODAL ====================
-    
-    function showNewPlotModal() {
-      currentEditId = null;
-      document.getElementById('modalTitle').textContent = 'Add New Plot';
-      document.getElementById('modalSubtitle').textContent = 'Enter complete plot information';
-      document.getElementById('saveBtn').textContent = 'Add Plot';
-      
-      document.getElementById('plotNo').value = `D-${Date.now().toString().slice(-4)}`;
-      document.getElementById('plotDev').value = 'New Development';
-      document.getElementById('plotType').value = 'Residential';
-      document.getElementById('plotGFA').value = '2500';
-      document.getElementById('plotNFA').value = '2100';
-      document.getElementById('plotFAR').value = '2.5';
-      document.getElementById('plotBUA').value = '1800';
-      document.getElementById('plotPrice').value = '4500000';
-      document.getElementById('plotStatus').value = 'Available';
-      document.getElementById('plotOwner').value = 'New Owner';
-      document.getElementById('plotPhone').value = '+971 50 000 0000';
-      document.getElementById('plotEmail').value = 'owner@email.com';
-      
-      document.getElementById('plotModal').classList.remove('hidden');
-    }
-
-    function editPlot(id) {
+    function selectPlot(id) {
       const plot = plots.find(p => p.id === id);
-      if (!plot) return;
+      const card = document.getElementById('mapCard');
+      card.classList.remove('hidden');
       
-      currentEditId = id;
-      document.getElementById('modalTitle').textContent = 'Edit Plot';
-      document.getElementById('modalSubtitle').textContent = `Editing Plot ${plot.no}`;
-      document.getElementById('saveBtn').textContent = 'Save Changes';
-      
-      document.getElementById('plotNo').value = plot.no;
-      document.getElementById('plotDev').value = plot.dev;
-      document.getElementById('plotType').value = plot.type || 'Residential';
-      document.getElementById('plotGFA').value = plot.gfa || '2500';
-      document.getElementById('plotNFA').value = plot.nfa || '2100';
-      document.getElementById('plotFAR').value = plot.far || '2.5';
-      document.getElementById('plotBUA').value = plot.bua || '1800';
-      document.getElementById('plotPrice').value = plot.price;
-      document.getElementById('plotStatus').value = plot.status;
-      document.getElementById('plotOwner').value = plot.owner || '';
-      document.getElementById('plotPhone').value = plot.phone || '';
-      document.getElementById('plotEmail').value = plot.email || '';
-      
-      document.getElementById('plotModal').classList.remove('hidden');
-    }
-
-    function closePlotModal() {
-      document.getElementById('plotModal').classList.add('hidden');
-    }
-
-    function savePlot() {
-      const no = document.getElementById('plotNo').value.trim();
-      const dev = document.getElementById('plotDev').value.trim();
-      const type = document.getElementById('plotType').value;
-      const gfa = document.getElementById('plotGFA').value;
-      const nfa = document.getElementById('plotNFA').value;
-      const far = document.getElementById('plotFAR').value;
-      const bua = document.getElementById('plotBUA').value;
-      const price = document.getElementById('plotPrice').value;
-      const status = document.getElementById('plotStatus').value;
-      const owner = document.getElementById('plotOwner').value.trim();
-      const phone = document.getElementById('plotPhone').value.trim();
-      const email = document.getElementById('plotEmail').value.trim();
-      
-      if (!no || !dev || !owner || !price) {
-        alert('Please fill in all required fields (Plot Number, Development, Owner Name, Price)');
-        return;
+      let imageHTML = '';
+      if (plot.image) {
+        imageHTML = `
+          <div class="mt-6">
+            <div class="text-xs text-gray-400 mb-2">PLOT PHOTO</div>
+            <img src="${plot.image}" class="w-full h-48 object-cover rounded-2xl border border-gray-700">
+          </div>
+        `;
       }
       
-      if (currentEditId !== null) {
-        const plot = plots.find(p => p.id === currentEditId);
-        plot.no = no;
-        plot.dev = dev;
-        plot.type = type;
-        plot.gfa = gfa;
-        plot.nfa = nfa;
-        plot.far = far;
-        plot.bua = bua;
-        plot.price = price;
-        plot.status = status;
-        plot.owner = owner;
-        plot.phone = phone;
-        plot.email = email;
+      let videoHTML = '';
+      if (plot.videos && plot.videos.length > 0) {
+        videoHTML = `<div class="mt-6"><div class="text-xs text-gray-400 mb-2">VIRTUAL TOURS & VIDEOS (${plot.videos.length})</div>`;
         
-        alert(`✅ Plot ${no} updated successfully!`);
-      } else {
-        const newPlot = {
-          id: plots.length,
-          no: no,
-          lat: 25.25 + Math.random() * 0.15,
-          lng: 55.27 + Math.random() * 0.15,
-          dev: dev,
-          type: type,
-          gfa: gfa,
-          nfa: nfa,
-          far: far,
-          bua: bua,
-          price: price,
-          status: status,
-          owner: owner,
-          phone: phone,
-          email: email
-        };
-        
-        plots.push(newPlot);
-        alert(`✅ New plot ${no} added successfully!`);
-      }
-      
-      closePlotModal();
-      addMarkers();
-      renderTable();
-    }
-
-    // ==================== IMPORT ====================
-    
-    function importPlots() {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv,.xlsx,.xls,.json,.txt,.pdf';
-      
-      input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        const ext = file.name.toLowerCase().split('.').pop();
-        
-        reader.onload = function(ev) {
-          let data = [];
-          
-          try {
-            if (['csv', 'txt'].includes(ext)) {
-              data = parseCSV(ev.target.result);
-            } else if (['xlsx', 'xls'].includes(ext)) {
-              const wb = XLSX.read(ev.target.result, { type: 'binary' });
-              data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-            } else if (ext === 'json') {
-              data = JSON.parse(ev.target.result);
-            } else if (ext === 'pdf') {
-              const text = new TextDecoder().decode(ev.target.result);
-              data = parsePDFText(text);
-            }
-            
-            let added = 0;
-            let skipped = 0;
-            
-            data.forEach((item, index) => {
-              const no = (item['Plot No'] || item['plot_no'] || `P-${Date.now() + index}`).toString().trim();
-              const dev = (item['Development'] || item['development'] || 'Imported').toString().trim();
-              const price = parseFloat(item['Price'] || item['price'] || 3500000);
-              const status = (item['Status'] || item['status'] || 'Available').toString().trim();
-              const owner = (item['Owner'] || item['owner'] || 'Imported Owner').toString().trim();
-              const phone = (item['Phone'] || item['phone'] || '+971 50 000 0000').toString().trim();
-              const email = (item['Email'] || item['email'] || 'owner@email.com').toString().trim();
-              
-              if (!no || !dev || !price) {
-                skipped++;
-                return;
-              }
-              
-              if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
-                skipped++;
-                return;
-              }
-              
-              plots.push({
-                id: plots.length,
-                no: no,
-                lat: 25.25 + Math.random() * 0.15,
-                lng: 55.27 + Math.random() * 0.15,
-                dev: dev,
-                type: item['Type'] || item['type'] || 'Residential',
-                gfa: item['GFA'] || item['gfa'] || '2000',
-                nfa: item['NFA'] || item['nfa'] || '1700',
-                far: item['FAR'] || item['far'] || '2.0',
-                bua: item['BUA'] || item['bua'] || '1500',
-                price: price,
-                status: ['Available', 'Reserved', 'Sold'].includes(status) ? status : 'Available',
-                owner: owner,
-                phone: phone,
-                email: email
-              });
-              
-              added++;
-            });
-            
-            addMarkers();
-            renderTable();
-            alert(`✅ Import Complete!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`);
-            
-          } catch (error) {
-            alert('Error reading file: ' + error.message);
+        plot.videos.forEach((video, index) => {
+          if (video.type === 'file') {
+            videoHTML += `
+              <div class="mb-4">
+                <div class="text-xs text-gray-500 mb-1">${video.name}</div>
+                <video controls class="w-full rounded-2xl border border-gray-700">
+                  <source src="${video.data}" type="video/mp4">
+                </video>
+              </div>
+            `;
+          } else if (video.type === 'youtube' || video.type === 'vimeo') {
+            videoHTML += `
+              <div class="mb-4">
+                <div class="text-xs text-gray-500 mb-1">${video.title}</div>
+                <div class="aspect-video rounded-2xl overflow-hidden border border-gray-700">
+                  <iframe src="${video.url}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                </div>
+              </div>
+            `;
           }
-        };
+        });
         
-        if (['xlsx', 'xls'].includes(ext)) {
-          reader.readAsBinaryString(file);
-        } else if (ext === 'pdf') {
-          reader.readAsArrayBuffer(file);
-        } else {
-          reader.readAsText(file);
-        }
-      };
+        videoHTML += `</div>`;
+      }
+
+      let panoramaHTML = '';
+      if (plot.panorama) {
+        panoramaHTML = `
+          <div class="mt-6">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-xs text-gray-400">360° PANORAMA</div>
+              <button onclick="viewPanorama('${plot.panorama}')" class="px-4 py-1 bg-purple-600 hover:bg-purple-700 rounded-xl text-xs flex items-center gap-2">
+                <i class="fas fa-globe"></i> View 360°
+              </button>
+            </div>
+            <div class="w-full h-32 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 relative cursor-pointer" onclick="viewPanorama('${plot.panorama}')">
+              <img src="${plot.panorama}" class="w-full h-full object-cover">
+              <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                <div class="text-center">
+                  <i class="fas fa-globe text-3xl text-white mb-1"></i>
+                  <div class="text-white text-xs">Click to view 360°</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
       
-      input.click();
+      card.innerHTML = `
+        <button onclick="closeCard()" class="float-right text-3xl">×</button>
+        <h3 class="text-3xl font-bold">Plot ${plot.no}</h3>
+        <p class="text-blue-400">${plot.dev}</p>
+        <div class="inline-block px-6 py-2 rounded-2xl mt-4 ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
+        <div class="grid grid-cols-2 gap-6 mt-8 text-sm">
+          <div>Size: <span class="font-bold">${plot.size} sqm</span></div>
+          <div>Price: <span class="font-bold">AED ${Number(plot.price).toLocaleString()}</span></div>
+        </div>
+        ${imageHTML}
+        <div class="mt-8 flex gap-3">
+          <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl">Link to Deal</button>
+          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl">Delete</button>
+        </div>
+        
+        <!-- Send To Button -->
+        <div class="mt-4">
+          <button onclick="showSendOptions(${plot.id})" class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 rounded-2xl flex items-center justify-center gap-3 text-sm font-medium">
+            <i class="fas fa-share-alt"></i> Send To Client (Email / WhatsApp)
+          </button>
+        </div>
+        
+        ${imageHTML}
+        ${videoHTML}
+      `;
+      map.flyTo({ center: [plot.lng, plot.lat], zoom: 16, pitch: 60 });
     }
 
-    function parseCSV(csv) {
-      const lines = csv.split('\n').filter(l => l.trim().length > 0);
-      if (lines.length === 0) return [];
-      
-      const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-      
-      return lines.slice(1).map(line => {
-        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
-        const obj = {};
-        header.forEach((h, i) => { obj[h] = values[i] || ''; });
-        return obj;
-      }).filter(r => Object.keys(r).length > 1);
-    }
-
-    function parsePDFText(text) {
-      const lines = text.split('\n').filter(l => l.trim().length > 10);
-      return lines.slice(0, 20).map((line, index) => ({
-        'Plot No': `P-${1000 + index}`,
-        'Development': line.substring(0, 60).trim(),
-        'Price': Math.floor(Math.random() * 5000000) + 2000000,
-        'Status': 'Available',
-        'Owner': 'Imported Owner'
-      }));
-    }
-
-    // ==================== UTILITY ====================
-    
-    function addNewPlot() {
-      showNewPlotModal();
-    }
+    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
 
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
+      populateTable();
+    }
+
+    function importPlots() {
+      document.getElementById('importModal').classList.remove('hidden');
+      document.getElementById('fileInput').value = '';
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').classList.add('hidden');
+    }
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      const ext = file.name.toLowerCase().split('.').pop();
+
+      reader.onload = function(ev) {
+        if (['csv', 'txt'].includes(ext)) importedData = parseCSV(ev.target.result);
+        else if (['json'].includes(ext)) importedData = JSON.parse(ev.target.result);
+        else if (['xlsx', 'xls'].includes(ext)) {
+          const wb = XLSX.read(ev.target.result, { type: 'binary' });
+          importedData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        }
+        headers = Object.keys(importedData[0] || {});
+      };
+
+      if (['xlsx', 'xls'].includes(ext)) reader.readAsBinaryString(file);
+      else reader.readAsText(file);
+    }
+
+    function parseCSV(csv) {
+      const lines = csv.split('\n');
+      const header = lines[0].split(',').map(h => h.trim());
+      return lines.slice(1).map(line => {
+        const values = line.split(',');
+        return header.reduce((obj, h, i) => { obj[h] = values[i]?.trim(); return obj; }, {});
+      }).filter(r => Object.keys(r).length);
+    }
+
+    function confirmImport() {
+      let added = 0;
+      let skipped = 0;
+      let errors = [];
+      
+      importedData.forEach((item, index) => {
+        const no = (item['Plot No'] || item['plot_no'] || item['PlotNumber'] || `P-${Date.now()}`).toString().trim();
+        const dev = (item['Development'] || item['development'] || item['Dev'] || "Imported").toString().trim();
+        const size = parseFloat(item['Size'] || item['size'] || item['sqm'] || 1000);
+        const price = parseFloat(item['Price'] || item['price'] || item['AED'] || 3500000);
+        const status = (item['Status'] || item['status'] || "Available").toString().trim();
+        
+        // Validation
+        let rowErrors = [];
+        
+        if (!no || no === "undefined") rowErrors.push("Missing Plot Number");
+        if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) rowErrors.push("Duplicate Plot Number");
+        if (!dev || dev.length < 3) rowErrors.push("Development name too short");
+        if (!size || size < 200 || size > 10000) rowErrors.push("Invalid Size (200-10,000 sqm)");
+        if (!price || price < 500000 || price > 50000000) rowErrors.push("Invalid Price (AED 500K-50M)");
+        if (!['Available', 'Reserved', 'Sold'].includes(status)) rowErrors.push("Invalid Status");
+        
+        if (rowErrors.length > 0) {
+          skipped++;
+          errors.push(`Row ${index + 1} (${no || 'Unknown'}): ${rowErrors.join(", ")}`);
+          return;
+        }
+        
+        plots.push({
+          id: plots.length + added,
+          no: no,
+          dev: dev,
+          size: size,
+          price: price,
+          status: status,
+          lat: 25.25 + Math.random()*0.15,
+          lng: 55.27 + Math.random()*0.15
+        });
+        added++;
+      });
+      
+      closeImportModal();
+      populateTable();
+      addPlotMarkers();
+      
+      let message = `✅ Import Complete!\n\n`;
+      message += `Imported: ${added} plots\n`;
+      message += `Skipped: ${skipped} plots\n`;
+      
+      if (errors.length > 0 && errors.length <= 5) {
+        message += `\nErrors:\n${errors.join("\n")}`;
+      } else if (errors.length > 5) {
+        message += `\n${errors.length} total errors (showing first 5):\n${errors.slice(0, 5).join("\n")}`;
+      }
+      
+      alert(message);
     }
 
     function exportCSV() {
-      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
-      plots.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
+      let csv = "Plot No,Development,Size,Price,Status\n";
+      plots.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
       const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
@@ -968,11 +974,1580 @@
       a.click();
     }
 
+    function printPDF() { window.print(); }
+    function addNewPlot() {
+      const formHTML = `
+        <div id="newPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
+          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Add New Plot</h3>
+                <p class="text-sm text-gray-400">Enter plot details manually</p>
+              </div>
+              <button onclick="closeNewPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-5">
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number</label>
+                  <input type="text" id="newPlotNo" value="D-${Date.now().toString().slice(-4)}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Development</label>
+                  <input type="text" id="newDev" value="New Development" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Size (sqm)</label>
+                  <input type="number" id="newSize" value="1200" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label>
+                  <input type="number" id="newPrice" value="4500000" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Status</label>
+                <select id="newStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="Available">Available</option>
+                  <option value="Reserved">Reserved</option>
+                  <option value="Sold">Sold</option>
+                </select>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Latitude (optional)</label>
+                  <input type="text" id="newLat" placeholder="25.2769" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Longitude (optional)</label>
+                  <input type="text" id="newLng" placeholder="55.2962" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+
+              <!-- Image Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Image (optional)</label>
+                <div class="flex items-center gap-4">
+                  <label class="cursor-pointer px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm flex items-center gap-2 border border-gray-700">
+                    <i class="fas fa-image"></i> Upload Photo
+                    <input type="file" id="newImage" accept="image/*" class="hidden" onchange="previewPlotImage(event)">
+                  </label>
+                  <div id="imagePreview" class="w-16 h-16 bg-gray-800 rounded-2xl overflow-hidden border border-gray-700 hidden">
+                    <img id="previewImg" class="w-full h-full object-cover">
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">JPG, PNG up to 5MB</p>
+              </div>
+
+              <!-- Multiple Video Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Videos (up to 4)</label>
+                
+                <!-- YouTube/Vimeo Embed -->
+                <div class="mb-3">
+                  <div class="flex gap-2">
+                    <input type="text" id="youtubeUrl" placeholder="Paste YouTube or Vimeo URL" 
+                      class="flex-1 bg-gray-800 rounded-2xl px-5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="addVideoEmbed()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Add Embed</button>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-1">Supports YouTube & Vimeo links</p>
+                </div>
+                
+                <!-- File Upload -->
+                <div class="flex items-center gap-3 mb-3">
+                  <label class="cursor-pointer px-5 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm flex items-center gap-2 border border-gray-700">
+                    <i class="fas fa-video"></i> Upload Video
+                    <input type="file" id="newVideo" accept="video/*" class="hidden" onchange="addVideoFile(event)">
+                  </label>
+                  <span class="text-xs text-gray-500">MP4, MOV (max 4 videos)</span>
+                </div>
+                
+                <!-- Video List -->
+                <div id="videoList" class="space-y-2"></div>
+              </div>
+
+              <!-- 360° Panorama Upload -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">360° Panorama (optional)</label>
+                <div class="flex items-center gap-4">
+                  <label class="cursor-pointer px-5 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-2xl text-sm flex items-center gap-2">
+                    <i class="fas fa-globe"></i> Upload 360° Photo
+                    <input type="file" id="newPanorama" accept="image/*" class="hidden" onchange="previewPanorama(event)">
+                  </label>
+                  <div id="panoramaPreview" class="w-16 h-16 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 hidden">
+                    <img id="panoramaImg" class="w-full h-full object-cover">
+                  </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Equirectangular 360° image (JPG/PNG)</p>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
+              <button onclick="closeNewPlotModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="saveNewPlot()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Add Plot</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', formHTML);
+    }
+
+    function closeNewPlotModal() {
+      const modal = document.getElementById('newPlotModal');
+      if (modal) modal.remove();
+    }
+
+    function previewPlotImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('imagePreview');
+        const img = document.getElementById('previewImg');
+        img.src = e.target.result;
+        preview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function addVideoEmbed() {
+      const url = document.getElementById('youtubeUrl').value.trim();
+      if (!url) return alert('Please enter a YouTube or Vimeo URL');
+      
+      let embedCode = '';
+      let videoType = '';
+      
+      // YouTube
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        let videoId = '';
+        if (url.includes('youtu.be/')) {
+          videoId = url.split('youtu.be/')[1].split('?')[0];
+        } else if (url.includes('v=')) {
+          videoId = url.split('v=')[1].split('&')[0];
+        }
+        embedCode = `https://www.youtube.com/embed/${videoId}`;
+        videoType = 'youtube';
+      } 
+      // Vimeo
+      else if (url.includes('vimeo.com')) {
+        const videoId = url.split('vimeo.com/')[1].split('?')[0];
+        embedCode = `https://player.vimeo.com/video/${videoId}`;
+        videoType = 'vimeo';
+      } 
+      else {
+        return alert('Please enter a valid YouTube or Vimeo URL');
+      }
+      
+      currentVideos.push({
+        type: videoType,
+        url: embedCode,
+        title: 'Embedded Video'
+      });
+      
+      renderVideoList();
+      document.getElementById('youtubeUrl').value = '';
+    }
+
+    function addVideoFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (currentVideos.length >= 4) {
+        return alert('Maximum 4 videos allowed per plot');
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        currentVideos.push({
+          type: 'file',
+          data: e.target.result,
+          name: file.name,
+          size: (file.size / (1024 * 1024)).toFixed(1) + 'MB'
+        });
+        renderVideoList();
+      };
+      reader.readAsDataURL(file);
+      
+      // Reset input
+      event.target.value = '';
+    }
+
+    function renderVideoList() {
+      const container = document.getElementById('videoList');
+      container.innerHTML = '';
+      
+      currentVideos.forEach((video, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between bg-gray-800 rounded-2xl px-4 py-3 text-sm';
+        
+        let icon = video.type === 'youtube' ? 'fab fa-youtube text-red-500' : 
+                   video.type === 'vimeo' ? 'fab fa-vimeo-v text-blue-500' : 'fas fa-video text-purple-400';
+        
+        let label = video.type === 'file' ? video.name : video.title;
+        
+        div.innerHTML = `
+          <div class="flex items-center gap-3">
+            <i class="${icon} text-lg"></i>
+            <span class="truncate max-w-[200px]">${label}</span>
+            ${video.size ? `<span class="text-xs text-gray-500">(${video.size})</span>` : ''}
+          </div>
+          <button onclick="removeVideo(${index})" class="text-red-400 hover:text-red-600 px-2">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function removeVideo(index) {
+      currentVideos.splice(index, 1);
+      renderVideoList();
+    }
+
+    // ==================== 360° PANORAMA ====================
+    function previewPanorama(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const preview = document.getElementById('panoramaPreview');
+        const img = document.getElementById('panoramaImg');
+        img.src = e.target.result;
+        preview.classList.remove('hidden');
+        
+        // Store temporarily
+        window.tempPanorama = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function saveNewPlot() {
+      const no = document.getElementById('newPlotNo').value.trim();
+      const dev = document.getElementById('newDev').value.trim();
+      const size = parseFloat(document.getElementById('newSize').value);
+      const price = parseFloat(document.getElementById('newPrice').value);
+      const status = document.getElementById('newStatus').value;
+      let lat = parseFloat(document.getElementById('newLat').value);
+      let lng = parseFloat(document.getElementById('newLng').value);
+      const imageInput = document.getElementById('newImage');
+      
+      // Advanced Validation Rules
+      let errors = [];
+      
+      // Plot Number: Must be in format A-123 or B-1234
+      if (!no) {
+        errors.push("Plot Number is required");
+      } else if (!/^[A-Z]-\d{3,4}$/i.test(no)) {
+        errors.push("Plot Number must be in format: A-123 or B-1234");
+      } else if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
+        errors.push("Plot Number already exists");
+      }
+      
+      // Development: Minimum 3 characters
+      if (!dev) {
+        errors.push("Development is required");
+      } else if (dev.length < 3) {
+        errors.push("Development name must be at least 3 characters");
+      }
+      
+      // Size: 200 - 10,000 sqm
+      if (!size || size <= 0) {
+        errors.push("Size must be greater than 0");
+      } else if (size < 200) {
+        errors.push("Size must be at least 200 sqm");
+      } else if (size > 10000) {
+        errors.push("Size cannot exceed 10,000 sqm");
+      }
+      
+      // Price: AED 500,000 - 50,000,000
+      if (!price || price <= 0) {
+        errors.push("Price must be greater than 0");
+      } else if (price < 500000) {
+        errors.push("Price must be at least AED 500,000");
+      } else if (price > 50000000) {
+        errors.push("Price cannot exceed AED 50,000,000");
+      }
+      
+      if (errors.length > 0) {
+        alert("⚠️ Please fix the following:\n\n" + errors.join("\n"));
+        return;
+      }
+      
+      // If no coordinates provided, place randomly near center
+      if (!lat || !lng) {
+        lat = 25.25 + Math.random() * 0.15;
+        lng = 55.27 + Math.random() * 0.15;
+      }
+      
+      const newPlot = {
+        id: plots.length,
+        no: no,
+        lat: lat,
+        lng: lng,
+        dev: dev,
+        size: size,
+        price: price,
+        status: status,
+        image: null,
+        videos: [...currentVideos],
+        panorama: window.tempPanorama || null
+      };
+      currentVideos = [];
+      window.tempPanorama = null;
+      
+      // Handle image upload
+      if (imageInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          newPlot.image = e.target.result;
+          
+          // Handle video upload
+          const videoInput = document.getElementById('newVideo');
+          if (videoInput.files.length > 0) {
+            const videoReader = new FileReader();
+            videoReader.onload = function(ve) {
+              newPlot.video = ve.target.result;
+              plots.push(newPlot);
+              addPlotMarkers();
+              populateTable();
+              closeNewPlotModal();
+              alert(`✅ New plot ${no} added successfully!`);
+            };
+            videoReader.readAsDataURL(videoInput.files[0]);
+            return;
+          }
+          
+          plots.push(newPlot);
+          addPlotMarkers();
+          populateTable();
+          closeNewPlotModal();
+          alert(`✅ New plot ${no} added successfully!`);
+        };
+        reader.readAsDataURL(imageInput.files[0]);
+        return;
+      }
+      
+      // Handle video only (no image)
+      const videoInput = document.getElementById('newVideo');
+      if (videoInput.files.length > 0) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          newPlot.video = e.target.result;
+          plots.push(newPlot);
+          addPlotMarkers();
+          populateTable();
+          closeNewPlotModal();
+          alert(`✅ New plot ${no} added successfully!`);
+        };
+        reader.readAsDataURL(videoInput.files[0]);
+        return;
+      }
+      
+      plots.push(newPlot);
+      addPlotMarkers();
+      populateTable();
+      closeNewPlotModal();
+      
+      alert(`✅ New plot ${no} added successfully!`);
+    }
+    function linkToDeal() { alert("Plot linked to new deal!"); }
+
+    // ==================== SEND TO CLIENT ====================
+    function showSendOptions(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const modalHTML = `
+        <div id="sendModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
+          <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Send to Client</h3>
+                <p class="text-sm text-gray-400">Plot ${plot.no} • ${plot.dev}</p>
+              </div>
+              <button onclick="closeSendModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-4">
+              <!-- Email Option -->
+              <button onclick="sendViaEmail(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-envelope text-white text-xl"></i>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold">Send via Email</div>
+                  <div class="text-xs text-gray-400">Opens your email client</div>
+                </div>
+              </button>
+              
+              <!-- WhatsApp Option -->
+              <button onclick="sendViaWhatsApp(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fab fa-whatsapp text-white text-2xl"></i>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold">Send via WhatsApp</div>
+                  <div class="text-xs text-gray-400">Opens WhatsApp</div>
+                </div>
+              </button>
+              
+              <!-- SMS Option -->
+              <button onclick="sendViaSMS(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-orange-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-sms text-white text-xl"></i>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold">Send via SMS</div>
+                  <div class="text-xs text-gray-400">Opens your SMS app</div>
+                </div>
+              </button>
+              
+              <!-- Video Call Option -->
+              <button onclick="startVideoCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-red-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-video text-white text-xl"></i>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold">Start Video Call</div>
+                  <div class="text-xs text-gray-400">Instant Jitsi Meet room</div>
+                </div>
+              </button>
+              
+              <!-- Audio Call Option -->
+              <button onclick="startAudioCall(${plotId}); closeSendModal();" class="w-full flex items-center gap-4 px-6 py-5 bg-gray-800 hover:bg-gray-700 rounded-2xl transition-all active:scale-[0.985]">
+                <div class="w-12 h-12 bg-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <i class="fas fa-phone text-white text-xl"></i>
+                </div>
+                <div class="text-left">
+                  <div class="font-semibold">Start Audio Call</div>
+                  <div class="text-xs text-gray-400">Voice-only call (no video)</div>
+                </div>
+              </button>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 text-center">
+              <div class="text-xs text-gray-500">Pre-filled with plot details, price & link</div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeSendModal() {
+      const modal = document.getElementById('sendModal');
+      if (modal) modal.remove();
+    }
+
+    function sendViaEmail(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      const subject = `Plot ${plot.no} - ${plot.dev} | AED ${Number(plot.price).toLocaleString()}`;
+      
+      let body = `Hi,\n\nI wanted to share this amazing plot with you:\n\n` +
+        `📍 Plot: ${plot.no}\n` +
+        `🏗️ Development: ${plot.dev}\n` +
+        `📐 Size: ${plot.size} sqm\n` +
+        `💰 Price: AED ${Number(plot.price).toLocaleString()}\n` +
+        `📊 Status: ${plot.status}\n\n` +
+        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
+      
+      if (customMsg) {
+        body += `${customMsg}\n\n`;
+      }
+      
+      body += `Best regards`;
+      
+      const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(mailtoLink, '_blank');
+    }
+
+    function sendViaWhatsApp(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      let message = `🏠 *Plot ${plot.no}*\n` +
+        `📍 ${plot.dev}\n` +
+        `📐 ${plot.size} sqm\n` +
+        `💰 *AED ${Number(plot.price).toLocaleString()}*\n` +
+        `📊 Status: ${plot.status}\n\n` +
+        `📍 Location: https://www.google.com/maps?q=${plot.lat},${plot.lng}\n\n`;
+      
+      if (customMsg) {
+        message += `${customMsg}\n\n`;
+      }
+      
+      message += `What do you think?`;
+      
+      const whatsappLink = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(whatsappLink, '_blank');
+    }
+
+    function sendViaSMS(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
+      let message = `Plot ${plot.no} - ${plot.dev}\n` +
+        `Size: ${plot.size} sqm | Price: AED ${Number(plot.price).toLocaleString()}\n` +
+        `Status: ${plot.status}\n` +
+        `Location: https://maps.google.com/?q=${plot.lat},${plot.lng}`;
+      
+      if (customMsg) {
+        message += `\n\n${customMsg}`;
+      }
+      
+      const smsLink = `sms:?body=${encodeURIComponent(message)}`;
+      window.open(smsLink, '_blank');
+    }
+
+    // ==================== VIDEO CALL ====================
+    function startVideoCall(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      // Create unique room name based on plot
+      const roomName = `AI-Plot-${plot.no}-${Date.now().toString().slice(-6)}`;
+      const jitsiLink = `https://meet.jit.si/${roomName}`;
+      
+      // Open Jitsi Meet in new tab
+      window.open(jitsiLink, '_blank');
+      
+      // Show helpful message
+      setTimeout(() => {
+        alert(`✅ Video call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}`);
+      }, 1000);
+    }
+
+    // ==================== CALENDAR SCHEDULING ====================
+    function showScheduleModal(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const today = new Date();
+      const defaultDate = today.toISOString().split('T')[0];
+      const defaultTime = "10:00";
+      
+      const modalHTML = `
+        <div id="scheduleModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
+          <div class="bg-gray-900 rounded-3xl w-[480px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Schedule Viewing</h3>
+                <p class="text-sm text-gray-400">Plot ${plot.no} • ${plot.dev}</p>
+              </div>
+              <button onclick="closeScheduleModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-5">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Date</label>
+                  <input type="date" id="scheduleDate" value="${defaultDate}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Time</label>
+                  <input type="time" id="scheduleTime" value="${defaultTime}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Duration</label>
+                <select id="scheduleDuration" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="30">30 minutes</option>
+                  <option value="60" selected>1 hour</option>
+                  <option value="90">1.5 hours</option>
+                  <option value="120">2 hours</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Notes (optional)</label>
+                <textarea id="scheduleNotes" rows="2" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Client prefers morning..."></textarea>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeScheduleModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="scheduleEvent(${plotId})" class="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 rounded-2xl text-sm font-medium">Add to Calendar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeScheduleModal() {
+      const modal = document.getElementById('scheduleModal');
+      if (modal) modal.remove();
+    }
+
+    function scheduleEvent(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      const date = document.getElementById('scheduleDate').value;
+      const time = document.getElementById('scheduleTime').value;
+      const duration = parseInt(document.getElementById('scheduleDuration').value);
+      const notes = document.getElementById('scheduleNotes').value.trim();
+      
+      if (!date || !time) {
+        alert('Please select date and time');
+        return;
+      }
+      
+      // Create ICS file content
+      const startDateTime = new Date(`${date}T${time}`);
+      const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+      
+      const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AI Plot Portal//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:plot-${plot.no}-${Date.now()}@aiplotportal.com
+DTSTART:${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+DTEND:${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z
+SUMMARY:Viewing - Plot ${plot.no} (${plot.dev})
+DESCRIPTION:Plot Viewing Appointment\\n\\nPlot: ${plot.no}\\nDevelopment: ${plot.dev}\\nSize: ${plot.size} sqm\\nPrice: AED ${Number(plot.price).toLocaleString()}\\nStatus: ${plot.status}\\n\\nLocation: https://maps.google.com/?q=${plot.lat},${plot.lng}\\n\\n${notes ? 'Notes: ' + notes : ''}
+LOCATION:${plot.dev}
+STATUS:CONFIRMED
+SEQUENCE:0
+END:VEVENT
+END:VCALENDAR`;
+      
+      // Download ICS file
+      const blob = new Blob([icsContent], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Plot_${plot.no}_Viewing.ics`;
+      a.click();
+      
+      // Also offer Google Calendar link
+      const googleLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Viewing%20-%20Plot%20${plot.no}&dates=${startDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z/${endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0]}Z&details=Plot%20${plot.no}%20-%20${plot.dev}%0ASize:%20${plot.size}%20sqm%0APrice:%20AED%20${Number(plot.price).toLocaleString()}&location=${plot.dev}`;
+      
+      closeScheduleModal();
+      
+      setTimeout(() => {
+        if (confirm('Calendar event downloaded!\n\nWould you also like to open Google Calendar?')) {
+          window.open(googleLink, '_blank');
+        }
+      }, 500);
+    }
+
+    // ==================== GOOGLE CALENDAR API INTEGRATION ====================
+    function connectGoogleCalendar() {
+      const modalHTML = `
+        <div id="googleCalendarModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[6000]">
+          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div class="flex items-center gap-3">
+                <i class="fab fa-google text-2xl text-blue-400"></i>
+                <h3 class="text-2xl font-semibold">Google Calendar API</h3>
+              </div>
+              <button onclick="closeGoogleCalendarModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8">
+              <div class="bg-gray-800 rounded-2xl p-6 mb-6">
+                <div class="flex items-start gap-4">
+                  <i class="fas fa-info-circle text-blue-400 text-xl mt-1"></i>
+                  <div class="text-sm">
+                    <p class="font-semibold mb-2">Full Google Calendar Sync</p>
+                    <p class="text-gray-400">To enable automatic two-way sync with Google Calendar, you need to set up Google Cloud Console + OAuth.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="space-y-4 text-sm">
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">1</div>
+                  <div>Go to <a href="https://console.cloud.google.com" target="_blank" class="text-blue-400 underline">Google Cloud Console</a></div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">2</div>
+                  <div>Enable <strong>Google Calendar API</strong></div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">3</div>
+                  <div>Create OAuth 2.0 credentials</div>
+                </div>
+                <div class="flex gap-4">
+                  <div class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">4</div>
+                  <div>Add your domain to authorized origins</div>
+                </div>
+              </div>
+              
+              <div class="mt-6 p-4 bg-yellow-900/30 border border-yellow-600 rounded-2xl text-xs text-yellow-400">
+                <strong>Note:</strong> Full API integration requires a backend server. The current .ics download method works perfectly for most users.
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeGoogleCalendarModal()" class="flex-1 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm">Close</button>
+              <button onclick="window.open('https://console.cloud.google.com/apis/library/calendar-json.googleapis.com', '_blank'); closeGoogleCalendarModal()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Open Google Cloud Console</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeGoogleCalendarModal() {
+      const modal = document.getElementById('googleCalendarModal');
+      if (modal) modal.remove();
+    }
+
+    // ==================== QUICK VIDEO CALL ====================
+    function quickVideoCall() {
+      const roomName = `AI-Plot-Call-${Date.now().toString().slice(-8)}`;
+      const jitsiLink = `https://meet.jit.si/${roomName}`;
+      
+      window.open(jitsiLink, '_blank');
+      
+      setTimeout(() => {
+        alert(`✅ Video call started!\n\nRoom: ${roomName}\n\nShare this link: ${jitsiLink}`);
+      }, 800);
+    }
+
+    // ==================== 360° PANORAMA VIEWER ====================
+    function viewPanorama(imageData) {
+      const modalHTML = `
+        <div id="panoramaModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[4000]">
+          <div class="w-[95%] max-w-6xl">
+            <div class="flex justify-between items-center mb-4 px-4">
+              <div class="text-white">
+                <h3 class="text-2xl font-bold">360° Virtual Tour</h3>
+                <p class="text-gray-400 text-sm">Drag to look around • Scroll to zoom</p>
+              </div>
+              <button onclick="closePanoramaModal()" class="text-white text-4xl hover:text-gray-300">×</button>
+            </div>
+            
+            <div class="bg-black rounded-3xl overflow-hidden border border-gray-700" style="height: 70vh;">
+              <div id="pannellumViewer" style="width: 100%; height: 100%;"></div>
+            </div>
+            
+            <div class="text-center mt-4 text-gray-400 text-sm">
+              Use mouse to drag • Scroll wheel to zoom • Double-click to reset
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+      
+      // Load Pannellum dynamically
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js';
+      script.onload = function() {
+        pannellum.viewer('pannellumViewer', {
+          type: 'equirectangular',
+          panorama: imageData,
+          autoLoad: true,
+          compass: true,
+          northOffset: 0,
+          pitch: 0,
+          yaw: 0,
+          hfov: 100
+        });
+      };
+      document.head.appendChild(script);
+      
+      // Also load CSS
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css';
+      document.head.appendChild(link);
+    }
+
+    function closePanoramaModal() {
+      const modal = document.getElementById('panoramaModal');
+      if (modal) modal.remove();
+    }
+
+    // ==================== DISTANCE CALCULATOR ====================
+    let distanceMode = false;
+    let firstPoint = null;
+    let distanceMarker1 = null;
+    let distanceMarker2 = null;
+
+    function startDistanceCalculator() {
+      distanceMode = true;
+      firstPoint = null;
+      
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      
+      alert('Click on the map to select the first point');
+      
+      map.getCanvas().style.cursor = 'crosshair';
+      
+      map.once('click', function(e) {
+        firstPoint = [e.lngLat.lng, e.lngLat.lat];
+        
+        const el1 = document.createElement('div');
+        el1.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
+        
+        distanceMarker1 = new mapboxgl.Marker(el1)
+          .setLngLat(firstPoint)
+          .addTo(map);
+        
+        alert('Now click on the second point');
+        
+        map.once('click', function(e2) {
+          const secondPoint = [e2.lngLat.lng, e2.lngLat.lat];
+          
+          const el2 = document.createElement('div');
+          el2.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
+          
+          distanceMarker2 = new mapboxgl.Marker(el2)
+            .setLngLat(secondPoint)
+            .addTo(map);
+          
+          // Calculate distance
+          const distance = calculateDistance(firstPoint[1], firstPoint[0], secondPoint[1], secondPoint[0]);
+          
+          // Draw line
+          if (map.getSource('distance-line')) {
+            map.removeLayer('distance-line');
+            map.removeSource('distance-line');
+          }
+          
+          map.addSource('distance-line', {
+            'type': 'geojson',
+            'data': {
+              'type': 'Feature',
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': [firstPoint, secondPoint]
+              }
+            }
+          });
+          
+          map.addLayer({
+            'id': 'distance-line',
+            'type': 'line',
+            'source': 'distance-line',
+            'layout': {},
+            'paint': {
+              'line-color': '#a855f7',
+              'line-width': 3,
+              'line-dasharray': [2, 1]
+            }
+          });
+          
+          // Show result
+          const popup = new mapboxgl.Popup({ closeOnClick: false })
+            .setLngLat([
+              (firstPoint[0] + secondPoint[0]) / 2,
+              (firstPoint[1] + secondPoint[1]) / 2
+            ])
+            .setHTML(`
+              <div class="text-center p-2">
+                <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
+                <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
+                <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
+              </div>
+            `)
+            .addTo(map);
+          
+          map.getCanvas().style.cursor = '';
+          distanceMode = false;
+        });
+      });
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth's radius in meters
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c; // Distance in meters
+    }
+
+    function clearDistanceMeasurement() {
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      
+      if (map.getLayer('distance-line')) map.removeLayer('distance-line');
+      if (map.getSource('distance-line')) map.removeSource('distance-line');
+      
+      document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+      
+      distanceMode = false;
+      firstPoint = null;
+      map.getCanvas().style.cursor = '';
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('open');
+    }
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', function(e) {
+      const sidebar = document.getElementById('sidebar');
+      const hamburger = document.querySelector('.hamburger');
+      
+      if (window.innerWidth < 768 && 
+          sidebar.classList.contains('open') && 
+          !sidebar.contains(e.target) && 
+          !hamburger.contains(e.target)) {
+        sidebar.classList.remove('open');
+      }
+    });
+
+    // ==================== CUSTOM VALIDATION RULES ====================
+    let customValidationRules = {
+      minPrice: 500000,
+      maxPrice: 50000000,
+      minSize: 200,
+      maxSize: 10000,
+      plotNumberPattern: "^[A-Z]-\\d{3,4}$"
+    };
+
+    function loadCustomRules() {
+      const saved = localStorage.getItem('aiPlotValidationRules');
+      if (saved) {
+        customValidationRules = JSON.parse(saved);
+      }
+    }
+
+    function showValidationRulesModal() {
+      loadCustomRules();
+      
+      const modalHTML = `
+        <div id="validationRulesModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
+          <div class="bg-gray-900 rounded-3xl w-[480px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
+              <div>
+                <h3 class="text-2xl font-semibold">Custom Validation Rules</h3>
+                <p class="text-sm text-gray-400">Set your market-specific rules</p>
+              </div>
+              <button onclick="closeValidationRulesModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-6">
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Minimum Price (AED)</label>
+                <input type="number" id="ruleMinPrice" value="${customValidationRules.minPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Maximum Price (AED)</label>
+                <input type="number" id="ruleMaxPrice" value="${customValidationRules.maxPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Minimum Size (sqm)</label>
+                  <input type="number" id="ruleMinSize" value="${customValidationRules.minSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-2">Maximum Size (sqm)</label>
+                  <input type="number" id="ruleMaxSize" value="${customValidationRules.maxSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">Plot Number Pattern (Regex)</label>
+                <input type="text" id="rulePlotPattern" value="${customValidationRules.plotNumberPattern}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-xs text-gray-500 mt-1">Example: ^[A-Z]-\\d{3,4}$</p>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
+              <button onclick="closeValidationRulesModal()" class="flex-1 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm">Cancel</button>
+              <button onclick="saveValidationRules()" class="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Save Rules</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    function closeValidationRulesModal() {
+      const modal = document.getElementById('validationRulesModal');
+      if (modal) modal.remove();
+    }
+
+    function saveValidationRules() {
+      customValidationRules = {
+        minPrice: parseInt(document.getElementById('ruleMinPrice').value) || 500000,
+        maxPrice: parseInt(document.getElementById('ruleMaxPrice').value) || 50000000,
+        minSize: parseInt(document.getElementById('ruleMinSize').value) || 200,
+        maxSize: parseInt(document.getElementById('ruleMaxSize').value) || 10000,
+        plotNumberPattern: document.getElementById('rulePlotPattern').value || "^[A-Z]-\\d{3,4}$"
+      };
+      
+      localStorage.setItem('aiPlotValidationRules', JSON.stringify(customValidationRules));
+      closeValidationRulesModal();
+      
+      alert("✅ Custom validation rules saved successfully!");
+    }
+
+    // ==================== AUDIO CALL ====================
+    function startAudioCall(plotId) {
+      const plot = plots.find(p => p.id === plotId);
+      if (!plot) return;
+      
+      // Create unique room name
+      const roomName = `AI-Plot-Audio-${plot.no}-${Date.now().toString().slice(-6)}`;
+      
+      // Jitsi Meet with video muted by default (audio only)
+      const jitsiLink = `https://meet.jit.si/${roomName}#config.startWithAudioMuted=false&config.startWithVideoMuted=true`;
+      
+      // Open Jitsi Meet in new tab
+      window.open(jitsiLink, '_blank');
+      
+      // Show helpful message
+      setTimeout(() => {
+        alert(`✅ Audio call room created!\n\nRoom: ${roomName}\n\nShare this link with your client:\n${jitsiLink}\n\n(Voice only - video disabled by default)`);
+      }, 1000);
+    }
+
+    // ==================== HEATMAP ====================
+    let heatmapLayer = null;
+    let heatmapEnabled = false;
+
+    function toggleHeatmap() {
+      if (heatmapEnabled) {
+        // Remove heatmap
+        if (heatmapLayer) {
+          map.removeLayer(heatmapLayer);
+          heatmapLayer = null;
+        }
+        markerCluster.addTo(map);
+        heatmapEnabled = false;
+        alert('Heatmap disabled - showing markers');
+      } else {
+        // Create heatmap
+        markerCluster.remove();
+        
+        const heatData = plots.map(plot => {
+          let intensity = 0.5;
+          if (plot.status === 'Available') intensity = 0.8;
+          else if (plot.status === 'Reserved') intensity = 0.6;
+          else intensity = 0.4;
+          
+          return [plot.lat, plot.lng, intensity];
+        });
+        
+        heatmapLayer = L.heatLayer(heatData, {
+          radius: 35,
+          blur: 25,
+          maxZoom: 17,
+          gradient: {
+            0.4: '#3b82f6',
+            0.6: '#22c55e',
+            0.8: '#f59e0b',
+            1.0: '#ef4444'
+          }
+        }).addTo(map);
+        
+        heatmapEnabled = true;
+        alert('Heatmap enabled - showing plot density');
+      }
+    }
+
+    // ==================== EDIT PLOT ====================
+    function editPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const formHTML = `
+        <div id="editPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
+          <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
+              <div>
+                <h3 class="text-2xl font-semibold">Edit Plot</h3>
+                <p class="text-sm text-gray-400">Plot ${plot.no}</p>
+              </div>
+              <button onclick="closeEditPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+            </div>
+            
+            <div class="p-8 space-y-6">
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Plot Number</label>
+                  <input type="text" id="editPlotNo" value="${plot.no}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Development</label>
+                  <input type="text" id="editDev" value="${plot.dev}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
+              
+              <div>
+                <label class="block text-xs text-gray-400 mb-1.5">Plot Type</label>
+                <select id="editType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="Residential" ${plot.type === 'Residential' ? 'selected' : ''}>Residential</option>
+                  <option value="Commercial" ${plot.type === 'Commercial' ? 'selected' : ''}>Commercial</option>
+                  <option value="Industrial" ${plot.type === 'Industrial' ? 'selected' : ''}>Industrial</option>
+                  <option value="School" ${plot.type === 'School' ? 'selected' : ''}>School / Educational</option>
+                  <option value="Camp" ${plot.type === 'Camp' ? 'selected' : ''}>Camp / Labor Accommodation</option>
+                  <option value="Other" ${plot.type === 'Other' ? 'selected' : ''}>Other</option>
+                </select>
+              </div>
+              
+              <div class="border border-gray-700 rounded-2xl p-5">
+                <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
+                <div class="grid grid-cols-2 gap-5">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">GFA (Gross Floor Area) sqm</label>
+                    <input type="number" id="editGFA" value="${plot.gfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">NFA (Net Floor Area) sqm</label>
+                    <input type="number" id="editNFA" value="${plot.nfa || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">FAR (Floor Area Ratio)</label>
+                    <input type="number" step="0.1" id="editFAR" value="${plot.far || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">BUA (Built-Up Area) sqm</label>
+                    <input type="number" id="editBUA" value="${plot.bua || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-5">
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label>
+                  <input type="number" id="editPrice" value="${plot.price}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-xs text-gray-400 mb-1.5">Status</label>
+                  <select id="editStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="Available" ${plot.status === 'Available' ? 'selected' : ''}>Available</option>
+                    <option value="Reserved" ${plot.status === 'Reserved' ? 'selected' : ''}>Reserved</option>
+                    <option value="Sold" ${plot.status === 'Sold' ? 'selected' : ''}>Sold</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="border border-gray-700 rounded-2xl p-5">
+                <div class="text-xs text-gray-400 mb-3 font-semibold">OWNER / CUSTOMER INFORMATION</div>
+                <div class="grid grid-cols-1 gap-4">
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-1.5">Owner Name</label>
+                    <input type="text" id="editOwner" value="${plot.owner || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  </div>
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-1.5">Phone Number</label>
+                      <input type="text" id="editPhone" value="${plot.phone || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-1.5">Email Address</label>
+                      <input type="email" id="editEmail" value="${plot.email || ''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
+              <button onclick="closeEditPlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+              <button onclick="saveEditPlot(${plot.id})" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.insertAdjacentHTML('beforeend', formHTML);
+    }
+
+    function closeEditPlotModal() {
+      const modal = document.getElementById('editPlotModal');
+      if (modal) modal.remove();
+    }
+
+    function saveEditPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      plot.no = document.getElementById('editPlotNo').value.trim();
+      plot.dev = document.getElementById('editDev').value.trim();
+      plot.type = document.getElementById('editType').value;
+      plot.gfa = document.getElementById('editGFA').value;
+      plot.nfa = document.getElementById('editNFA').value;
+      plot.far = document.getElementById('editFAR').value;
+      plot.bua = document.getElementById('editBUA').value;
+      plot.price = document.getElementById('editPrice').value;
+      plot.status = document.getElementById('editStatus').value;
+      plot.owner = document.getElementById('editOwner').value.trim();
+      plot.phone = document.getElementById('editPhone').value.trim();
+      plot.email = document.getElementById('editEmail').value.trim();
+      
+      addPlotMarkers();
+      populateTable();
+      closeEditPlotModal();
+      
+      setTimeout(() => {
+        selectPlot(id);
+      }, 100);
+      
+      alert(`✅ Plot ${plot.no} updated successfully!`);
+    }
+
+    // ==================== USER AUTHENTICATION ====================
+    let currentUser = null;
+
+    function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      
+      // Demo accounts
+      const accounts = {
+        'admin': { password: 'admin123', name: 'Admin User', role: 'Administrator', avatar: 'AD', color: 'bg-blue-600' },
+        'manager': { password: 'manager123', name: 'Manager User', role: 'Manager', avatar: 'MG', color: 'bg-green-600' },
+        'viewer': { password: 'viewer123', name: 'Viewer User', role: 'Viewer', avatar: 'VW', color: 'bg-orange-600' }
+      };
+      
+      if (accounts[username] && accounts[username].password === password) {
+        currentUser = {
+          username: username,
+          name: accounts[username].name,
+          role: accounts[username].role,
+          avatar: accounts[username].avatar,
+          color: accounts[username].color
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('aiPlotCurrentUser', JSON.stringify(currentUser));
+        
+        // Hide login modal
+        document.getElementById('loginModal').classList.add('hidden');
+        
+        // Update UI
+        updateUserUI();
+        
+        // Show welcome message
+        setTimeout(() => {
+          alert(`✅ Welcome back, ${currentUser.name}!`);
+        }, 500);
+        
+      } else {
+        alert('❌ Invalid username or password');
+      }
+    }
+
+    function logout() {
+      if (confirm('Are you sure you want to logout?')) {
+        currentUser = null;
+        localStorage.removeItem('aiPlotCurrentUser');
+        document.getElementById('loginModal').classList.remove('hidden');
+        
+        // Clear user UI
+        document.getElementById('userName').textContent = 'Not Logged In';
+        document.getElementById('userRole').textContent = '';
+        document.getElementById('userAvatar').innerHTML = '<i class="fas fa-user"></i>';
+        document.getElementById('userAvatar').className = 'w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-sm font-bold';
+      }
+    }
+
+    function updateUserUI() {
+      if (!currentUser) return;
+      
+      document.getElementById('userName').textContent = currentUser.name;
+      document.getElementById('userRole').textContent = currentUser.role;
+      document.getElementById('userAvatar').innerHTML = currentUser.avatar;
+      document.getElementById('userAvatar').className = `w-10 h-10 ${currentUser.color} rounded-full flex items-center justify-center text-sm font-bold`;
+      
+      // Role-based access control
+      if (currentUser.role === 'Viewer') {
+        // Hide edit/delete buttons for viewers
+        document.querySelectorAll('button[onclick*="editPlot"], button[onclick*="deletePlot"], button[onclick*="bulkDelete"]').forEach(btn => {
+          btn.style.display = 'none';
+        });
+      }
+    }
+
+    function checkAuth() {
+      // Auto-login as guest (login is optional)
+      const savedUser = localStorage.getItem('aiPlotCurrentUser');
+      
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+      } else {
+        // Auto-login as guest user
+        currentUser = {
+          username: 'guest',
+          name: 'Guest User',
+          role: 'Guest',
+          avatar: 'GU',
+          color: 'bg-gray-600'
+        };
+      }
+      
+      // Always hide login modal
+      document.getElementById('loginModal').classList.add('hidden');
+      updateUserUI();
+    }
+
+    function continueAsGuest() {
+      currentUser = {
+        username: 'guest',
+        name: 'Guest User',
+        role: 'Guest',
+        avatar: 'GU',
+        color: 'bg-gray-600'
+      };
+      
+      document.getElementById('loginModal').classList.add('hidden');
+      updateUserUI();
+      
+      setTimeout(() => {
+        alert('✅ Welcome, Guest! You have full access to all features.');
+      }, 500);
+    }
+
+    // ==================== REAL-TIME NOTIFICATIONS ====================
+    let notifications = [];
+    let notificationPanelOpen = false;
+
+    function addNotification(title, message, type = 'info') {
+      const notification = {
+        id: Date.now(),
+        title: title,
+        message: message,
+        type: type,
+        time: new Date(),
+        read: false
+      };
+      
+      notifications.unshift(notification);
+      updateNotificationBadge();
+      showToastNotification(title, message, type);
+      
+      if (Notification.permission === 'granted') {
+        new Notification(title, {
+          body: message,
+          icon: 'https://via.placeholder.com/64x64/3b82f6/ffffff?text=AI'
+        });
+      }
+      
+      if (notificationPanelOpen) {
+        renderNotificationPanel();
+      }
+    }
+
+    function updateNotificationBadge() {
+      const unread = notifications.filter(n => !n.read).length;
+      const badge = document.getElementById('notificationBadge');
+      
+      if (unread > 0) {
+        badge.textContent = unread > 9 ? '9+';
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function showToastNotification(title, message, type) {
+      const colors = {
+        info: 'bg-blue-600',
+        success: 'bg-green-600',
+        warning: 'bg-orange-600',
+        error: 'bg-red-600'
+      };
+      
+      const toast = document.createElement('div');
+      toast.className = `fixed bottom-6 right-6 ${colors[type]} text-white px-6 py-4 rounded-2xl shadow-2xl z-[9999] flex items-start gap-4 max-w-sm`;
+      toast.innerHTML = `
+        <div class="flex-1">
+          <div class="font-semibold">${title}</div>
+          <div class="text-sm opacity-90 mt-1">${message}</div>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white">×</button>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 5000);
+    }
+
+    function toggleNotifications() {
+      const existingPanel = document.getElementById('notificationPanel');
+      if (existingPanel) {
+        existingPanel.remove();
+        notificationPanelOpen = false;
+        return;
+      }
+      
+      notificationPanelOpen = true;
+      renderNotificationPanel();
+    }
+
+    function renderNotificationPanel() {
+      const existing = document.getElementById('notificationPanel');
+      if (existing) existing.remove();
+      
+      const panel = document.createElement('div');
+      panel.id = 'notificationPanel';
+      panel.className = 'fixed top-16 right-4 w-96 bg-gray-900 border border-gray-700 rounded-3xl shadow-2xl z-[9999] overflow-hidden';
+      
+      let html = `
+        <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+          <div class="font-semibold">Notifications</div>
+          <div class="flex gap-2">
+            <button onclick="markAllAsRead()" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded-xl">Mark all read</button>
+            <button onclick="document.getElementById('notificationPanel').remove(); notificationPanelOpen = false;" class="text-xl text-gray-400 hover:text-white">×</button>
+          </div>
+        </div>
+        
+        <div class="max-h-[400px] overflow-y-auto scrollable-section">
+      `;
+      
+      if (notifications.length === 0) {
+        html += `
+          <div class="px-6 py-12 text-center text-gray-400">
+            <i class="fas fa-bell text-4xl mb-4 opacity-50"></i>
+            <div>No notifications yet</div>
+          </div>
+        `;
+      } else {
+        notifications.forEach((notif, index) => {
+          const timeAgo = getTimeAgo(notif.time);
+          const readClass = notif.read ? 'opacity-60' : '';
+          
+          html += `
+            <div onclick="markAsRead(${notif.id}, ${index})" class="px-6 py-4 border-b border-gray-800 hover:bg-gray-800 cursor-pointer transition-colors ${readClass}">
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${notif.type === 'success' ? 'bg-green-600' : notif.type === 'warning' ? 'bg-orange-600' : notif.type === 'error' ? 'bg-red-600' : 'bg-blue-600'}">
+                  <i class="fas ${notif.type === 'success' ? 'fa-check' : notif.type === 'warning' ? 'fa-exclamation' : notif.type === 'error' ? 'fa-times' : 'fa-info'} text-white text-sm"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-semibold text-sm">${notif.title}</div>
+                  <div class="text-xs text-gray-400 mt-1">${notif.message}</div>
+                  <div class="text-[10px] text-gray-500 mt-1">${timeAgo}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      html += `</div>`;
+      
+      if (notifications.length > 0) {
+        html += `
+          <div class="px-6 py-3 border-t border-gray-700 text-center">
+            <button onclick="clearAllNotifications()" class="text-xs text-gray-400 hover:text-white">Clear all notifications</button>
+          </div>
+        `;
+      }
+      
+      panel.innerHTML = html;
+      document.body.appendChild(panel);
+    }
+
+    function getTimeAgo(date) {
+      const seconds = Math.floor((new Date() - date) / 1000);
+      if (seconds < 60) return 'Just now';
+      if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+      return Math.floor(seconds / 86400) + 'd ago';
+    }
+
+    function markAsRead(id, index) {
+      notifications[index].read = true;
+      updateNotificationBadge();
+      renderNotificationPanel();
+    }
+
+    function markAllAsRead() {
+      notifications.forEach(n => n.read = true);
+      updateNotificationBadge();
+      renderNotificationPanel();
+    }
+
+    function clearAllNotifications() {
+      notifications = [];
+      updateNotificationBadge();
+      document.getElementById('notificationPanel').remove();
+      notificationPanelOpen = false;
+    }
+
+    function startNotificationSimulation() {
+      setInterval(() => {
+        if (Math.random() > 0.7 && currentUser) {
+          const plotNo = `D-${Math.floor(1000 + Math.random() * 9000)}`;
+          addNotification('New Plot Added', `Plot ${plotNo} was added to the system`, 'success');
+        }
+      }, 45000);
+      
+      setInterval(() => {
+        if (Math.random() > 0.8 && plots.length > 0 && currentUser) {
+          const randomPlot = plots[Math.floor(Math.random() * plots.length)];
+          const newStatus = ['Available', 'Reserved', 'Sold'][Math.floor(Math.random() * 3)];
+          
+          if (randomPlot.status !== newStatus) {
+            addNotification('Status Updated', `Plot ${randomPlot.no} changed to ${newStatus}`, 'info');
+            randomPlot.status = newStatus;
+            addPlotMarkers();
+            populateTable();
+          }
+        }
+      }, 60000);
+      
+      setTimeout(() => {
+        if (currentUser && notifications.length === 0) {
+          addNotification('Welcome Back!', `You have ${plots.length} plots in your portfolio`, 'info');
+        }
+      }, 3000);
+    }
+
     // ==================== INITIALIZE ====================
     window.onload = () => {
       initMap();
-      renderTable();
-      console.log('✅ Portal with Bulk Editing loaded successfully');
+      populateTable();
+      togglePlotView('map');
+      checkAuth();
+      
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+      
+      startNotificationSimulation();
+      
+      setTimeout(() => {
+        if (currentUser && notifications.length === 0) {
+          addNotification('System Online', 'All systems operational', 'success');
+        }
+      }, 2000);
     };
   </script>
 </body>
