@@ -408,45 +408,33 @@
     let selectedPlots = new Set();
     let currentVideos = []; // Temporary storage for new plot videos
 
-    // ==================== MAPBOX INTEGRATION ====================
+    // ==================== LEAFLET MAP (SIMPLE & WORKING) ====================
     function initMap() {
-      mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtby1tYXBib3giLCJhIjoiY2x0c2V0dXJqMDF0azJqbzJ2d2J6a2J6ZSJ9.YourDemoTokenHere';
-      
-      map = new mapboxgl.Map({
-        container: 'map',
-        style: 'mapbox://styles/mapbox/streets-v12',
-        center: [55.2962, 25.2769],
-        zoom: 11,
-        pitch: 45,
-        bearing: -17
-      });
-
-      map.on('load', () => {
-        // Hide loading spinner
-        const loadingEl = document.getElementById('mapLoading');
-        if (loadingEl) loadingEl.style.display = 'none';
+      try {
+        // Create map
+        map = L.map('map').setView([25.2769, 55.2962], 11);
         
-        // Add 3D buildings
-        map.addLayer({
-          'id': '3d-buildings',
-          'source': 'composite',
-          'source-layer': 'building',
-          'filter': ['==', 'extrude', 'true'],
-          'type': 'fill-extrusion',
-          'minzoom': 15,
-          'paint': {
-            'fill-extrusion-color': '#1f2937',
-            'fill-extrusion-height': ['get', 'height'],
-            'fill-extrusion-base': ['get', 'min_height'],
-            'fill-extrusion-opacity': 0.8
-          }
-        });
-
+        // Add OpenStreetMap tiles (most reliable, no API key needed)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        // Add plot markers
         addPlotMarkers();
-      });
-
-      map.addControl(new mapboxgl.NavigationControl());
-      map.addControl(new mapboxgl.FullscreenControl());
+        
+        console.log('✅ Map loaded successfully');
+      } catch (error) {
+        console.error('❌ Map failed to load:', error);
+        document.getElementById('map').innerHTML = `
+          <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
+            <div>
+              <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
+              <div class="text-xl font-bold mb-2">Map Loading Issue</div>
+              <div class="text-sm text-gray-400">Please refresh the page (F5)</div>
+            </div>
+          </div>
+        `;
+      }
     }
 
     function addPlotMarkers() {
