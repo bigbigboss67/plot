@@ -135,8 +135,10 @@
           </div>
         </div>
         
-        <div class="mt-6">
+        <div class="mt-6 space-y-3">
           <button onclick="login()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Sign In</button>
+          
+          <button onclick="continueAsGuest()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium text-gray-300">Continue as Guest</button>
         </div>
         
         <div class="mt-6 text-xs text-gray-500">
@@ -2281,6 +2283,23 @@ END:VCALENDAR`;
         document.getElementById('loginModal').classList.add('hidden');
         updateUserUI();
       }
+    }
+
+    function continueAsGuest() {
+      currentUser = {
+        username: 'guest',
+        name: 'Guest User',
+        role: 'Guest',
+        avatar: 'GU',
+        color: 'bg-gray-600'
+      };
+      
+      document.getElementById('loginModal').classList.add('hidden');
+      updateUserUI();
+      
+      setTimeout(() => {
+        alert('✅ Welcome, Guest! You have full access to all features.');
+      }, 500);
     }
 
     // ==================== REAL-TIME NOTIFICATIONS ====================
