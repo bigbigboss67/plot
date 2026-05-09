@@ -12,7 +12,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <style>
-    #map { height: 100%; width: 100%; border-radius: 1.5rem; min-height: 500px; }
+    #map { height: 100%; width: 100%; border-radius: 1.5rem; min-height: 600px; }
     .modal { animation: fadeInScale 0.2s ease-out; }
     @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     
@@ -61,7 +61,6 @@
       
       .modal-mobile { width: 95% !important; max-height: 90vh; }
       
-      /* Mobile-optimized buttons */
       button {
         min-height: 52px !important;
         font-size: 16px !important;
@@ -72,29 +71,15 @@
         font-size: 20px !important;
       }
       
-      /* Mobile-optimized map */
       #map {
         min-height: 450px !important;
       }
       
-      /* Legend position for mobile */
       .legend {
         bottom: 120px !important;
         left: 16px !important;
       }
       
-      /* Larger touch targets */
-      .px-5, .px-6 {
-        padding-left: 20px !important;
-        padding-right: 20px !important;
-      }
-      
-      .py-2\.5, .py-3 {
-        padding-top: 14px !important;
-        padding-bottom: 14px !important;
-      }
-      
-      /* GIS Tools Mobile */
       .gis-tool-btn {
         min-width: 60px !important;
         min-height: 60px !important;
@@ -105,7 +90,6 @@
     .hamburger { display: none; }
     @media (max-width: 768px) { .hamburger { display: block; } }
     
-    /* GIS Tools Styling */
     .gis-tool-btn {
       transition: all 0.2s ease;
     }
@@ -279,8 +263,8 @@
           </div>
         </div>
 
-        <!-- REAL ESTATE GIS TOOLS BAR -->
-        <div class="absolute top-20 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
+        <!-- REAL ESTATE GIS TOOLS BAR - MOVED 5CM DOWN -->
+        <div class="absolute top-40 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
           <button onclick="startDistanceCalculator()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Measure Distance">
             <i class="fas fa-ruler text-blue-400"></i>
             <span class="hidden md:inline">Distance</span>
@@ -299,8 +283,8 @@
         </div>
 
         <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
-          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 500px;">
-            <div id="map" style="height: 100%; min-height: 500px;"></div>
+          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 600px;">
+            <div id="map" style="height: 100%; min-height: 600px;"></div>
             
             <!-- Geocoding Search Bar -->
             <div class="absolute top-5 left-5 z-[1000] w-80">
@@ -431,16 +415,22 @@
     let areaMarkers = [];
     let areaPolyline = null;
 
-    // ==================== LEAFLET MAP (FIXED & RELIABLE) ====================
+    // ==================== LEAFLET MAP (FIXED - RELIABLE) ====================
     function initMap() {
       try {
-        // Create map with better options
+        // Create map with explicit options
         map = L.map('map', {
           zoomControl: true,
-          attributionControl: true
+          attributionControl: true,
+          preferCanvas: true
         }).setView([25.2769, 55.2962], 11);
         
-        // Add multiple tile layers
+        // Force map to resize
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+        
+        // Add tile layers
         baseLayers = [
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
@@ -477,6 +467,12 @@
         // Add click handler for drawing
         map.on('click', handleMapClick);
         
+        // Force another resize after everything loads
+        setTimeout(() => {
+          map.invalidateSize();
+          console.log('✅ Map fully initialized');
+        }, 500);
+        
         console.log('✅ Map loaded successfully');
       } catch (error) {
         console.error('❌ Map failed to load:', error);
@@ -490,6 +486,20 @@
             </div>
           </div>
         `;
+      }
+    }
+
+    function handleMapClick(e) {
+      // This will be used for drawing mode
+      if (drawingMode) {
+        const marker = L.marker([e.latlng.lat, e.latlng.lng], {
+          icon: L.divIcon({
+            html: `<div style="background:#8b5cf6;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>`,
+            iconSize: [12, 12]
+          })
+        }).addTo(map);
+        
+        drawnItems.push(marker);
       }
     }
 
