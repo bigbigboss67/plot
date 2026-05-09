@@ -38,6 +38,16 @@
       <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
         <h2 class="text-2xl font-semibold">Plot Management</h2>
         <div class="flex gap-4">
+          <!-- MAP / TABLE VIEW TOGGLE -->
+          <div class="flex bg-gray-800 rounded-2xl p-1">
+            <button onclick="showMapView()" class="px-6 py-2.5 bg-blue-600 rounded-xl text-sm font-medium flex items-center gap-2">
+              <i class="fas fa-map"></i> Map View
+            </button>
+            <button onclick="showTableView()" class="px-6 py-2.5 hover:bg-gray-700 rounded-xl text-sm font-medium flex items-center gap-2">
+              <i class="fas fa-table"></i> Table View
+            </button>
+          </div>
+
           <button onclick="importPlots()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-file-import"></i> Import
           </button>
@@ -78,14 +88,13 @@
           </div>
         </div>
 
-        <!-- GIS TOOLS - ROW 1: Basic Tools -->
+        <!-- GIS TOOLS -->
         <div class="absolute top-48 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
           <button onclick="startDistanceCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium"><i class="fas fa-ruler text-blue-400"></i> <span class="hidden md:inline">Distance</span></button>
           <button onclick="startAreaCalculator()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium"><i class="fas fa-draw-polygon text-green-400"></i> <span class="hidden md:inline">Area</span></button>
           <button onclick="toggleDrawingMode()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl flex items-center gap-2 text-sm font-medium"><i class="fas fa-pencil-alt text-white"></i> <span class="hidden md:inline">Draw</span></button>
         </div>
 
-        <!-- GIS TOOLS - ROW 2: Advanced Tools -->
         <div class="absolute top-64 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
           <button onclick="createBufferZone()" class="px-4 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl flex items-center gap-2 text-sm font-medium"><i class="fas fa-circle text-white"></i> <span class="hidden md:inline">Buffer</span></button>
           <button onclick="findIntersections()" class="px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-xl flex items-center gap-2 text-sm font-medium"><i class="fas fa-object-group text-white"></i> <span class="hidden md:inline">Intersect</span></button>
@@ -101,10 +110,6 @@
         <div id="mapView">
           <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
             <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
-            
-            <div id="searchResultsCount" class="absolute bottom-5 left-5 bg-gray-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl text-sm border border-gray-700 hidden">
-              <span id="resultsText">Showing all plots</span>
-            </div>
           </div>
         </div>
 
@@ -206,147 +211,9 @@
     let currentEditId = null;
     let currentSearchTerm = '';
     let advancedFiltersOpen = false;
-
-    // ==================== DRAWING TOOL ====================
     let drawingMode = false;
     let currentDrawing = null;
     let drawingPoints = [];
-
-    function toggleDrawingMode() {
-      drawingMode = !drawingMode;
-      
-      if (drawingMode) {
-        // Start drawing mode
-        document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '0.5');
-        alert('✏️ DRAWING MODE ACTIVATED\n\nClick on the map to add points.\nDouble-click to finish and save the plot.');
-        
-        // Change cursor
-        document.getElementById('map').style.cursor = 'crosshair';
-        
-        // Add click listeners for drawing
-        map.on('click', onMapClickForDrawing);
-        map.on('dblclick', finishDrawing);
-        
-      } else {
-        // Exit drawing mode
-        document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '1');
-        document.getElementById('map').style.cursor = 'grab';
-        map.off('click', onMapClickForDrawing);
-        map.off('dblclick', finishDrawing);
-        
-        // Clear any incomplete drawing
-        if (currentDrawing) {
-          map.removeLayer(currentDrawing);
-          currentDrawing = null;
-        }
-        drawingPoints = [];
-      }
-    }
-
-    function onMapClickForDrawing(e) {
-      if (!drawingMode) return;
-      
-      drawingPoints.push([e.latlng.lat, e.latlng.lng]);
-      
-      // Create or update the polygon preview
-      if (currentDrawing) {
-        map.removeLayer(currentDrawing);
-      }
-      
-      if (drawingPoints.length >= 2) {
-        currentDrawing = L.polygon(drawingPoints, {
-          color: '#a855f7',
-          fillColor: '#a855f7',
-          fillOpacity: 0.3,
-          weight: 3
-        }).addTo(map);
-      } else if (drawingPoints.length === 1) {
-        // Show first point
-        currentDrawing = L.circleMarker(drawingPoints[0], {
-          radius: 8,
-          color: '#a855f7',
-          fillColor: '#a855f7',
-          fillOpacity: 1
-        }).addTo(map);
-      }
-    }
-
-    function finishDrawing() {
-      if (!drawingMode || drawingPoints.length < 3) {
-        alert('You need at least 3 points to create a plot!');
-        return;
-      }
-      
-      // Calculate center of the polygon
-      let sumLat = 0, sumLng = 0;
-      drawingPoints.forEach(point => {
-        sumLat += point[0];
-        sumLng += point[1];
-      });
-      const centerLat = sumLat / drawingPoints.length;
-      const centerLng = sumLng / drawingPoints.length;
-      
-      // Create new plot from drawing
-      const newPlot = {
-        id: plots.length,
-        no: `D-${Date.now().toString().slice(-4)}`,
-        lat: centerLat,
-        lng: centerLng,
-        dev: "Drawn Plot",
-        type: "Residential",
-        gfa: "2500",
-        nfa: "2100",
-        far: "2.5",
-        bua: "1800",
-        price: "4500000",
-        status: "Available",
-        owner: "Drawn Owner",
-        phone: "+971 50 000 0000",
-        email: "drawn@email.com",
-        drawnPoints: drawingPoints  // Store the actual polygon points
-      };
-      
-      plots.push(newPlot);
-      
-      // Add the final polygon to the map
-      const finalPolygon = L.polygon(drawingPoints, {
-        color: '#22c55e',
-        fillColor: '#22c55e',
-        fillOpacity: 0.4,
-        weight: 3
-      }).addTo(map);
-      
-      // Add popup to the polygon
-      finalPolygon.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${newPlot.no}</div><div style="color:#666;margin-bottom:12px;">${newPlot.dev}</div><div style="background:#22c55e;color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${newPlot.status}</div></div>`);
-      
-      // Exit drawing mode
-      drawingMode = false;
-      document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '1');
-      document.getElementById('map').style.cursor = 'grab';
-      map.off('click', onMapClickForDrawing);
-      map.off('dblclick', finishDrawing);
-      
-      if (currentDrawing) {
-        map.removeLayer(currentDrawing);
-        currentDrawing = null;
-      }
-      drawingPoints = [];
-      
-      // Refresh everything
-      addMarkers();
-      renderTable();
-      
-      alert(`✅ New plot created from drawing!\nPlot Number: ${newPlot.no}\n\nYou can now edit the details.`);
-    }
-
-    function clearAllDrawings() {
-      map.eachLayer(layer => {
-        if (layer instanceof L.Polygon || layer instanceof L.Polyline) {
-          map.removeLayer(layer);
-        }
-      });
-      alert('All drawings cleared from map!');
-    }
 
     // ==================== MAP ====================
     function initMap() {
@@ -385,6 +252,7 @@
             <div class="px-6 py-2 rounded-2xl text-sm font-bold ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
           </div>
         </div>
+
         <div class="mb-6">
           <div class="text-xs text-gray-400 mb-2">CHANGE STATUS</div>
           <div class="flex gap-2">
@@ -393,12 +261,30 @@
             <button onclick="changePlotStatus(${plot.id}, 'Sold')" class="flex-1 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium">Sold</button>
           </div>
         </div>
+
         <div class="space-y-4">
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">PLOT TYPE</div><div class="font-bold text-lg">${plot.type || 'Residential'}</div></div>
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">AREA INFORMATION</div><div class="grid grid-cols-2 gap-4 text-sm"><div><div class="text-gray-400">GFA</div><div class="font-bold">${plot.gfa || 'N/A'} sqm</div></div><div><div class="text-gray-400">NFA</div><div class="font-bold">${plot.nfa || 'N/A'} sqm</div></div><div><div class="text-gray-400">FAR</div><div class="font-bold">${plot.far || 'N/A'}</div></div><div><div class="text-gray-400">BUA</div><div class="font-bold">${plot.bua || 'N/A'} sqm</div></div></div></div>
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">PRICING</div><div class="text-3xl font-bold text-green-400">AED ${Number(plot.price).toLocaleString()}</div></div>
           <div class="bg-gray-800 rounded-2xl p-4"><div class="text-xs text-gray-400 mb-3">OWNER INFORMATION</div><div class="space-y-2"><div class="flex items-center gap-3"><i class="fas fa-user text-gray-400 w-4"></i><span class="font-bold">${plot.owner || 'N/A'}</span></div><div class="flex items-center gap-3"><i class="fas fa-phone text-gray-400 w-4"></i><span>${plot.phone || 'N/A'}</span></div><div class="flex items-center gap-3"><i class="fas fa-envelope text-gray-400 w-4"></i><span class="text-blue-400">${plot.email || 'N/A'}</span></div></div></div>
         </div>
+
+        <!-- SEND TO WHATSAPP / EMAIL / VIDEO CALL -->
+        <div class="mt-6">
+          <div class="text-xs text-gray-400 mb-3">SHARE & CONTACT</div>
+          <div class="grid grid-cols-3 gap-3">
+            <button onclick="sendToWhatsApp(${plot.id})" class="py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2">
+              <i class="fab fa-whatsapp"></i> WhatsApp
+            </button>
+            <button onclick="sendEmail(${plot.id})" class="py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2">
+              <i class="fas fa-envelope"></i> Email
+            </button>
+            <button onclick="startVideoCall(${plot.id})" class="py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2">
+              <i class="fas fa-video"></i> Video Call
+            </button>
+          </div>
+        </div>
+
         <div class="mt-6 flex gap-3">
           <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Edit Plot</button>
           <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 py-4 border border-red-600 text-red-400 hover:bg-red-900/50 rounded-2xl text-sm font-medium">Delete</button>
@@ -455,6 +341,46 @@
       if (!searchTerm || !text) return text;
       const regex = new RegExp(`(${searchTerm})`, 'gi');
       return text.toString().replace(regex, '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>');
+    }
+
+    // ==================== SEND TO WHATSAPP / EMAIL / VIDEO CALL ====================
+    
+    function sendToWhatsApp(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const message = `Hello! I'm interested in Plot ${plot.no} in ${plot.dev}.\n\nDetails:\n- Price: AED ${Number(plot.price).toLocaleString()}\n- Status: ${plot.status}\n- Owner: ${plot.owner || 'N/A'}\n\nCan we discuss?`;
+      const phone = plot.phone ? plot.phone.replace(/[^0-9]/g, '') : '971501234567';
+      const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+    }
+
+    function sendEmail(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const subject = `Inquiry about Plot ${plot.no} - ${plot.dev}`;
+      const body = `Hello,\n\nI am interested in Plot ${plot.no} located in ${plot.dev}.\n\nPlot Details:\n- Price: AED ${Number(plot.price).toLocaleString()}\n- Status: ${plot.status}\n- Size: ${plot.gfa} sqm\n- Owner: ${plot.owner || 'N/A'}\n\nPlease let me know when we can discuss further.\n\nBest regards`;
+      
+      const email = plot.email || 'owner@email.com';
+      const url = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = url;
+    }
+
+    function startVideoCall(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      
+      const roomName = `plot-${plot.no.toLowerCase()}-${Date.now()}`;
+      const jitsiUrl = `https://meet.jit.si/${roomName}`;
+      
+      const newWindow = window.open(jitsiUrl, '_blank', 'width=1200,height=800');
+      
+      if (newWindow) {
+        alert(`✅ Video call started for Plot ${plot.no}\n\nRoom: ${roomName}\n\nShare this link with the client:\n${jitsiUrl}`);
+      } else {
+        alert('Please allow pop-ups to start the video call.');
+      }
     }
 
     // ==================== SEARCH & FILTERING ====================
@@ -537,6 +463,97 @@
       document.getElementById('searchResultsCount').classList.add('hidden');
       document.getElementById('advancedFilters').classList.add('hidden');
       advancedFiltersOpen = false;
+    }
+
+    // ==================== DRAWING TOOL ====================
+    function toggleDrawingMode() {
+      drawingMode = !drawingMode;
+      
+      if (drawingMode) {
+        document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '0.5');
+        alert('✏️ DRAWING MODE ACTIVATED\n\nClick on the map to add points.\nDouble-click to finish and save the plot.');
+        document.getElementById('map').style.cursor = 'crosshair';
+        map.on('click', onMapClickForDrawing);
+        map.on('dblclick', finishDrawing);
+      } else {
+        document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '1');
+        document.getElementById('map').style.cursor = 'grab';
+        map.off('click', onMapClickForDrawing);
+        map.off('dblclick', finishDrawing);
+        if (currentDrawing) {
+          map.removeLayer(currentDrawing);
+          currentDrawing = null;
+        }
+        drawingPoints = [];
+      }
+    }
+
+    function onMapClickForDrawing(e) {
+      if (!drawingMode) return;
+      drawingPoints.push([e.latlng.lat, e.latlng.lng]);
+      if (currentDrawing) map.removeLayer(currentDrawing);
+      if (drawingPoints.length >= 2) {
+        currentDrawing = L.polygon(drawingPoints, { color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.3, weight: 3 }).addTo(map);
+      } else if (drawingPoints.length === 1) {
+        currentDrawing = L.circleMarker(drawingPoints[0], { radius: 8, color: '#a855f7', fillColor: '#a855f7', fillOpacity: 1 }).addTo(map);
+      }
+    }
+
+    function finishDrawing() {
+      if (!drawingMode || drawingPoints.length < 3) {
+        alert('You need at least 3 points to create a plot!');
+        return;
+      }
+      
+      let sumLat = 0, sumLng = 0;
+      drawingPoints.forEach(point => { sumLat += point[0]; sumLng += point[1]; });
+      const centerLat = sumLat / drawingPoints.length;
+      const centerLng = sumLng / drawingPoints.length;
+      
+      const newPlot = {
+        id: plots.length,
+        no: `D-${Date.now().toString().slice(-4)}`,
+        lat: centerLat,
+        lng: centerLng,
+        dev: "Drawn Plot",
+        type: "Residential",
+        gfa: "2500",
+        nfa: "2100",
+        far: "2.5",
+        bua: "1800",
+        price: "4500000",
+        status: "Available",
+        owner: "Drawn Owner",
+        phone: "+971 50 000 0000",
+        email: "drawn@email.com",
+        drawnPoints: drawingPoints
+      };
+      
+      plots.push(newPlot);
+      
+      const finalPolygon = L.polygon(drawingPoints, { color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.4, weight: 3 }).addTo(map);
+      finalPolygon.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${newPlot.no}</div><div style="color:#666;margin-bottom:12px;">${newPlot.dev}</div><div style="background:#22c55e;color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${newPlot.status}</div></div>`);
+      
+      drawingMode = false;
+      document.querySelectorAll('.absolute.top-48 button').forEach(btn => btn.style.opacity = '1');
+      document.getElementById('map').style.cursor = 'grab';
+      map.off('click', onMapClickForDrawing);
+      map.off('dblclick', finishDrawing);
+      if (currentDrawing) { map.removeLayer(currentDrawing); currentDrawing = null; }
+      drawingPoints = [];
+      
+      addMarkers();
+      renderTable();
+      alert(`✅ New plot created from drawing!\nPlot Number: ${newPlot.no}`);
+    }
+
+    function clearAllDrawings() {
+      map.eachLayer(layer => {
+        if (layer instanceof L.Polygon || layer instanceof L.Polyline) {
+          map.removeLayer(layer);
+        }
+      });
+      alert('All drawings cleared from map!');
     }
 
     // ==================== OTHER GIS TOOLS ====================
@@ -727,7 +744,7 @@
     window.onload = () => {
       initMap();
       renderTable();
-      console.log('✅ Portal with FULL Drawing Tool loaded successfully');
+      console.log('✅ Portal with WhatsApp, Email, Video Call + Table View restored');
     };
   </script>
 </body>
