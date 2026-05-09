@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>AI Plot Portal • Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
@@ -93,10 +93,32 @@
         padding-top: 14px !important;
         padding-bottom: 14px !important;
       }
+      
+      /* GIS Tools Mobile */
+      .gis-tool-btn {
+        min-width: 60px !important;
+        min-height: 60px !important;
+        font-size: 18px !important;
+      }
     }
     
     .hamburger { display: none; }
     @media (max-width: 768px) { .hamburger { display: block; } }
+    
+    /* GIS Tools Styling */
+    .gis-tool-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .gis-tool-btn.active {
+      background-color: #3b82f6 !important;
+      color: white !important;
+      transform: scale(1.05);
+    }
+    
+    .gis-tool-btn:hover {
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100">
@@ -188,9 +210,6 @@
           <button onclick="exportCSV()" class="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
             <i class="fas fa-download"></i> Export
           </button>
-          <button onclick="startDistanceCalculator()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
-            <i class="fas fa-ruler"></i> Measure
-          </button>
           <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium btn-mobile">
             <i class="fas fa-plus"></i> New Plot
           </button>
@@ -258,6 +277,25 @@
               <span>Clear Filter</span>
             </div>
           </div>
+        </div>
+
+        <!-- REAL ESTATE GIS TOOLS BAR -->
+        <div class="absolute top-20 left-5 z-[1000] bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-2 shadow-xl flex gap-2">
+          <button onclick="startDistanceCalculator()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Measure Distance">
+            <i class="fas fa-ruler text-blue-400"></i>
+            <span class="hidden md:inline">Distance</span>
+          </button>
+          <button onclick="startAreaCalculator()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Measure Area">
+            <i class="fas fa-draw-polygon text-green-400"></i>
+            <span class="hidden md:inline">Area</span>
+          </button>
+          <button onclick="toggleDrawingMode()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Draw on Map">
+            <i class="fas fa-pencil-alt text-purple-400"></i>
+            <span class="hidden md:inline">Draw</span>
+          </button>
+          <button onclick="clearAllDrawings()" class="gis-tool-btn px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl flex items-center gap-2 text-sm font-medium transition-all active:scale-95" title="Clear Drawings">
+            <i class="fas fa-trash text-red-400"></i>
+          </button>
         </div>
 
         <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
@@ -382,28 +420,62 @@
     let currentUser = null;
     let notifications = [];
     let notificationPanelOpen = false;
+    let drawingMode = false;
+    let drawnItems = [];
+    let distanceMode = false;
+    let areaMode = false;
+    let firstPoint = null;
+    let distanceMarker1 = null;
+    let distanceMarker2 = null;
+    let areaPoints = [];
+    let areaMarkers = [];
+    let areaPolyline = null;
 
-    // ==================== LEAFLET MAP (FIXED) ====================
+    // ==================== LEAFLET MAP (FIXED & RELIABLE) ====================
     function initMap() {
       try {
-        map = L.map('map').setView([25.2769, 55.2962], 11);
+        // Create map with better options
+        map = L.map('map', {
+          zoomControl: true,
+          attributionControl: true
+        }).setView([25.2769, 55.2962], 11);
         
+        // Add multiple tile layers
         baseLayers = [
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }),
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri' }),
-          L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap' }),
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' })
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+          }),
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri',
+            maxZoom: 19
+          }),
+          L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenTopoMap',
+            maxZoom: 17
+          }),
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 19
+          })
         ];
         
+        // Add default layer
         baseLayers[0].addTo(map);
         
+        // Add marker cluster
         markerCluster = L.markerClusterGroup({
           chunkedLoading: true,
-          spiderfyOnMaxZoom: true
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false
         });
         map.addLayer(markerCluster);
         
+        // Add plot markers
         addPlotMarkers();
+        
+        // Add click handler for drawing
+        map.on('click', handleMapClick);
         
         console.log('✅ Map loaded successfully');
       } catch (error) {
@@ -413,7 +485,8 @@
             <div>
               <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
               <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-              <div class="text-sm text-gray-400">Please refresh the page</div>
+              <div class="text-sm text-gray-400 mb-4">Please refresh the page</div>
+              <button onclick="location.reload()" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Refresh Page</button>
             </div>
           </div>
         `;
@@ -459,6 +532,272 @@
     function setMapStyle(n) {
       map.eachLayer(layer => { if (layer instanceof L.TileLayer) map.removeLayer(layer); });
       baseLayers[n].addTo(map);
+    }
+
+    // ==================== REAL ESTATE GIS TOOLS ====================
+    
+    // Distance Calculator
+    function startDistanceCalculator() {
+      distanceMode = true;
+      firstPoint = null;
+      
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      
+      alert('Click on the map to select the first point');
+      
+      map.getContainer().style.cursor = 'crosshair';
+      
+      map.once('click', function(e) {
+        firstPoint = [e.latlng.lat, e.latlng.lng];
+        
+        distanceMarker1 = L.marker(firstPoint, {
+          icon: L.divIcon({
+            html: `<div style="background:#a855f7;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #a855f7;"></div>`,
+            iconSize: [20, 20]
+          })
+        }).addTo(map);
+        
+        alert('Now click on the second point');
+        
+        map.once('click', function(e2) {
+          const secondPoint = [e2.latlng.lat, e2.latlng.lng];
+          
+          distanceMarker2 = L.marker(secondPoint, {
+            icon: L.divIcon({
+              html: `<div style="background:#a855f7;width:20px;height:20px;border-radius:50%;border:3px solid white;box-shadow:0 0 15px #a855f7;"></div>`,
+              iconSize: [20, 20]
+            })
+          }).addTo(map);
+          
+          const distance = calculateDistance(firstPoint[0], firstPoint[1], secondPoint[0], secondPoint[1]);
+          
+          const line = L.polyline([firstPoint, secondPoint], {
+            color: '#a855f7',
+            weight: 3,
+            dashArray: '5, 5'
+          }).addTo(map);
+          
+          const popup = L.popup({ closeOnClick: false })
+            .setLatLng([
+              (firstPoint[0] + secondPoint[0]) / 2,
+              (firstPoint[1] + secondPoint[1]) / 2
+            ])
+            .setContent(`
+              <div class="text-center p-2">
+                <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
+                <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
+                <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
+              </div>
+            `)
+            .openOn(map);
+          
+          map.getContainer().style.cursor = '';
+          distanceMode = false;
+          
+          window.currentDistanceLine = line;
+        });
+      });
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI / 180;
+      const φ2 = lat2 * Math.PI / 180;
+      const Δφ = (lat2 - lat1) * Math.PI / 180;
+      const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+      const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ/2) * Math.sin(Δλ/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+      return R * c;
+    }
+
+    function clearDistanceMeasurement() {
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      if (window.currentDistanceLine) window.currentDistanceLine.remove();
+      
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+      
+      distanceMode = false;
+      firstPoint = null;
+      map.getContainer().style.cursor = '';
+    }
+
+    // Area Calculator
+    function startAreaCalculator() {
+      areaMode = true;
+      areaPoints = [];
+      areaMarkers = [];
+      
+      if (areaPolyline) areaPolyline.remove();
+      
+      alert('Click on the map to add points. Double-click to finish.');
+      
+      map.getContainer().style.cursor = 'crosshair';
+      
+      map.once('click', function(e) {
+        addAreaPoint(e.latlng);
+        
+        map.on('click', function(e2) {
+          addAreaPoint(e2.latlng);
+        });
+        
+        map.on('dblclick', function() {
+          finishAreaCalculation();
+        });
+      });
+    }
+
+    function addAreaPoint(latlng) {
+      areaPoints.push([latlng.lat, latlng.lng]);
+      
+      const marker = L.marker([latlng.lat, latlng.lng], {
+        icon: L.divIcon({
+          html: `<div style="background:#10b981;width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px #10b981;"></div>`,
+          iconSize: [16, 16]
+        })
+      }).addTo(map);
+      
+      areaMarkers.push(marker);
+      
+      if (areaPoints.length > 1) {
+        if (areaPolyline) areaPolyline.remove();
+        areaPolyline = L.polyline(areaPoints, {
+          color: '#10b981',
+          weight: 2,
+          dashArray: '5, 5'
+        }).addTo(map);
+      }
+    }
+
+    function finishAreaCalculation() {
+      if (areaPoints.length < 3) {
+        alert('Please add at least 3 points to calculate area');
+        return;
+      }
+      
+      // Close the polygon
+      areaPoints.push(areaPoints[0]);
+      
+      if (areaPolyline) areaPolyline.remove();
+      areaPolyline = L.polyline(areaPoints, {
+        color: '#10b981',
+        weight: 3
+      }).addTo(map);
+      
+      // Calculate area using shoelace formula
+      const area = calculatePolygonArea(areaPoints);
+      
+      const center = getPolygonCenter(areaPoints);
+      
+      const popup = L.popup({ closeOnClick: false })
+        .setLatLng(center)
+        .setContent(`
+          <div class="text-center p-2">
+            <div class="text-lg font-bold text-green-400">${area.toFixed(0)} sqm</div>
+            <div class="text-sm text-gray-400">${(area / 10000).toFixed(2)} hectares</div>
+            <button onclick="clearAreaCalculation()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
+          </div>
+        `)
+        .openOn(map);
+      
+      map.getContainer().style.cursor = '';
+      areaMode = false;
+      
+      // Remove click listeners
+      map.off('click');
+      map.off('dblclick');
+    }
+
+    function calculatePolygonArea(points) {
+      let area = 0;
+      const n = points.length;
+      
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += points[i][0] * points[j][1];
+        area -= points[j][0] * points[i][1];
+      }
+      
+      return Math.abs(area) / 2 * 111320 * 111320; // Convert to square meters
+    }
+
+    function getPolygonCenter(points) {
+      let lat = 0, lng = 0;
+      
+      for (let i = 0; i < points.length; i++) {
+        lat += points[i][0];
+        lng += points[i][1];
+      }
+      
+      return [lat / points.length, lng / points.length];
+    }
+
+    function clearAreaCalculation() {
+      if (areaPolyline) areaPolyline.remove();
+      areaMarkers.forEach(m => m.remove());
+      
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+      
+      areaMode = false;
+      areaPoints = [];
+      areaMarkers = [];
+      areaPolyline = null;
+      map.getContainer().style.cursor = '';
+    }
+
+    // Drawing Mode
+    function toggleDrawingMode() {
+      drawingMode = !drawingMode;
+      
+      if (drawingMode) {
+        alert('Drawing mode enabled. Click on map to draw. Double-click to finish.');
+        map.getContainer().style.cursor = 'crosshair';
+        
+        map.on('click', function(e) {
+          const marker = L.marker([e.latlng.lat, e.latlng.lng], {
+            icon: L.divIcon({
+              html: `<div style="background:#8b5cf6;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>`,
+              iconSize: [12, 12]
+            })
+          }).addTo(map);
+          
+          drawnItems.push(marker);
+        });
+        
+        map.on('dblclick', function() {
+          alert('Drawing finished!');
+          drawingMode = false;
+          map.getContainer().style.cursor = '';
+          map.off('click');
+          map.off('dblclick');
+        });
+      } else {
+        alert('Drawing mode disabled');
+        map.getContainer().style.cursor = '';
+        map.off('click');
+        map.off('dblclick');
+      }
+    }
+
+    function clearAllDrawings() {
+      drawnItems.forEach(item => map.removeLayer(item));
+      drawnItems = [];
+      
+      if (areaPolyline) areaPolyline.remove();
+      areaMarkers.forEach(m => m.remove());
+      
+      if (distanceMarker1) distanceMarker1.remove();
+      if (distanceMarker2) distanceMarker2.remove();
+      if (window.currentDistanceLine) window.currentDistanceLine.remove();
+      
+      document.querySelectorAll('.leaflet-popup').forEach(p => p.remove());
+      
+      alert('All drawings cleared!');
     }
 
     // ==================== GEOCODING ====================
@@ -1010,7 +1349,7 @@
       alert(`✅ New plot ${no} added successfully!`);
     }
 
-    // ==================== IMPORT (FIXED) ====================
+    // ==================== IMPORT ====================
     function importPlots() {
       const modal = document.getElementById('importModal');
       if (modal) {
