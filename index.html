@@ -51,65 +51,117 @@
       </div>
 
       <div class="flex-1 p-8">
-        <div class="flex justify-between items-center mb-6">
-          <div class="flex gap-3">
-            <button onclick="showMapView()" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium">Map View</button>
-            <button onclick="showTableView()" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium">Table View</button>
+        <!-- SEARCH AND FILTERS -->
+        <div class="mb-6">
+          <div class="flex gap-4 items-center">
+            <!-- GLOBAL SEARCH BAR -->
+            <div class="flex-1 relative">
+              <div class="absolute left-4 top-3.5 text-gray-400">
+                <i class="fas fa-search"></i>
+              </div>
+              <input type="text" id="globalSearch" placeholder="Search plots by number, development, owner, type..." 
+                class="w-full bg-gray-800 pl-12 pr-5 py-3 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                oninput="applySearchFilters()">
+              <button onclick="clearSearch()" class="absolute right-4 top-3.5 text-gray-400 hover:text-white">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+
+            <!-- QUICK FILTERS -->
+            <div class="flex gap-2">
+              <button onclick="quickFilter('available')" class="px-4 py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-check-circle"></i> Available
+              </button>
+              <button onclick="quickFilter('reserved')" class="px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-clock"></i> Reserved
+              </button>
+              <button onclick="quickFilter('sold')" class="px-4 py-3 bg-red-600 hover:bg-red-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-handshake"></i> Sold
+              </button>
+            </div>
+
+            <!-- ADVANCED FILTER TOGGLE -->
+            <button onclick="toggleAdvancedFilters()" class="px-4 py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+              <i class="fas fa-filter"></i> Filters
+            </button>
           </div>
-          <select id="statusFilter" onchange="filterPlots()" class="bg-gray-800 px-5 py-3 rounded-2xl text-sm">
-            <option value="">All Status</option>
-            <option value="Available">Available</option>
-            <option value="Reserved">Reserved</option>
-            <option value="Sold">Sold</option>
-          </select>
+
+          <!-- ADVANCED FILTERS PANEL -->
+          <div id="advancedFilters" class="hidden mt-4 bg-gray-800 rounded-2xl p-6 border border-gray-700">
+            <div class="grid grid-cols-4 gap-6">
+              <!-- Price Range -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">PRICE RANGE (AED)</label>
+                <div class="flex gap-3">
+                  <input type="number" id="minPrice" placeholder="Min" class="flex-1 bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" oninput="applySearchFilters()">
+                  <input type="number" id="maxPrice" placeholder="Max" class="flex-1 bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" oninput="applySearchFilters()">
+                </div>
+              </div>
+
+              <!-- Size Range -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">SIZE RANGE (GFA sqm)</label>
+                <div class="flex gap-3">
+                  <input type="number" id="minSize" placeholder="Min" class="flex-1 bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" oninput="applySearchFilters()">
+                  <input type="number" id="maxSize" placeholder="Max" class="flex-1 bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" oninput="applySearchFilters()">
+                </div>
+              </div>
+
+              <!-- Plot Type -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">PLOT TYPE</label>
+                <select id="typeFilter" onchange="applySearchFilters()" class="w-full bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">All Types</option>
+                  <option value="Residential">Residential</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Industrial">Industrial</option>
+                  <option value="School">School / Educational</option>
+                  <option value="Camp">Camp / Labor</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <!-- Status -->
+              <div>
+                <label class="block text-xs text-gray-400 mb-2">STATUS</label>
+                <select id="statusFilter" onchange="applySearchFilters()" class="w-full bg-gray-900 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">All Status</option>
+                  <option value="Available">Available</option>
+                  <option value="Reserved">Reserved</option>
+                  <option value="Sold">Sold</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex justify-end mt-4">
+              <button onclick="clearAllFilters()" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-times"></i> Clear All Filters
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- MAP VIEW -->
         <div id="mapView">
           <div class="bg-gray-900 rounded-3xl overflow-hidden border border-gray-800" style="height: 600px; position: relative;">
             <div id="map" style="height: 100%; width: 100%; min-height: 600px;"></div>
+            
+            <!-- SEARCH RESULTS COUNT -->
+            <div id="searchResultsCount" class="absolute bottom-5 left-5 bg-gray-900/95 backdrop-blur-xl px-4 py-2 rounded-2xl text-sm border border-gray-700 hidden">
+              <span id="resultsText">Showing all plots</span>
+            </div>
           </div>
         </div>
 
-        <!-- TABLE VIEW WITH BULK EDITING -->
+        <!-- TABLE VIEW -->
         <div id="tableView" class="hidden">
-          <!-- BULK ACTION BAR -->
-          <div id="bulkActionBar" class="hidden mb-4 bg-gray-800 rounded-2xl p-4 flex items-center justify-between border border-gray-700">
-            <div class="flex items-center gap-4">
-              <span class="text-sm text-gray-400">
-                <span id="selectedCount">0</span> plots selected
-              </span>
-              <button onclick="clearSelection()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded-xl">Clear Selection</button>
-            </div>
-            
-            <div class="flex gap-3">
-              <button onclick="bulkChangeStatus()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-sync-alt"></i> Change Status
-              </button>
-              <button onclick="bulkUpdatePrice()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-dollar-sign"></i> Update Price
-              </button>
-              <button onclick="bulkUpdateOwner()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-user"></i> Update Owner
-              </button>
-              <button onclick="bulkExport()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-download"></i> Export
-              </button>
-              <button onclick="bulkDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i class="fas fa-trash"></i> Delete
-              </button>
-            </div>
-          </div>
-
           <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
             <table class="w-full text-sm">
               <thead class="border-b border-gray-700 bg-gray-950">
                 <tr>
-                  <th class="w-12 px-6 py-4">
-                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-blue-600">
-                  </th>
                   <th class="text-left py-4 px-6">Plot No</th>
                   <th class="text-left py-4 px-6">Development</th>
+                  <th class="text-left py-4 px-6">Type</th>
                   <th class="text-left py-4 px-6">Size</th>
                   <th class="text-left py-4 px-6">Price</th>
                   <th class="text-left py-4 px-6">Status</th>
@@ -187,114 +239,6 @@
     </div>
   </div>
 
-  <!-- BULK STATUS CHANGE MODAL -->
-  <div id="bulkStatusModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[400px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Change Status</h3>
-        <p class="text-sm text-gray-400 mt-1">Update status for <span id="bulkStatusCount">0</span> selected plots</p>
-      </div>
-      
-      <div class="p-8">
-        <div class="space-y-3">
-          <button onclick="applyBulkStatus('Available')" class="w-full py-4 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-check-circle"></i> Set to Available
-          </button>
-          <button onclick="applyBulkStatus('Reserved')" class="w-full py-4 bg-orange-600 hover:bg-orange-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-clock"></i> Set to Reserved
-          </button>
-          <button onclick="applyBulkStatus('Sold')" class="w-full py-4 bg-red-600 hover:bg-red-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
-            <i class="fas fa-handshake"></i> Set to Sold
-          </button>
-        </div>
-      </div>
-      
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end">
-        <button onclick="closeBulkStatusModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BULK PRICE UPDATE MODAL -->
-  <div id="bulkPriceModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Update Price</h3>
-        <p class="text-sm text-gray-400 mt-1">Update price for <span id="bulkPriceCount">0</span> selected plots</p>
-      </div>
-      
-      <div class="p-8 space-y-5">
-        <div>
-          <label class="block text-xs text-gray-400 mb-2">Update Type</label>
-          <div class="flex gap-3">
-            <button onclick="setPriceUpdateType('percentage')" id="priceTypePercentage" class="flex-1 py-3 bg-blue-600 rounded-2xl text-sm font-medium">Percentage</button>
-            <button onclick="setPriceUpdateType('fixed')" id="priceTypeFixed" class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-2xl text-sm font-medium">Fixed Amount</button>
-          </div>
-        </div>
-        
-        <div>
-          <label class="block text-xs text-gray-400 mb-2" id="priceLabel">Percentage Change</label>
-          <div class="flex items-center gap-3">
-            <input type="number" id="priceValue" class="flex-1 bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value="10" step="0.1">
-            <span class="text-gray-400" id="priceUnit">%</span>
-          </div>
-          <p class="text-xs text-gray-500 mt-1" id="priceHint">Positive = increase, Negative = decrease</p>
-        </div>
-        
-        <div class="bg-gray-800 rounded-xl p-4 text-sm">
-          <div class="flex justify-between text-gray-400">
-            <span>Current Total Value:</span>
-            <span id="currentTotalValue">AED 0</span>
-          </div>
-          <div class="flex justify-between text-white font-bold mt-2">
-            <span>New Total Value:</span>
-            <span id="newTotalValue">AED 0</span>
-          </div>
-        </div>
-      </div>
-      
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
-        <button onclick="closeBulkPriceModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="applyBulkPriceUpdate()" class="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium">Apply Changes</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BULK OWNER UPDATE MODAL -->
-  <div id="bulkOwnerModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700">
-        <h3 class="text-xl font-bold">Update Owner Information</h3>
-        <p class="text-sm text-gray-400 mt-1">Update owner for <span id="bulkOwnerCount">0</span> selected plots</p>
-      </div>
-      
-      <div class="p-8 space-y-4">
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Owner Name</label>
-          <input type="text" id="bulkOwnerName" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter new owner name">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Phone Number</label>
-          <input type="text" id="bulkOwnerPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="+971 50 000 0000">
-        </div>
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">New Email Address</label>
-          <input type="email" id="bulkOwnerEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="owner@email.com">
-        </div>
-        
-        <div class="flex items-center gap-2 text-sm text-gray-400">
-          <input type="checkbox" id="bulkOwnerOverwrite" class="accent-blue-600">
-          <label for="bulkOwnerOverwrite">Overwrite existing owner information</label>
-        </div>
-      </div>
-      
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
-        <button onclick="closeBulkOwnerModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="applyBulkOwnerUpdate()" class="px-8 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Apply Changes</button>
-      </div>
-    </div>
-  </div>
-
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
   <script>
@@ -302,13 +246,13 @@
     let plots = [
       { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", type: "Residential", gfa: "2500", nfa: "2100", far: "2.5", bua: "1800", price: "4375000", status: "Available", owner: "Ahmed Al Maktoum", phone: "+971 50 123 4567", email: "ahmed@email.com" },
       { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", type: "Commercial", gfa: "1800", nfa: "1500", far: "3.2", bua: "1200", price: "6200000", status: "Reserved", owner: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima@email.com" },
-      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
+      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" },
+      { id: 3, no: "D-215", lat: 25.2654, lng: 55.3241, dev: "Palm Jumeirah", type: "Residential", gfa: "3200", nfa: "2800", far: "2.8", bua: "2400", price: "12500000", status: "Available", owner: "Khalid Al Suwaidi", phone: "+971 54 321 9876", email: "khalid@email.com" },
+      { id: 4, no: "E-078", lat: 25.3012, lng: 55.3518, dev: "Business Bay", type: "Commercial", gfa: "1500", nfa: "1300", far: "4.5", bua: "1100", price: "7800000", status: "Reserved", owner: "Sara Al Mulla", phone: "+971 56 789 0123", email: "sara@email.com" }
     ];
     let currentEditId = null;
-    let selectedPlots = new Set();
-    let importedData = [];
-    let currentFile = null;
-    let priceUpdateType = 'percentage';
+    let currentSearchTerm = '';
+    let advancedFiltersOpen = false;
 
     // ==================== MAP ====================
     function initMap() {
@@ -322,8 +266,12 @@
       setTimeout(() => { if (map) map.invalidateSize(); }, 200);
     }
 
-    function addMarkers() {
-      plots.forEach(plot => {
+    function addMarkers(filteredPlots = null) {
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      
+      const plotsToShow = filteredPlots || plots;
+      
+      plotsToShow.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const marker = L.marker([plot.lat, plot.lng], {
           icon: L.divIcon({
@@ -332,7 +280,14 @@
           })
         }).addTo(map);
         
-        marker.bindPopup(`<div style="min-width:200px;"><div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div><div style="color:#666;margin-bottom:12px;">${plot.dev}</div><div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div></div>`);
+        marker.bindPopup(`
+          <div style="min-width:200px;">
+            <div style="font-weight:700;font-size:18px;margin-bottom:8px;">Plot ${plot.no}</div>
+            <div style="color:#666;margin-bottom:12px;">${plot.dev}</div>
+            <div style="background:${color};color:white;padding:4px 12px;border-radius:20px;display:inline-block;">${plot.status}</div>
+          </div>
+        `);
+        
         marker.on('click', () => selectPlot(plot.id));
       });
     }
@@ -428,285 +383,137 @@
       renderTable();
     }
 
-    function renderTable() {
+    function renderTable(filteredPlots = null) {
       const tbody = document.getElementById('plotTableBody');
-      tbody.innerHTML = plots.map(plot => `
+      const plotsToShow = filteredPlots || plots;
+      
+      tbody.innerHTML = plotsToShow.map(plot => `
         <tr class="hover:bg-gray-800">
-          <td class="px-6 py-4"><input type="checkbox" class="plot-checkbox w-4 h-4 accent-blue-600" data-id="${plot.id}" onchange="togglePlotSelection(${plot.id}, this)"></td>
-          <td class="py-4 px-6 font-bold">${plot.no}</td>
-          <td class="py-4 px-6">${plot.dev}</td>
+          <td class="py-4 px-6 font-bold">${highlightMatch(plot.no, currentSearchTerm)}</td>
+          <td class="py-4 px-6">${highlightMatch(plot.dev, currentSearchTerm)}</td>
+          <td class="py-4 px-6"><span class="px-2 py-0.5 rounded-full text-xs bg-gray-700">${plot.type || 'Residential'}</span></td>
           <td class="py-4 px-6">${plot.gfa || plot.size} sqm</td>
           <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
           <td class="py-4 px-6"><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
-          <td class="py-4 px-6">${plot.owner || 'N/A'}</td>
+          <td class="py-4 px-6">${highlightMatch(plot.owner || 'N/A', currentSearchTerm)}</td>
           <td class="py-4 px-6">
             <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
             <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
           </td>
         </tr>
       `).join('');
-      
-      updateBulkActionBar();
     }
 
-    function filterPlots() {
-      const status = document.getElementById('statusFilter').value;
-      const filtered = status ? plots.filter(p => p.status === status) : plots;
+    function highlightMatch(text, searchTerm) {
+      if (!searchTerm || !text) return text;
       
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      
-      filtered.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        const marker = L.marker([plot.lat, plot.lng], {
-          icon: L.divIcon({
-            html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;border:3px solid white;color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:10px;">${plot.no}</div>`,
-            iconSize: [32, 32]
-          })
-        }).addTo(map);
-        marker.on('click', () => selectPlot(plot.id));
-      });
+      const regex = new RegExp(`(${searchTerm})`, 'gi');
+      return text.toString().replace(regex, '<mark class="bg-yellow-400 text-black px-1 rounded">$1</mark>');
     }
 
-    // ==================== BULK SELECTION ====================
+    // ==================== SEARCH & FILTERING ====================
     
-    function togglePlotSelection(id, checkbox) {
-      if (checkbox.checked) {
-        selectedPlots.add(id);
-      } else {
-        selectedPlots.delete(id);
-      }
-      updateBulkActionBar();
-    }
-
-    function toggleSelectAll() {
-      const selectAll = document.getElementById('selectAll').checked;
-      const checkboxes = document.querySelectorAll('.plot-checkbox');
+    function applySearchFilters() {
+      const searchTerm = document.getElementById('globalSearch').value.toLowerCase().trim();
+      currentSearchTerm = searchTerm;
       
-      selectedPlots.clear();
+      const minPrice = parseFloat(document.getElementById('minPrice')?.value) || 0;
+      const maxPrice = parseFloat(document.getElementById('maxPrice')?.value) || Infinity;
+      const minSize = parseFloat(document.getElementById('minSize')?.value) || 0;
+      const maxSize = parseFloat(document.getElementById('maxSize')?.value) || Infinity;
+      const typeFilter = document.getElementById('typeFilter')?.value || '';
+      const statusFilter = document.getElementById('statusFilter')?.value || '';
       
-      checkboxes.forEach(checkbox => {
-        checkbox.checked = selectAll;
-        const id = parseInt(checkbox.dataset.id);
-        if (selectAll) {
-          selectedPlots.add(id);
+      let filtered = plots.filter(plot => {
+        let matchesSearch = true;
+        if (searchTerm) {
+          matchesSearch = 
+            plot.no.toLowerCase().includes(searchTerm) ||
+            plot.dev.toLowerCase().includes(searchTerm) ||
+            (plot.owner && plot.owner.toLowerCase().includes(searchTerm)) ||
+            (plot.type && plot.type.toLowerCase().includes(searchTerm)) ||
+            plot.status.toLowerCase().includes(searchTerm) ||
+            plot.price.toString().includes(searchTerm);
         }
+        
+        const priceMatch = plot.price >= minPrice && plot.price <= maxPrice;
+        const size = parseFloat(plot.gfa) || 0;
+        const sizeMatch = size >= minSize && size <= maxSize;
+        const typeMatch = !typeFilter || plot.type === typeFilter;
+        const statusMatch = !statusFilter || plot.status === statusFilter;
+        
+        return matchesSearch && priceMatch && sizeMatch && typeMatch && statusMatch;
       });
       
-      updateBulkActionBar();
+      addMarkers(filtered);
+      renderTable(filtered);
+      updateResultsCount(filtered.length, plots.length);
     }
 
-    function updateBulkActionBar() {
-      const bulkBar = document.getElementById('bulkActionBar');
-      const countSpan = document.getElementById('selectedCount');
+    function updateResultsCount(filtered, total) {
+      const countDiv = document.getElementById('searchResultsCount');
+      const resultsText = document.getElementById('resultsText');
       
-      countSpan.textContent = selectedPlots.size;
-      
-      if (selectedPlots.size > 0) {
-        bulkBar.classList.remove('hidden');
+      if (filtered < total) {
+        countDiv.classList.remove('hidden');
+        resultsText.innerHTML = `Showing <span class="font-bold text-white">${filtered}</span> of <span class="font-bold text-white">${total}</span> plots`;
       } else {
-        bulkBar.classList.add('hidden');
+        countDiv.classList.add('hidden');
       }
     }
 
-    function clearSelection() {
-      selectedPlots.clear();
-      document.querySelectorAll('.plot-checkbox').forEach(cb => cb.checked = false);
-      document.getElementById('selectAll').checked = false;
-      updateBulkActionBar();
+    function clearSearch() {
+      document.getElementById('globalSearch').value = '';
+      currentSearchTerm = '';
+      applySearchFilters();
     }
 
-    // ==================== BULK EDITING ====================
-    
-    function bulkChangeStatus() {
-      if (selectedPlots.size === 0) return;
+    function quickFilter(type) {
+      document.getElementById('globalSearch').value = '';
+      document.getElementById('minPrice').value = '';
+      document.getElementById('maxPrice').value = '';
+      document.getElementById('minSize').value = '';
+      document.getElementById('maxSize').value = '';
+      document.getElementById('typeFilter').value = '';
       
-      document.getElementById('bulkStatusCount').textContent = selectedPlots.size;
-      document.getElementById('bulkStatusModal').classList.remove('hidden');
-    }
-
-    function closeBulkStatusModal() {
-      document.getElementById('bulkStatusModal').classList.add('hidden');
-    }
-
-    function applyBulkStatus(newStatus) {
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          plot.status = newStatus;
-        }
-      });
+      if (type === 'available') {
+        document.getElementById('statusFilter').value = 'Available';
+      } else if (type === 'reserved') {
+        document.getElementById('statusFilter').value = 'Reserved';
+      } else if (type === 'sold') {
+        document.getElementById('statusFilter').value = 'Sold';
+      }
       
-      closeBulkStatusModal();
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      applySearchFilters();
+    }
+
+    function toggleAdvancedFilters() {
+      const filtersPanel = document.getElementById('advancedFilters');
+      advancedFiltersOpen = !advancedFiltersOpen;
+      
+      if (advancedFiltersOpen) {
+        filtersPanel.classList.remove('hidden');
+      } else {
+        filtersPanel.classList.add('hidden');
+      }
+    }
+
+    function clearAllFilters() {
+      document.getElementById('globalSearch').value = '';
+      document.getElementById('minPrice').value = '';
+      document.getElementById('maxPrice').value = '';
+      document.getElementById('minSize').value = '';
+      document.getElementById('maxSize').value = '';
+      document.getElementById('typeFilter').value = '';
+      document.getElementById('statusFilter').value = '';
+      
+      currentSearchTerm = '';
+      
       addMarkers();
       renderTable();
-      clearSelection();
-      
-      alert(`✅ Status updated to ${newStatus} for ${selectedPlots.size} plots`);
-    }
-
-    function bulkUpdatePrice() {
-      if (selectedPlots.size === 0) return;
-      
-      document.getElementById('bulkPriceCount').textContent = selectedPlots.size;
-      document.getElementById('bulkPriceModal').classList.remove('hidden');
-      
-      let total = 0;
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) total += parseFloat(plot.price) || 0;
-      });
-      
-      document.getElementById('currentTotalValue').textContent = `AED ${total.toLocaleString()}`;
-      document.getElementById('newTotalValue').textContent = `AED ${total.toLocaleString()}`;
-      
-      document.getElementById('priceValue').oninput = updatePricePreview;
-    }
-
-    function setPriceUpdateType(type) {
-      priceUpdateType = type;
-      
-      const percentageBtn = document.getElementById('priceTypePercentage');
-      const fixedBtn = document.getElementById('priceTypeFixed');
-      const label = document.getElementById('priceLabel');
-      const unit = document.getElementById('priceUnit');
-      
-      if (type === 'percentage') {
-        percentageBtn.classList.add('bg-blue-600');
-        percentageBtn.classList.remove('bg-gray-700');
-        fixedBtn.classList.remove('bg-blue-600');
-        fixedBtn.classList.add('bg-gray-700');
-        label.textContent = 'Percentage Change';
-        unit.textContent = '%';
-        document.getElementById('priceHint').textContent = 'Positive = increase, Negative = decrease';
-      } else {
-        fixedBtn.classList.add('bg-blue-600');
-        fixedBtn.classList.remove('bg-gray-700');
-        percentageBtn.classList.remove('bg-blue-600');
-        percentageBtn.classList.add('bg-gray-700');
-        label.textContent = 'Fixed Amount (AED)';
-        unit.textContent = 'AED';
-        document.getElementById('priceHint').textContent = 'Enter positive value to increase price';
-      }
-      
-      updatePricePreview();
-    }
-
-    function updatePricePreview() {
-      const value = parseFloat(document.getElementById('priceValue').value) || 0;
-      let total = 0;
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) total += parseFloat(plot.price) || 0;
-      });
-      
-      let newTotal = total;
-      
-      if (priceUpdateType === 'percentage') {
-        newTotal = total * (1 + value / 100);
-      } else {
-        newTotal = total + (value * selectedPlots.size);
-      }
-      
-      document.getElementById('newTotalValue').textContent = `AED ${Math.round(newTotal).toLocaleString()}`;
-    }
-
-    function closeBulkPriceModal() {
-      document.getElementById('bulkPriceModal').classList.add('hidden');
-    }
-
-    function applyBulkPriceUpdate() {
-      const value = parseFloat(document.getElementById('priceValue').value) || 0;
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          if (priceUpdateType === 'percentage') {
-            plot.price = Math.round(plot.price * (1 + value / 100));
-          } else {
-            plot.price = parseFloat(plot.price) + value;
-          }
-        }
-      });
-      
-      closeBulkPriceModal();
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      clearSelection();
-      
-      alert(`✅ Price updated for ${selectedPlots.size} plots`);
-    }
-
-    function bulkUpdateOwner() {
-      if (selectedPlots.size === 0) return;
-      
-      document.getElementById('bulkOwnerCount').textContent = selectedPlots.size;
-      document.getElementById('bulkOwnerModal').classList.remove('hidden');
-    }
-
-    function closeBulkOwnerModal() {
-      document.getElementById('bulkOwnerModal').classList.add('hidden');
-    }
-
-    function applyBulkOwnerUpdate() {
-      const name = document.getElementById('bulkOwnerName').value.trim();
-      const phone = document.getElementById('bulkOwnerPhone').value.trim();
-      const email = document.getElementById('bulkOwnerEmail').value.trim();
-      const overwrite = document.getElementById('bulkOwnerOverwrite').checked;
-      
-      if (!name && !phone && !email) {
-        alert('Please enter at least one field to update');
-        return;
-      }
-      
-      selectedPlots.forEach(id => {
-        const plot = plots.find(p => p.id === id);
-        if (plot) {
-          if (name && (overwrite || !plot.owner)) plot.owner = name;
-          if (phone && (overwrite || !plot.phone)) plot.phone = phone;
-          if (email && (overwrite || !plot.email)) plot.email = email;
-        }
-      });
-      
-      closeBulkOwnerModal();
-      renderTable();
-      clearSelection();
-      
-      alert(`✅ Owner information updated for ${selectedPlots.size} plots`);
-    }
-
-    function bulkExport() {
-      if (selectedPlots.size === 0) return;
-      
-      const selectedData = plots.filter(p => selectedPlots.has(p.id));
-      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
-      
-      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
-      
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `plots_export_${selectedData.length}_items.csv`;
-      a.click();
-      
-      clearSelection();
-    }
-
-    function bulkDelete() {
-      if (selectedPlots.size === 0) return;
-      
-      if (!confirm(`Delete ${selectedPlots.size} selected plots?`)) return;
-      
-      plots = plots.filter(p => !selectedPlots.has(p.id));
-      selectedPlots.clear();
-      
-      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
-      addMarkers();
-      renderTable();
-      
-      alert(`✅ ${selectedPlots.size} plots deleted`);
+      document.getElementById('searchResultsCount').classList.add('hidden');
+      document.getElementById('advancedFilters').classList.add('hidden');
+      advancedFiltersOpen = false;
     }
 
     // ==================== NEW PLOT MODAL ====================
@@ -972,7 +779,7 @@
     window.onload = () => {
       initMap();
       renderTable();
-      console.log('✅ Portal with Bulk Editing loaded successfully');
+      console.log('✅ Portal with Search Filtering loaded successfully');
     };
   </script>
 </body>
