@@ -71,17 +71,49 @@
           </div>
         </div>
 
-        <!-- TABLE VIEW -->
+        <!-- TABLE VIEW WITH BULK EDITING -->
         <div id="tableView" class="hidden">
+          <!-- BULK ACTION BAR -->
+          <div id="bulkActionBar" class="hidden mb-4 bg-gray-800 rounded-2xl p-4 flex items-center justify-between border border-gray-700">
+            <div class="flex items-center gap-4">
+              <span class="text-sm text-gray-400">
+                <span id="selectedCount">0</span> plots selected
+              </span>
+              <button onclick="clearSelection()" class="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded-xl">Clear Selection</button>
+            </div>
+            
+            <div class="flex gap-3">
+              <button onclick="bulkChangeStatus()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-sync-alt"></i> Change Status
+              </button>
+              <button onclick="bulkUpdatePrice()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-dollar-sign"></i> Update Price
+              </button>
+              <button onclick="bulkUpdateOwner()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-user"></i> Update Owner
+              </button>
+              <button onclick="bulkExport()" class="px-4 py-2 bg-orange-600 hover:bg-orange-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-download"></i> Export
+              </button>
+              <button onclick="bulkDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i class="fas fa-trash"></i> Delete
+              </button>
+            </div>
+          </div>
+
           <div class="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden">
             <table class="w-full text-sm">
               <thead class="border-b border-gray-700 bg-gray-950">
                 <tr>
+                  <th class="w-12 px-6 py-4">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="w-4 h-4 accent-blue-600">
+                  </th>
                   <th class="text-left py-4 px-6">Plot No</th>
                   <th class="text-left py-4 px-6">Development</th>
                   <th class="text-left py-4 px-6">Size</th>
                   <th class="text-left py-4 px-6">Price</th>
                   <th class="text-left py-4 px-6">Status</th>
+                  <th class="text-left py-4 px-6">Owner</th>
                   <th class="text-left py-4 px-6">Actions</th>
                 </tr>
               </thead>
@@ -115,27 +147,11 @@
       
       <div class="p-8 space-y-6">
         <div class="grid grid-cols-2 gap-5">
-          <div>
-            <label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label>
-            <input type="text" id="plotNo" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
-          <div>
-            <label class="block text-xs text-gray-400 mb-1.5">Development *</label>
-            <input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          </div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Plot Number *</label><input type="text" id="plotNo" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
+          <div><label class="block text-xs text-gray-400 mb-1.5">Development *</label><input type="text" id="plotDev" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"></div>
         </div>
 
-        <div>
-          <label class="block text-xs text-gray-400 mb-1.5">Plot Type</label>
-          <select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="Residential">Residential</option>
-            <option value="Commercial">Commercial</option>
-            <option value="Industrial">Industrial</option>
-            <option value="School">School / Educational</option>
-            <option value="Camp">Camp / Labor Accommodation</option>
-            <option value="Other">Other</option>
-          </select>
-        </div>
+        <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="plotType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm"><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Industrial">Industrial</option><option value="School">School</option><option value="Camp">Camp</option><option value="Other">Other</option></select></div>
 
         <div class="border border-gray-700 rounded-2xl p-5">
           <div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div>
@@ -171,37 +187,110 @@
     </div>
   </div>
 
-  <!-- IMPORT MODAL - FIXED -->
-  <div id="importModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
-    <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
-        <div>
-          <h3 class="text-2xl font-semibold">Import Plots</h3>
-          <p class="text-sm text-gray-400">Upload CSV, Excel, PDF, or JSON files</p>
-        </div>
-        <button onclick="closeImportModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
+  <!-- BULK STATUS CHANGE MODAL -->
+  <div id="bulkStatusModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[400px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold">Change Status</h3>
+        <p class="text-sm text-gray-400 mt-1">Update status for <span id="bulkStatusCount">0</span> selected plots</p>
       </div>
       
       <div class="p-8">
-        <div onclick="document.getElementById('fileInput').click()" class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center mb-6 hover:border-blue-500 transition-colors cursor-pointer">
-          <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-          <p class="font-medium mb-1">Click to upload file</p>
-          <p class="text-sm text-gray-400">or drag and drop</p>
-          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt,.pdf" class="hidden" onchange="handleFileSelect(event)">
-        </div>
-        
-        <div id="importPreview" class="hidden">
-          <div class="text-sm font-medium mb-2 flex items-center justify-between">
-            <span>Preview (First 5 rows)</span>
-            <span class="text-xs text-gray-400" id="previewCount"></span>
-          </div>
-          <div class="bg-gray-800 rounded-xl p-4 text-xs font-mono max-h-40 overflow-auto" id="previewContent"></div>
+        <div class="space-y-3">
+          <button onclick="applyBulkStatus('Available')" class="w-full py-4 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
+            <i class="fas fa-check-circle"></i> Set to Available
+          </button>
+          <button onclick="applyBulkStatus('Reserved')" class="w-full py-4 bg-orange-600 hover:bg-orange-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
+            <i class="fas fa-clock"></i> Set to Reserved
+          </button>
+          <button onclick="applyBulkStatus('Sold')" class="w-full py-4 bg-red-600 hover:bg-red-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-3">
+            <i class="fas fa-handshake"></i> Set to Sold
+          </button>
         </div>
       </div>
+      
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end">
+        <button onclick="closeBulkStatusModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3 bg-gray-950">
-        <button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-        <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
+  <!-- BULK PRICE UPDATE MODAL -->
+  <div id="bulkPriceModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold">Update Price</h3>
+        <p class="text-sm text-gray-400 mt-1">Update price for <span id="bulkPriceCount">0</span> selected plots</p>
+      </div>
+      
+      <div class="p-8 space-y-5">
+        <div>
+          <label class="block text-xs text-gray-400 mb-2">Update Type</label>
+          <div class="flex gap-3">
+            <button onclick="setPriceUpdateType('percentage')" id="priceTypePercentage" class="flex-1 py-3 bg-blue-600 rounded-2xl text-sm font-medium">Percentage</button>
+            <button onclick="setPriceUpdateType('fixed')" id="priceTypeFixed" class="flex-1 py-3 bg-gray-700 hover:bg-gray-600 rounded-2xl text-sm font-medium">Fixed Amount</button>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-xs text-gray-400 mb-2" id="priceLabel">Percentage Change</label>
+          <div class="flex items-center gap-3">
+            <input type="number" id="priceValue" class="flex-1 bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" value="10" step="0.1">
+            <span class="text-gray-400" id="priceUnit">%</span>
+          </div>
+          <p class="text-xs text-gray-500 mt-1" id="priceHint">Positive = increase, Negative = decrease</p>
+        </div>
+        
+        <div class="bg-gray-800 rounded-xl p-4 text-sm">
+          <div class="flex justify-between text-gray-400">
+            <span>Current Total Value:</span>
+            <span id="currentTotalValue">AED 0</span>
+          </div>
+          <div class="flex justify-between text-white font-bold mt-2">
+            <span>New Total Value:</span>
+            <span id="newTotalValue">AED 0</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
+        <button onclick="closeBulkPriceModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="applyBulkPriceUpdate()" class="px-8 py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium">Apply Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BULK OWNER UPDATE MODAL -->
+  <div id="bulkOwnerModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center">
+    <div class="bg-gray-900 rounded-3xl w-[450px] border border-gray-700 shadow-2xl">
+      <div class="px-8 py-6 border-b border-gray-700">
+        <h3 class="text-xl font-bold">Update Owner Information</h3>
+        <p class="text-sm text-gray-400 mt-1">Update owner for <span id="bulkOwnerCount">0</span> selected plots</p>
+      </div>
+      
+      <div class="p-8 space-y-4">
+        <div>
+          <label class="block text-xs text-gray-400 mb-1.5">New Owner Name</label>
+          <input type="text" id="bulkOwnerName" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter new owner name">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1.5">New Phone Number</label>
+          <input type="text" id="bulkOwnerPhone" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="+971 50 000 0000">
+        </div>
+        <div>
+          <label class="block text-xs text-gray-400 mb-1.5">New Email Address</label>
+          <input type="email" id="bulkOwnerEmail" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="owner@email.com">
+        </div>
+        
+        <div class="flex items-center gap-2 text-sm text-gray-400">
+          <input type="checkbox" id="bulkOwnerOverwrite" class="accent-blue-600">
+          <label for="bulkOwnerOverwrite">Overwrite existing owner information</label>
+        </div>
+      </div>
+      
+      <div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3">
+        <button onclick="closeBulkOwnerModal()" class="px-8 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
+        <button onclick="applyBulkOwnerUpdate()" class="px-8 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Apply Changes</button>
       </div>
     </div>
   </div>
@@ -216,8 +305,10 @@
       { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", type: "Industrial", gfa: "4500", nfa: "3800", far: "1.8", bua: "3200", price: "8900000", status: "Sold", owner: "Mohammed Al Rashid", phone: "+971 52 456 7890", email: "mohammed@email.com" }
     ];
     let currentEditId = null;
+    let selectedPlots = new Set();
     let importedData = [];
     let currentFile = null;
+    let priceUpdateType = 'percentage';
 
     // ==================== MAP ====================
     function initMap() {
@@ -341,17 +432,21 @@
       const tbody = document.getElementById('plotTableBody');
       tbody.innerHTML = plots.map(plot => `
         <tr class="hover:bg-gray-800">
+          <td class="px-6 py-4"><input type="checkbox" class="plot-checkbox w-4 h-4 accent-blue-600" data-id="${plot.id}" onchange="togglePlotSelection(${plot.id}, this)"></td>
           <td class="py-4 px-6 font-bold">${plot.no}</td>
           <td class="py-4 px-6">${plot.dev}</td>
           <td class="py-4 px-6">${plot.gfa || plot.size} sqm</td>
           <td class="py-4 px-6">AED ${Number(plot.price).toLocaleString()}</td>
           <td class="py-4 px-6"><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
+          <td class="py-4 px-6">${plot.owner || 'N/A'}</td>
           <td class="py-4 px-6">
             <button onclick="selectPlot(${plot.id}); showMapView()" class="text-blue-400 hover:text-blue-300 mr-3">View</button>
             <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-300">Delete</button>
           </td>
         </tr>
       `).join('');
+      
+      updateBulkActionBar();
     }
 
     function filterPlots() {
@@ -370,6 +465,248 @@
         }).addTo(map);
         marker.on('click', () => selectPlot(plot.id));
       });
+    }
+
+    // ==================== BULK SELECTION ====================
+    
+    function togglePlotSelection(id, checkbox) {
+      if (checkbox.checked) {
+        selectedPlots.add(id);
+      } else {
+        selectedPlots.delete(id);
+      }
+      updateBulkActionBar();
+    }
+
+    function toggleSelectAll() {
+      const selectAll = document.getElementById('selectAll').checked;
+      const checkboxes = document.querySelectorAll('.plot-checkbox');
+      
+      selectedPlots.clear();
+      
+      checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll;
+        const id = parseInt(checkbox.dataset.id);
+        if (selectAll) {
+          selectedPlots.add(id);
+        }
+      });
+      
+      updateBulkActionBar();
+    }
+
+    function updateBulkActionBar() {
+      const bulkBar = document.getElementById('bulkActionBar');
+      const countSpan = document.getElementById('selectedCount');
+      
+      countSpan.textContent = selectedPlots.size;
+      
+      if (selectedPlots.size > 0) {
+        bulkBar.classList.remove('hidden');
+      } else {
+        bulkBar.classList.add('hidden');
+      }
+    }
+
+    function clearSelection() {
+      selectedPlots.clear();
+      document.querySelectorAll('.plot-checkbox').forEach(cb => cb.checked = false);
+      document.getElementById('selectAll').checked = false;
+      updateBulkActionBar();
+    }
+
+    // ==================== BULK EDITING ====================
+    
+    function bulkChangeStatus() {
+      if (selectedPlots.size === 0) return;
+      
+      document.getElementById('bulkStatusCount').textContent = selectedPlots.size;
+      document.getElementById('bulkStatusModal').classList.remove('hidden');
+    }
+
+    function closeBulkStatusModal() {
+      document.getElementById('bulkStatusModal').classList.add('hidden');
+    }
+
+    function applyBulkStatus(newStatus) {
+      selectedPlots.forEach(id => {
+        const plot = plots.find(p => p.id === id);
+        if (plot) {
+          plot.status = newStatus;
+        }
+      });
+      
+      closeBulkStatusModal();
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      addMarkers();
+      renderTable();
+      clearSelection();
+      
+      alert(`✅ Status updated to ${newStatus} for ${selectedPlots.size} plots`);
+    }
+
+    function bulkUpdatePrice() {
+      if (selectedPlots.size === 0) return;
+      
+      document.getElementById('bulkPriceCount').textContent = selectedPlots.size;
+      document.getElementById('bulkPriceModal').classList.remove('hidden');
+      
+      let total = 0;
+      selectedPlots.forEach(id => {
+        const plot = plots.find(p => p.id === id);
+        if (plot) total += parseFloat(plot.price) || 0;
+      });
+      
+      document.getElementById('currentTotalValue').textContent = `AED ${total.toLocaleString()}`;
+      document.getElementById('newTotalValue').textContent = `AED ${total.toLocaleString()}`;
+      
+      document.getElementById('priceValue').oninput = updatePricePreview;
+    }
+
+    function setPriceUpdateType(type) {
+      priceUpdateType = type;
+      
+      const percentageBtn = document.getElementById('priceTypePercentage');
+      const fixedBtn = document.getElementById('priceTypeFixed');
+      const label = document.getElementById('priceLabel');
+      const unit = document.getElementById('priceUnit');
+      
+      if (type === 'percentage') {
+        percentageBtn.classList.add('bg-blue-600');
+        percentageBtn.classList.remove('bg-gray-700');
+        fixedBtn.classList.remove('bg-blue-600');
+        fixedBtn.classList.add('bg-gray-700');
+        label.textContent = 'Percentage Change';
+        unit.textContent = '%';
+        document.getElementById('priceHint').textContent = 'Positive = increase, Negative = decrease';
+      } else {
+        fixedBtn.classList.add('bg-blue-600');
+        fixedBtn.classList.remove('bg-gray-700');
+        percentageBtn.classList.remove('bg-blue-600');
+        percentageBtn.classList.add('bg-gray-700');
+        label.textContent = 'Fixed Amount (AED)';
+        unit.textContent = 'AED';
+        document.getElementById('priceHint').textContent = 'Enter positive value to increase price';
+      }
+      
+      updatePricePreview();
+    }
+
+    function updatePricePreview() {
+      const value = parseFloat(document.getElementById('priceValue').value) || 0;
+      let total = 0;
+      
+      selectedPlots.forEach(id => {
+        const plot = plots.find(p => p.id === id);
+        if (plot) total += parseFloat(plot.price) || 0;
+      });
+      
+      let newTotal = total;
+      
+      if (priceUpdateType === 'percentage') {
+        newTotal = total * (1 + value / 100);
+      } else {
+        newTotal = total + (value * selectedPlots.size);
+      }
+      
+      document.getElementById('newTotalValue').textContent = `AED ${Math.round(newTotal).toLocaleString()}`;
+    }
+
+    function closeBulkPriceModal() {
+      document.getElementById('bulkPriceModal').classList.add('hidden');
+    }
+
+    function applyBulkPriceUpdate() {
+      const value = parseFloat(document.getElementById('priceValue').value) || 0;
+      
+      selectedPlots.forEach(id => {
+        const plot = plots.find(p => p.id === id);
+        if (plot) {
+          if (priceUpdateType === 'percentage') {
+            plot.price = Math.round(plot.price * (1 + value / 100));
+          } else {
+            plot.price = parseFloat(plot.price) + value;
+          }
+        }
+      });
+      
+      closeBulkPriceModal();
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      addMarkers();
+      renderTable();
+      clearSelection();
+      
+      alert(`✅ Price updated for ${selectedPlots.size} plots`);
+    }
+
+    function bulkUpdateOwner() {
+      if (selectedPlots.size === 0) return;
+      
+      document.getElementById('bulkOwnerCount').textContent = selectedPlots.size;
+      document.getElementById('bulkOwnerModal').classList.remove('hidden');
+    }
+
+    function closeBulkOwnerModal() {
+      document.getElementById('bulkOwnerModal').classList.add('hidden');
+    }
+
+    function applyBulkOwnerUpdate() {
+      const name = document.getElementById('bulkOwnerName').value.trim();
+      const phone = document.getElementById('bulkOwnerPhone').value.trim();
+      const email = document.getElementById('bulkOwnerEmail').value.trim();
+      const overwrite = document.getElementById('bulkOwnerOverwrite').checked;
+      
+      if (!name && !phone && !email) {
+        alert('Please enter at least one field to update');
+        return;
+      }
+      
+      selectedPlots.forEach(id => {
+        const plot = plots.find(p => p.id === id);
+        if (plot) {
+          if (name && (overwrite || !plot.owner)) plot.owner = name;
+          if (phone && (overwrite || !plot.phone)) plot.phone = phone;
+          if (email && (overwrite || !plot.email)) plot.email = email;
+        }
+      });
+      
+      closeBulkOwnerModal();
+      renderTable();
+      clearSelection();
+      
+      alert(`✅ Owner information updated for ${selectedPlots.size} plots`);
+    }
+
+    function bulkExport() {
+      if (selectedPlots.size === 0) return;
+      
+      const selectedData = plots.filter(p => selectedPlots.has(p.id));
+      let csv = "Plot No,Development,Type,GFA,NFA,FAR,BUA,Price,Status,Owner,Phone,Email\n";
+      
+      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.type},${p.gfa},${p.nfa},${p.far},${p.bua},${p.price},${p.status},${p.owner},${p.phone},${p.email}\n`);
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `plots_export_${selectedData.length}_items.csv`;
+      a.click();
+      
+      clearSelection();
+    }
+
+    function bulkDelete() {
+      if (selectedPlots.size === 0) return;
+      
+      if (!confirm(`Delete ${selectedPlots.size} selected plots?`)) return;
+      
+      plots = plots.filter(p => !selectedPlots.has(p.id));
+      selectedPlots.clear();
+      
+      map.eachLayer(layer => { if (layer instanceof L.Marker) map.removeLayer(layer); });
+      addMarkers();
+      renderTable();
+      
+      alert(`✅ ${selectedPlots.size} plots deleted`);
     }
 
     // ==================== NEW PLOT MODAL ====================
@@ -488,91 +825,93 @@
       renderTable();
     }
 
-    // ==================== IMPORT - FIXED ====================
+    // ==================== IMPORT ====================
     
     function importPlots() {
-      document.getElementById('importModal').classList.remove('hidden');
-      document.getElementById('importPreview').classList.add('hidden');
-      document.getElementById('fileInput').value = '';
-      importedData = [];
-      currentFile = null;
-    }
-
-    function closeImportModal() {
-      document.getElementById('importModal').classList.add('hidden');
-    }
-
-    function handleFileSelect(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv,.xlsx,.xls,.json,.txt';
       
-      currentFile = file;
-      const ext = file.name.toLowerCase().split('.').pop();
-      
-      const reader = new FileReader();
-      
-      reader.onload = function(ev) {
-        let data = [];
+      input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
         
-        try {
-          if (['csv', 'txt'].includes(ext)) {
-            data = parseCSV(ev.target.result);
-          } 
-          else if (['xlsx', 'xls'].includes(ext)) {
-            const wb = XLSX.read(ev.target.result, { type: 'binary' });
-            data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-          } 
-          else if (ext === 'json') {
-            data = JSON.parse(ev.target.result);
-          } 
-          else if (ext === 'pdf') {
-            // Simple PDF text extraction (basic)
-            const text = new TextDecoder().decode(ev.target.result);
-            data = parsePDFText(text);
-          }
-          else {
-            alert('Unsupported file type. Please use CSV, Excel, or JSON.');
-            return;
-          }
+        const reader = new FileReader();
+        const ext = file.name.toLowerCase().split('.').pop();
+        
+        reader.onload = function(ev) {
+          let data = [];
           
-          importedData = data;
-          
-          // Show preview
-          const previewDiv = document.getElementById('importPreview');
-          const previewContent = document.getElementById('previewContent');
-          const previewCount = document.getElementById('previewCount');
-          
-          previewDiv.classList.remove('hidden');
-          previewCount.textContent = `${data.length} rows found`;
-          
-          if (data.length > 0) {
-            const keys = Object.keys(data[0]);
-            let html = '<div class="text-green-400 mb-2">Columns: ' + keys.join(', ') + '</div>';
-            html += '<div class="space-y-1">';
+          try {
+            if (['csv', 'txt'].includes(ext)) {
+              data = parseCSV(ev.target.result);
+            } else if (['xlsx', 'xls'].includes(ext)) {
+              const wb = XLSX.read(ev.target.result, { type: 'binary' });
+              data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+            } else if (ext === 'json') {
+              data = JSON.parse(ev.target.result);
+            }
             
-            data.slice(0, 5).forEach((row, i) => {
-              html += `<div class="text-gray-400">Row ${i+1}: ${JSON.stringify(row)}</div>`;
+            let added = 0;
+            let skipped = 0;
+            
+            data.forEach((item, index) => {
+              const no = (item['Plot No'] || item['plot_no'] || `P-${Date.now() + index}`).toString().trim();
+              const dev = (item['Development'] || item['development'] || 'Imported').toString().trim();
+              const price = parseFloat(item['Price'] || item['price'] || 3500000);
+              const status = (item['Status'] || item['status'] || 'Available').toString().trim();
+              const owner = (item['Owner'] || item['owner'] || 'Imported Owner').toString().trim();
+              const phone = (item['Phone'] || item['phone'] || '+971 50 000 0000').toString().trim();
+              const email = (item['Email'] || item['email'] || 'owner@email.com').toString().trim();
+              
+              if (!no || !dev || !price) {
+                skipped++;
+                return;
+              }
+              
+              if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
+                skipped++;
+                return;
+              }
+              
+              plots.push({
+                id: plots.length,
+                no: no,
+                lat: 25.25 + Math.random() * 0.15,
+                lng: 55.27 + Math.random() * 0.15,
+                dev: dev,
+                type: item['Type'] || item['type'] || 'Residential',
+                gfa: item['GFA'] || item['gfa'] || '2000',
+                nfa: item['NFA'] || item['nfa'] || '1700',
+                far: item['FAR'] || item['far'] || '2.0',
+                bua: item['BUA'] || item['bua'] || '1500',
+                price: price,
+                status: ['Available', 'Reserved', 'Sold'].includes(status) ? status : 'Available',
+                owner: owner,
+                phone: phone,
+                email: email
+              });
+              
+              added++;
             });
             
-            html += '</div>';
-            previewContent.innerHTML = html;
-          } else {
-            previewContent.innerHTML = '<div class="text-orange-400">No data found in file</div>';
+            addMarkers();
+            renderTable();
+            alert(`✅ Import Complete!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`);
+            
+          } catch (error) {
+            alert('Error reading file: ' + error.message);
           }
-          
-        } catch (error) {
-          alert('Error reading file: ' + error.message);
-          console.error(error);
+        };
+        
+        if (['xlsx', 'xls'].includes(ext)) {
+          reader.readAsBinaryString(file);
+        } else {
+          reader.readAsText(file);
         }
       };
       
-      if (['xlsx', 'xls'].includes(ext)) {
-        reader.readAsBinaryString(file);
-      } else if (ext === 'pdf') {
-        reader.readAsArrayBuffer(file);
-      } else {
-        reader.readAsText(file);
-      }
+      input.click();
     }
 
     function parseCSV(csv) {
@@ -584,104 +923,9 @@
       return lines.slice(1).map(line => {
         const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
         const obj = {};
-        header.forEach((h, i) => {
-          obj[h] = values[i] || '';
-        });
+        header.forEach((h, i) => { obj[h] = values[i] || ''; });
         return obj;
       }).filter(r => Object.keys(r).length > 1);
-    }
-
-    function parsePDFText(text) {
-      // Extract potential plot data from PDF text
-      const lines = text.split('\n').filter(l => l.trim().length > 10);
-      return lines.slice(0, 20).map((line, index) => ({
-        'Plot No': `P-${1000 + index}`,
-        'Development': line.substring(0, 60).trim(),
-        'Price': Math.floor(Math.random() * 5000000) + 2000000,
-        'Status': 'Available',
-        'Owner': 'Imported Owner'
-      }));
-    }
-
-    function confirmImport() {
-      if (!importedData || importedData.length === 0) {
-        alert('No data to import. Please select a valid file.');
-        return;
-      }
-      
-      let added = 0;
-      let skipped = 0;
-      let errors = [];
-      
-      importedData.forEach((item, index) => {
-        // Try multiple possible column names
-        const no = (item['Plot No'] || item['plot_no'] || item['PlotNo'] || item['Plot Number'] || item['plot number'] || `P-${Date.now() + index}`).toString().trim();
-        const dev = (item['Development'] || item['development'] || item['Dev'] || item['Project'] || 'Imported Development').toString().trim();
-        const price = parseFloat(item['Price'] || item['price'] || item['Cost'] || 3500000);
-        const status = (item['Status'] || item['status'] || 'Available').toString().trim();
-        const owner = (item['Owner'] || item['owner'] || item['Customer'] || 'Imported Owner').toString().trim();
-        const phone = (item['Phone'] || item['phone'] || item['Mobile'] || '+971 50 000 0000').toString().trim();
-        const email = (item['Email'] || item['email'] || 'owner@email.com').toString().trim();
-        
-        // Validation
-        if (!no || no === 'undefined' || no.length < 2) {
-          skipped++;
-          errors.push(`Row ${index + 1}: Missing Plot Number`);
-          return;
-        }
-        
-        if (plots.some(p => p.no.toLowerCase() === no.toLowerCase())) {
-          skipped++;
-          errors.push(`Row ${index + 1}: Duplicate Plot Number (${no})`);
-          return;
-        }
-        
-        if (!dev || dev.length < 3) {
-          skipped++;
-          errors.push(`Row ${index + 1}: Missing Development`);
-          return;
-        }
-        
-        if (!price || price < 100000) {
-          skipped++;
-          errors.push(`Row ${index + 1}: Invalid Price`);
-          return;
-        }
-        
-        // Add the plot
-        plots.push({
-          id: plots.length,
-          no: no,
-          lat: 25.25 + Math.random() * 0.15,
-          lng: 55.27 + Math.random() * 0.15,
-          dev: dev,
-          type: item['Type'] || item['type'] || item['Plot Type'] || 'Residential',
-          gfa: item['GFA'] || item['gfa'] || item['Gross Area'] || '2000',
-          nfa: item['NFA'] || item['nfa'] || item['Net Area'] || '1700',
-          far: item['FAR'] || item['far'] || '2.0',
-          bua: item['BUA'] || item['bua'] || item['Built Up'] || '1500',
-          price: price,
-          status: ['Available', 'Reserved', 'Sold'].includes(status) ? status : 'Available',
-          owner: owner,
-          phone: phone,
-          email: email
-        });
-        
-        added++;
-      });
-      
-      closeImportModal();
-      addMarkers();
-      renderTable();
-      
-      let message = `✅ Import Complete!\n\nImported: ${added} plots\nSkipped: ${skipped} plots`;
-      if (errors.length > 0 && errors.length <= 5) {
-        message += `\n\nErrors:\n${errors.join('\n')}`;
-      } else if (errors.length > 5) {
-        message += `\n\nFirst 5 errors:\n${errors.slice(0, 5).join('\n')}`;
-      }
-      
-      alert(message);
     }
 
     // ==================== UTILITY ====================
@@ -712,7 +956,7 @@
     window.onload = () => {
       initMap();
       renderTable();
-      console.log('✅ Portal loaded successfully');
+      console.log('✅ Portal with Bulk Editing loaded successfully');
     };
   </script>
 </body>
