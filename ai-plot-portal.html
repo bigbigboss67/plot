@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Plot Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    #map { height: 100%; width: 100%; border-radius: 1.5rem; }
+    .legend { background: rgba(17, 24, 39, 0.95); backdrop-filter: blur(12px); }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100">
+
+  <div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <div class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
+      <div class="p-6 border-b border-gray-800">
+        <h1 class="text-3xl font-bold text-blue-500">AI Plot</h1>
+        <p class="text-xs text-gray-500">Real Estate Intelligence</p>
+      </div>
+      <nav class="flex-1 p-4 space-y-1">
+        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl nav-active">
+          <i class="fas fa-map-marker-alt"></i> Plots
+        </a>
+      </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col">
+      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-8">
+        <h2 class="text-2xl font-semibold">Plot Management</h2>
+        <div class="flex items-center gap-4">
+          <button onclick="importPlots()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2">
+            <i class="fas fa-file-import"></i> Import Plots
+          </button>
+          <button onclick="exportCSV()" class="px-5 py-2 bg-gray-800 hover:bg-gray-700 rounded-2xl">Export CSV</button>
+          <button onclick="printPDF()" class="px-5 py-2 bg-gray-800 hover:bg-gray-700 rounded-2xl">Print PDF</button>
+          <button onclick="addNewPlot()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-2xl">+ New Plot</button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-auto p-8">
+        <div class="flex justify-between items-center mb-6">
+          <div class="flex gap-4">
+            <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2 bg-blue-600 rounded-2xl">Map View</button>
+            <button onclick="togglePlotView('table')" id="tableTab" class="px-6 py-2 bg-gray-800 hover:bg-gray-700 rounded-2xl">Table View</button>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <select id="statusFilter" onchange="applyFilters()" class="bg-gray-800 px-5 py-3 rounded-2xl">
+              <option value="">All Status</option>
+              <option value="Available">Available</option>
+              <option value="Reserved">Reserved</option>
+              <option value="Sold">Sold</option>
+            </select>
+            <button onclick="clearFilters()" class="px-5 py-3 bg-gray-700 hover:bg-gray-600 rounded-2xl">Clear Filters</button>
+          </div>
+
+          <div class="relative w-80">
+            <input type="text" id="mapSearch" placeholder="Search..." class="w-full bg-gray-800 px-5 py-3 pl-12 rounded-2xl" onkeyup="applyFilters()">
+            <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend absolute top-28 right-8 z-[1000] p-5 rounded-2xl border border-gray-700 shadow-2xl text-sm">
+          <p class="font-semibold mb-3">Status Legend</p>
+          <div class="space-y-2">
+            <div class="flex items-center gap-3"><div class="w-4 h-4 bg-green-500 rounded-full"></div> Available</div>
+            <div class="flex items-center gap-3"><div class="w-4 h-4 bg-orange-500 rounded-full"></div> Reserved</div>
+            <div class="flex items-center gap-3"><div class="w-4 h-4 bg-red-500 rounded-full"></div> Sold</div>
+          </div>
+        </div>
+
+        <div id="mapView" class="flex gap-6 h-[calc(100vh-180px)]">
+          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative">
+            <div id="map"></div>
+            <div class="absolute top-4 right-4 bg-gray-900/90 backdrop-blur-md rounded-2xl p-2 z-[1000]">
+              <button onclick="setLayer(0)" class="block px-4 py-2 hover:bg-gray-800 rounded-xl">Street</button>
+              <button onclick="setLayer(1)" class="block px-4 py-2 hover:bg-gray-800 rounded-xl">Satellite</button>
+              <button onclick="setLayer(2)" class="block px-4 py-2 hover:bg-gray-800 rounded-xl">Terrain</button>
+            </div>
+          </div>
+          <div id="mapCard" class="w-96 bg-gray-900 rounded-3xl p-6 overflow-auto hidden border border-gray-700"></div>
+        </div>
+
+        <div id="plotTableView" class="hidden mt-8">
+          <div class="flex justify-between items-center mb-4">
+            <div class="flex gap-3">
+              <button onclick="bulkDelete()" class="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2">
+                <i class="fas fa-trash"></i> Delete Selected
+              </button>
+              <button onclick="bulkExport()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2">
+                <i class="fas fa-download"></i> Export Selected
+              </button>
+            </div>
+            <span class="text-sm text-gray-400" id="selectedCount">0 selected</span>
+          </div>
+          <table class="w-full text-sm">
+            <thead class="border-b border-gray-700">
+              <tr>
+                <th class="w-12"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                <th class="text-left py-4">Plot No</th>
+                <th class="text-left py-4">Development</th>
+                <th class="text-left py-4">Size</th>
+                <th class="text-left py-4">Price</th>
+                <th class="text-left py-4">Status</th>
+                <th class="text-left py-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="plotTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Modal -->
+  <div id="importModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl max-h-[90vh] flex flex-col">
+      <div class="p-6 border-b flex justify-between items-center">
+        <h3 class="text-2xl font-bold">Import Plots</h3>
+        <button onclick="closeImportModal()" class="text-4xl">×</button>
+      </div>
+      <div class="p-6 flex-1 overflow-auto">
+        <div class="mb-4">
+          <p class="text-sm text-gray-400">Supported: CSV, Excel (.xlsx/.xls), JSON, TXT, PDF, Images</p>
+          <p class="text-xs text-gray-500">For best results use CSV or Excel files.</p>
+        </div>
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.json,.txt,.pdf,.png,.jpg,.jpeg" class="block w-full mb-6"/>
+        <div id="mappingSection" class="hidden grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+        <div class="overflow-auto max-h-96 border border-gray-700 rounded-2xl">
+          <table id="previewTable" class="w-full text-sm"></table>
+        </div>
+      </div>
+      <div class="p-6 border-t flex justify-end gap-4">
+        <button onclick="closeImportModal()" class="px-8 py-4 border rounded-2xl">Cancel</button>
+        <button onclick="confirmImport()" class="px-10 py-4 bg-blue-600 rounded-2xl">Import Plots</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let map, markerCluster, baseLayers = [];
+    let plots = [
+      { id: 0, no: "A-128", lat: 25.2769, lng: 55.2962, dev: "Dubai Hills Estate", size: "1250", price: "4375000", status: "Available" },
+      { id: 1, no: "B-305", lat: 25.2482, lng: 55.3123, dev: "Emirates Hills", size: "980", price: "6200000", status: "Reserved" },
+      { id: 2, no: "C-042", lat: 25.2891, lng: 55.3784, dev: "Arabian Ranches", size: "2100", price: "8900000", status: "Sold" }
+    ];
+
+    let importedData = [], headers = [];
+    let selectedPlots = new Set();
+
+    function initMap() {
+      map = L.map('map').setView([25.2769, 55.2962], 11);
+      baseLayers = [
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+      ];
+      baseLayers[0].addTo(map);
+      markerCluster = L.markerClusterGroup();
+      updateMarkers();
+    }
+
+    function updateMarkers(filtered = plots) {
+      markerCluster.clearLayers();
+      filtered.forEach(plot => {
+        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        const marker = L.marker([plot.lat, plot.lng], {
+          icon: L.divIcon({ html: `<div style="background:${color}; width:32px; height:32px; border-radius:50%; border:3px solid white; color:white; font-weight:bold; display:flex; align-items:center; justify-content:center;">${plot.no}</div>`, iconSize: [32,32] })
+        });
+        marker.on('click', () => selectPlot(plot.id));
+        markerCluster.addLayer(marker);
+      });
+      map.addLayer(markerCluster);
+    }
+
+    function applyFilters() {
+      const status = document.getElementById('statusFilter').value;
+      const query = document.getElementById('mapSearch').value.toLowerCase().trim();
+      const filtered = plots.filter(p => 
+        (!status || p.status === status) &&
+        (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))
+      );
+      updateMarkers(filtered);
+      populateTable(filtered);
+    }
+
+    function clearFilters() {
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('mapSearch').value = '';
+      applyFilters();
+    }
+
+    function togglePlotView(view) {
+      document.getElementById('mapView').classList.toggle('hidden', view !== 'map');
+      document.getElementById('plotTableView').classList.toggle('hidden', view !== 'table');
+      document.getElementById('mapTab').classList.toggle('bg-blue-600', view === 'map');
+      document.getElementById('tableTab').classList.toggle('bg-blue-600', view === 'table');
+    }
+
+    function populateTable(data = plots) {
+      const tbody = document.getElementById('plotTableBody');
+      tbody.innerHTML = data.map(plot => `
+        <tr class="hover:bg-gray-800">
+          <td><input type="checkbox" onchange="toggleSelection(${plot.id}, this)" ${selectedPlots.has(plot.id) ? 'checked' : ''}></td>
+          <td>${plot.no}</td>
+          <td>${plot.dev}</td>
+          <td>${plot.size}</td>
+          <td>AED ${Number(plot.price).toLocaleString()}</td>
+          <td><span class="px-4 py-1 rounded-full text-xs ${plot.status === 'Available' ? 'bg-green-500' : plot.status === 'Reserved' ? 'bg-orange-500' : 'bg-red-500'}">${plot.status}</span></td>
+          <td>
+            <button onclick="selectPlot(${plot.id}); togglePlotView('map')" class="text-blue-400 mr-2">View</button>
+            <button onclick="deletePlot(${plot.id})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function toggleSelection(id, checkbox) {
+      if (checkbox.checked) {
+        selectedPlots.add(id);
+      } else {
+        selectedPlots.delete(id);
+      }
+      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
+    }
+
+    function toggleSelectAll() {
+      const checked = document.getElementById('selectAll').checked;
+      selectedPlots.clear();
+      const checkboxes = document.querySelectorAll('#plotTableBody input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        cb.checked = checked;
+        const row = cb.closest('tr');
+        const plotNo = row.cells[1].textContent;
+        const plot = plots.find(p => p.no === plotNo);
+        if (plot && checked) selectedPlots.add(plot.id);
+      });
+      document.getElementById('selectedCount').textContent = `${selectedPlots.size} selected`;
+    }
+
+    function bulkDelete() {
+      if (selectedPlots.size === 0) {
+        alert('No plots selected');
+        return;
+      }
+      if (!confirm(`Delete ${selectedPlots.size} selected plots?`)) return;
+
+      plots = plots.filter(p => !selectedPlots.has(p.id));
+      selectedPlots.clear();
+      document.getElementById('selectAll').checked = false;
+      document.getElementById('selectedCount').textContent = '0 selected';
+      updateMarkers();
+      populateTable();
+      alert('Selected plots deleted successfully');
+    }
+
+    function bulkExport() {
+      if (selectedPlots.size === 0) {
+        alert('No plots selected for export');
+        return;
+      }
+
+      const selectedData = plots.filter(p => selectedPlots.has(p.id));
+      let csv = "Plot No,Development,Size,Price,Status\n";
+      selectedData.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `plots_export_${selectedData.length}_items.csv`;
+      a.click();
+
+      alert(`Exported ${selectedData.length} selected plots to CSV`);
+    }
+
+    function selectPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      const card = document.getElementById('mapCard');
+      card.classList.remove('hidden');
+      card.innerHTML = `
+        <button onclick="closeCard()" class="float-right text-3xl">×</button>
+        <h3 class="text-3xl font-bold">Plot ${plot.no}</h3>
+        <p class="text-blue-400">${plot.dev}</p>
+        <div class="inline-block px-6 py-2 rounded-2xl mt-4 ${plot.status === 'Available' ? 'bg-green-600' : plot.status === 'Reserved' ? 'bg-orange-600' : 'bg-red-600'}">${plot.status}</div>
+        <div class="grid grid-cols-2 gap-6 mt-8">
+          <div>Size: <span class="font-bold">${plot.size} sqm</span></div>
+          <div>Price: <span class="font-bold">AED ${Number(plot.price).toLocaleString()}</span></div>
+        </div>
+        <div class="mt-8 flex gap-3">
+          <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl">Link to Deal</button>
+          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl">Delete Plot</button>
+        </div>
+      `;
+      map.flyTo([plot.lat, plot.lng], 16);
+    }
+
+    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
+
+    function deletePlot(id) {
+      if (!confirm('Delete this plot?')) return;
+      plots = plots.filter(p => p.id !== id);
+      updateMarkers();
+      populateTable();
+      alert('Plot deleted successfully');
+    }
+
+    function setLayer(n) {
+      map.eachLayer(l => { if (l instanceof L.TileLayer) map.removeLayer(l); });
+      baseLayers[n].addTo(map);
+    }
+
+    function importPlots() {
+      document.getElementById('importModal').classList.remove('hidden');
+      document.getElementById('fileInput').value = '';
+    }
+
+    function closeImportModal() {
+      document.getElementById('importModal').classList.add('hidden');
+    }
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      const fileName = file.name.toLowerCase();
+      const ext = fileName.split('.').pop();
+
+      reader.onload = function(ev) {
+        let success = false;
+
+        if (['csv', 'txt'].includes(ext)) {
+          importedData = parseCSV(ev.target.result);
+          success = true;
+        } else if (['json'].includes(ext)) {
+          importedData = JSON.parse(ev.target.result);
+          success = true;
+        } else if (['xlsx', 'xls'].includes(ext)) {
+          const wb = XLSX.read(ev.target.result, { type: 'binary' });
+          importedData = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+          success = true;
+        } else if (['pdf'].includes(ext)) {
+          alert('PDF detected. For best results, convert to CSV/Excel first.');
+          importedData = [{ 'Note': 'PDF content - please use CSV/Excel', 'Content': 'PDF text extraction limited in browser' }];
+          success = true;
+        } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+          alert('Image detected. Please use CSV or Excel for structured plot data.');
+          importedData = [{ 'Note': 'Image file - use CSV/Excel' }];
+          success = true;
+        } else {
+          importedData = [{ 'Note': 'Generic file', 'Content': ev.target.result.substring(0, 300) }];
+          success = true;
+        }
+
+        if (success) {
+          headers = Object.keys(importedData[0] || {});
+          renderMapping();
+          renderPreview();
+        }
+      };
+
+      if (['xlsx', 'xls'].includes(ext)) {
+        reader.readAsBinaryString(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+
+    function parseCSV(csv) {
+      const lines = csv.split('\n');
+      const header = lines[0].split(',').map(h => h.trim());
+      return lines.slice(1).map(line => {
+        const values = line.split(',');
+        return header.reduce((obj, h, i) => { obj[h] = values[i]?.trim(); return obj; }, {});
+      }).filter(r => Object.keys(r).length);
+    }
+
+    function renderMapping() {
+      const container = document.getElementById('mappingSection');
+      container.innerHTML = '';
+      container.classList.remove('hidden');
+      const fields = ['Plot No','Development','Size','Price','Status','Latitude','Longitude'];
+      const ids = ['mapPlotNo','mapDev','mapSize','mapPrice','mapStatus','mapLat','mapLng'];
+      fields.forEach((label, i) => {
+        const div = document.createElement('div');
+        div.innerHTML = `<label class="block text-sm mb-1">${label}</label><select id="${ids[i]}" class="w-full bg-gray-800 rounded-xl p-3"></select>`;
+        container.appendChild(div);
+      });
+
+      ids.forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = '<option value="">Auto Detect</option>';
+        headers.forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h; opt.textContent = h;
+          sel.appendChild(opt);
+        });
+      });
+    }
+
+    function renderPreview() {
+      let html = `<thead><tr class="bg-gray-800"><th>#</th>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+      importedData.slice(0, 30).forEach((row, i) => {
+        html += `<tr><td>${i+1}</td>${headers.map(h => `<td>${row[h]||''}</td>`).join('')}</tr>`;
+      });
+      html += '</tbody>';
+      document.getElementById('previewTable').innerHTML = html;
+    }
+
+    function confirmImport() {
+      let added = 0, skipped = 0;
+      importedData.forEach(item => {
+        const no = (item['Plot No'] || item['plot no'] || `P-${Date.now()}`).toString().trim();
+        if (plots.some(p => p.no === no)) { skipped++; return; }
+
+        plots.push({
+          id: plots.length + added,
+          no: no,
+          dev: item['Development'] || "Imported",
+          size: item['Size'] || "1000",
+          price: item['Price'] || "3500000",
+          status: item['Status'] || "Available",
+          lat: 25.25 + Math.random()*0.15,
+          lng: 55.27 + Math.random()*0.15
+        });
+        added++;
+      });
+
+      alert(`✅ Imported ${added} plots!\n${skipped} duplicates skipped.`);
+      closeImportModal();
+      updateMarkers();
+      populateTable();
+    }
+
+    function exportCSV() {
+      let csv = "Plot No,Development,Size,Price,Status\n";
+      plots.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'plots_export.csv';
+      a.click();
+    }
+
+    function printPDF() { window.print(); }
+    function addNewPlot() { alert("New Plot form would open here"); }
+    function linkToDeal() { alert("Plot linked to new deal!"); }
+
+    window.onload = () => {
+      initMap();
+      populateTable();
+      togglePlotView('map');
+    };
+  </script>
+</body>
+</html>
