@@ -473,11 +473,24 @@
     }
 
     // ==================== LEAFLET MAP (SIMPLE & WORKING) ====================
-    function initMap() {
+    function initMap(retryCount = 0) {
       const loadingEl = document.getElementById('mapLoading');
+      const mapContainer = document.getElementById('map');
+      
       try {
         if (typeof L === 'undefined') {
           throw new Error('Leaflet library failed to load from CDN');
+        }
+        
+        if (!mapContainer) {
+          throw new Error('Map container element not found');
+        }
+        
+        // Wait for container to have proper size (prevents blank map)
+        if (mapContainer.offsetHeight < 50 && retryCount < 5) {
+          console.log('Map container not ready, retrying...');
+          setTimeout(() => initMap(retryCount + 1), 100);
+          return;
         }
         
         // If map already exists (e.g. retry), clean it up first
@@ -510,18 +523,24 @@
           markerCluster = null;
         }
         
-        // Hide loading overlay as soon as map is ready (tiles load async)
-        if (loadingEl) loadingEl.style.display = 'none';
-        
         // Add plot markers (with fallback support)
         addPlotMarkers();
         
-        // Force Leaflet to recalculate container size (fixes many "blank map" issues)
+        // Hide loading overlay now that map is initialized
+        if (loadingEl) loadingEl.style.display = 'none';
+        
+        // Multiple invalidates to ensure proper rendering after layout settles
         setTimeout(() => {
           if (map && typeof map.invalidateSize === 'function') {
             map.invalidateSize();
           }
-        }, 200);
+        }, 50);
+        
+        setTimeout(() => {
+          if (map && typeof map.invalidateSize === 'function') {
+            map.invalidateSize();
+          }
+        }, 300);
         
         console.log('✅ Map loaded successfully');
       } catch (error) {
@@ -558,7 +577,11 @@
       }
       
       plots.forEach(plot => {
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
+        if (!plot || typeof plot.lat !== 'number' || typeof plot.lng !== 'number' || isNaN(plot.lat) || isNaN(plot.lng)) {
+          console.warn('Skipping plot with invalid coordinates:', plot ? plot.no : 'unknown');
+          return;
+        }
+        const color = (plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444') || '#6b7280';
         const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
         
         const markerHTML = `
@@ -617,16 +640,16 @@
         marker.bindTooltip(`
           <div style="min-width: ${isMobile ? '200px' : '160px'}; padding: ${isMobile ? '8px 12px' : '4px'};">
             <div style="font-weight: 700; font-size: ${isMobile ? '15px' : '14px'}; margin-bottom: 4px;">Plot ${plot.no}</div>
-            <div style="color: #94a3b8; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 6px;">${plot.dev}</div>
+            <div style="color: #94a3b8; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 6px;">${plot.dev || 'Unknown Development'}</div>
             
             <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 4px;">
               <span style="color: #64748b;">Size:</span>
-              <span style="font-weight: 600;">${plot.size} sqm</span>
+              <span style="font-weight: 600;">${plot.size || 'N/A'} sqm</span>
             </div>
             
             <div style="display: flex; justify-content: space-between; font-size: ${isMobile ? '13px' : '12px'}; margin-bottom: 8px;">
               <span style="color: #64748b;">Price:</span>
-              <span style="font-weight: 700; color: #22c55e;">AED ${Number(plot.price).toLocaleString()}</span>
+              <span style="font-weight: 700; color: #22c55e;">AED ${Number(plot.price || 0).toLocaleString()}</span>
             </div>
             
             <div style="
