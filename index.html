@@ -1018,7 +1018,6 @@
       saveToLocalStorage();
       addPlotMarkers();
       populateTable();
-      updateAnalytics();
     }
 
     function importPlots() {
@@ -2755,7 +2754,7 @@ END:VCALENDAR`;
       a.download = `ai-plot-portal-backup-${new Date().toISOString().split('T')[0]}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('✅ Offline backup downloaded! Keep this file safe.', 'success');
+      showToastNotification('Backup Exported', '✅ Offline backup downloaded! Keep this file safe.', 'success');
     }
 
     function importOfflineBackup() {
@@ -2786,13 +2785,12 @@ END:VCALENDAR`;
             });
             
             saveToLocalStorage();
-            addMarkers();
+            addPlotMarkers();
             populateTable();
-            updateAnalytics();
             
-            showToast(`✅ Restored! Added ${added} plots (skipped ${skipped} duplicates)`, 'success');
+            showToastNotification('Import Successful', `✅ Restored! Added ${added} plots (skipped ${skipped} duplicates)`, 'success');
           } catch (err) {
-            showToast('❌ Invalid backup file', 'error');
+            showToastNotification('Import Failed', '❌ Invalid backup file', 'error');
           }
         };
         reader.readAsText(file);
