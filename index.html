@@ -241,7 +241,7 @@
         </div>
       </div>
 
-      <div class="flex-1 overflow-auto p-8">
+      <div class="flex-1 overflow-auto p-8 flex flex-col relative">
         <div class="flex justify-between items-center mb-6">
           <div class="flex gap-3">
             <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium flex items-center gap-2">
@@ -296,7 +296,7 @@
           </div>
         </div>
 
-        <div id="mapView" class="flex gap-6 h-[calc(100vh-200px)]">
+        <div id="mapView" class="flex-1 min-h-0 flex gap-6">
           <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 500px;">
             <div id="map" style="height: 100%; min-height: 500px;"></div>
             <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-[999]">
