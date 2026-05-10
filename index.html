@@ -241,7 +241,7 @@
         </div>
       </div>
 
-      <div class="flex-1 overflow-auto p-8 flex flex-col relative">
+      <div class="flex-1 min-h-0 overflow-auto p-8 flex flex-col relative">
         <div class="flex justify-between items-center mb-6">
           <div class="flex gap-3">
             <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium flex items-center gap-2">
@@ -297,8 +297,8 @@
         </div>
 
         <div id="mapView" class="flex-1 min-h-0 flex gap-6">
-          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 500px;">
-            <div id="map" style="height: 100%; min-height: 500px;"></div>
+          <div class="flex-1 h-full bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800" style="min-height: 500px;">
+            <div id="map" style="height: 100%; min-height: 500px; width: 100%;"></div>
             <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-[999]">
               <div class="text-center">
                 <div class="loading-spinner mx-auto mb-3"></div>
@@ -379,7 +379,7 @@
 
   <!-- Import Modal -->
   <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]">
-    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden modal-mobile">
+    <div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden">
       <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
         <div>
           <h3 class="text-2xl font-semibold">Import Plots</h3>
@@ -406,7 +406,6 @@
         <button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Import Plots</button>
       </div>
     </div>
-  </div>
 
   <script>
     let map;
@@ -494,26 +493,29 @@
           markerCluster = null;
         }
         
-        // Add plot markers (with fallback support)
-        addPlotMarkers();
-        
-        // Hide loading overlay now that map is initialized
-        if (loadingEl) loadingEl.style.display = 'none';
-        
-        // Multiple invalidates to ensure proper rendering after layout settles
-        setTimeout(() => {
-          if (map && typeof map.invalidateSize === 'function') {
-            map.invalidateSize();
-          }
-        }, 50);
-        
-        setTimeout(() => {
-          if (map && typeof map.invalidateSize === 'function') {
-            map.invalidateSize();
-          }
-        }, 300);
-        
-        console.log('✅ Map loaded successfully');
+        // Use whenReady to ensure map is fully initialized before adding markers and hiding loader
+        map.whenReady(() => {
+          // Add plot markers (with fallback support)
+          addPlotMarkers();
+          
+          // Hide loading overlay now that map is initialized
+          if (loadingEl) loadingEl.style.display = 'none';
+          
+          // Multiple invalidates to ensure proper rendering after layout settles
+          setTimeout(() => {
+            if (map && typeof map.invalidateSize === 'function') {
+              map.invalidateSize();
+            }
+          }, 50);
+          
+          setTimeout(() => {
+            if (map && typeof map.invalidateSize === 'function') {
+              map.invalidateSize();
+            }
+          }, 300);
+          
+          console.log('✅ Map loaded successfully');
+        });
       } catch (error) {
         console.error('❌ Map failed to load:', error);
         if (loadingEl) loadingEl.style.display = 'none';
@@ -975,10 +977,10 @@
           </div>
         </div>
         
-        ${panoramaHTML}
+        ${imageHTML}
         ${videoHTML}
       `;
-      map.flyTo([plot.lat, plot.lng], 16);
+      map.flyTo({ center: [plot.lng, plot.lat], zoom: 16, pitch: 60 });
     }
 
     function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
@@ -1577,9 +1579,8 @@
       const plot = plots.find(p => p.id === plotId);
       if (!plot) return;
       
-      const customMsgEl = document.getElementById('customMessage');
-      const customMsg = customMsgEl ? customMsgEl.value.trim() : '';
-
+      const customMsg = document.getElementById('customMessage').value.trim();
+      
       const subject = `Plot ${plot.no} - ${plot.dev} | AED ${Number(plot.price).toLocaleString()}`;
       
       let body = `Hi,\n\nI wanted to share this amazing plot with you:\n\n` +
@@ -1603,9 +1604,8 @@
     function sendViaWhatsApp(plotId) {
       const plot = plots.find(p => p.id === plotId);
       if (!plot) return;
-
-      const customMsgEl = document.getElementById('customMessage');
-      const customMsg = customMsgEl ? customMsgEl.value.trim() : '';
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
       
       let message = `🏠 *Plot ${plot.no}*\n` +
         `📍 ${plot.dev}\n` +
@@ -1627,9 +1627,8 @@
     function sendViaSMS(plotId) {
       const plot = plots.find(p => p.id === plotId);
       if (!plot) return;
-
-      const customMsgEl = document.getElementById('customMessage');
-      const customMsg = customMsgEl ? customMsgEl.value.trim() : '';
+      
+      const customMsg = document.getElementById('customMessage').value.trim();
       
       let message = `Plot ${plot.no} - ${plot.dev}\n` +
         `Size: ${plot.size} sqm | Price: AED ${Number(plot.price).toLocaleString()}\n` +
