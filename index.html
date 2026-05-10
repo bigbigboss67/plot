@@ -1908,3 +1908,15 @@
       showCRMModal();
     }
     
+    window.onload = () => {
+      loadFromLocalStorage();
+      setTimeout(() => { initMap(); }, 300);
+      populateTable(); togglePlotView('map'); checkAuth();
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+      startNotificationSimulation();
+      setTimeout(() => { if (currentUser && notifications.length === 0) addNotification('System Online', 'All systems operational', 'success'); }, 2000);
+      window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
+    };
+  </script>
+</body>
+</html>
