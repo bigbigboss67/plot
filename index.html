@@ -16,6 +16,7 @@
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
     #map { height: calc(100vh - 250px); min-height: 500px; width: 100%; border-radius: 1.5rem; }
@@ -147,11 +148,17 @@
           <button onclick="showOfflineSyncModal()" class="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-sync-alt"></i> <span class="hidden md:inline">Offline Sync</span>
           </button>
+          <button onclick="toggleOnlineSync()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium" id="onlineSyncBtn" title="Click to toggle online sync status">
+            <i class="fas fa-cloud" id="syncIcon"></i> <span id="syncLabel">Synced</span>
+          </button>
           <button onclick="startDistanceCalculator()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-ruler"></i> Measure Distance
           </button>
           <button onclick="addNewPlot()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 rounded-2xl flex items-center gap-2 text-sm font-medium">
             <i class="fas fa-plus"></i> New Plot
+          </button>
+          <button onclick="showCRMModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
+            <i class="fas fa-users-cog"></i> CRM
           </button>
           <button onclick="connectGoogleCalendar()" class="px-5 py-2.5 bg-white text-black hover:bg-gray-200 rounded-2xl flex items-center gap-2 text-sm font-medium hidden md:flex">
             <i class="fab fa-google"></i> Connect Calendar
@@ -261,6 +268,22 @@
                 <button onclick="toggleHeatmap()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-purple-400">
                   <i class="fas fa-fire w-4"></i> Heatmap
                 </button>
+                <button onclick="startAreaMeasurement()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-purple-400">
+                  <i class="fas fa-draw-polygon w-4"></i> Measure Area
+                </button>
+                <div class="border-t border-gray-700 my-1"></div>
+                <button onclick="startBufferAnalysis()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-blue-400">
+                  <i class="fas fa-circle w-4"></i> Buffer Analysis
+                </button>
+                <button onclick="startSpatialQuery()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-violet-400">
+                  <i class="fas fa-search-location w-4"></i> Spatial Query
+                </button>
+                <button onclick="analyzeCustomZone()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-green-400">
+                  <i class="fas fa-draw-polygon w-4"></i> Custom Zone
+                </button>
+                <button onclick="toggleProximityAmenities()" class="w-full px-4 py-2 text-left rounded-xl flex items-center gap-3 hover:bg-gray-700 text-teal-400">
+                  <i class="fas fa-map-marked w-4"></i> Proximity Amenities
+                </button>
               </div>
             </div>
           </div>
@@ -338,6 +361,18 @@
     let selectedPlots = new Set();
     let currentVideos = [];
     let markerCluster;
+    let onlineSynced = true;
+    let currentFilter = { status: '', query: '' };
+    let areaMode = false, areaPoints = [], areaPolyline = null, areaPolygon = null;
+    let clients = [
+      { id: 1, name: "Ahmed Al-Mansoori", phone: "+971 50 123 4567", email: "ahmed@realty.ae", type: "Investor", linkedPlots: [0] },
+      { id: 2, name: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima.h@invest.ae", type: "Developer", linkedPlots: [1,2] },
+      { id: 3, name: "Omar Khalil", phone: "+971 52 456 7890", email: "omar@properties.ae", type: "End User", linkedPlots: [] }
+    ];
+    let deals = [
+      { id: 101, plotId: 0, clientId: 1, stage: "Negotiation", value: "4375000", closeDate: "2026-06-15", notes: "JV interest high" },
+      { id: 102, plotId: 1, clientId: 2, stage: "Under Contract", value: "6200000", closeDate: "2026-05-20", notes: "Reserved for family office" }
+    ];
 
     function saveToLocalStorage() {
       try { localStorage.setItem('aiPlotPortalData', JSON.stringify(plots)); } catch (e) { console.warn('Could not save to localStorage:', e); }
@@ -384,10 +419,10 @@
       }
     }
 
-    function addPlotMarkers() {
+    function addPlotMarkers(plotsToShow = plots) {
       if (markerCluster) { markerCluster.clearLayers(); }
       else if (map) { map.eachLayer(l => { if (l instanceof L.Marker) map.removeLayer(l); }); }
-      plots.forEach(plot => {
+      plotsToShow.forEach(plot => {
         if (!plot || typeof plot.lat !== 'number' || typeof plot.lng !== 'number' || isNaN(plot.lat) || isNaN(plot.lng)) return;
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
@@ -431,12 +466,20 @@
     }
 
     function applyFilters() {
-      const status = document.getElementById('statusFilter').value;
-      const query = document.getElementById('mapSearch').value.toLowerCase().trim();
-      populateTable(plots.filter(p => (!status || p.status === status) && (!query || p.no.toLowerCase().includes(query) || p.dev.toLowerCase().includes(query))));
+      currentFilter.status = document.getElementById('statusFilter').value;
+      currentFilter.query = document.getElementById('mapSearch').value.toLowerCase().trim();
+      const filtered = plots.filter(p => (!currentFilter.status || p.status === currentFilter.status) && (!currentFilter.query || p.no.toLowerCase().includes(currentFilter.query) || (p.dev || '').toLowerCase().includes(currentFilter.query)));
+      populateTable(filtered);
+      addPlotMarkers(filtered);
     }
 
-    function clearFilters() { document.getElementById('statusFilter').value = ''; document.getElementById('mapSearch').value = ''; populateTable(plots); addPlotMarkers(); }
+    function clearFilters() { 
+      currentFilter = { status: '', query: '' };
+      document.getElementById('statusFilter').value = ''; 
+      document.getElementById('mapSearch').value = ''; 
+      populateTable(plots); 
+      addPlotMarkers(plots); 
+    }
     function filterByStatus(status) { document.getElementById('statusFilter').value = status; applyFilters(); }
 
     let searchTimeout;
@@ -499,30 +542,109 @@
       const plot = plots.find(p => p.id === id);
       const card = document.getElementById('mapCard');
       card.classList.remove('hidden');
-      let imageHTML = plot.image ? `<div class="mt-6"><div class="text-xs text-gray-400 mb-2">PLOT PHOTO</div><img src="${plot.image}" class="w-full h-48 object-cover rounded-2xl border border-gray-700"></div>` : '';
+      const imageHTML = plot.image ? `<div class="mt-4"><div class="text-xs text-gray-400 mb-2">PLOT PHOTO</div><img src="${plot.image}" class="w-full h-48 object-cover rounded-2xl border border-gray-700"></div>` : '';
       let videoHTML = '';
       if (plot.videos && plot.videos.length > 0) {
-        videoHTML = `<div class="mt-6"><div class="text-xs text-gray-400 mb-2">VIRTUAL TOURS & VIDEOS (${plot.videos.length})</div>`;
+        videoHTML = `<div class="mt-4"><div class="text-xs text-gray-400 mb-2">VIRTUAL TOURS (${plot.videos.length})</div>`;
         plot.videos.forEach(v => {
-          if (v.type === 'file') videoHTML += `<div class="mb-4"><div class="text-xs text-gray-500 mb-1">${v.name}</div><video controls class="w-full rounded-2xl border border-gray-700"><source src="${v.data}" type="video/mp4"></video></div>`;
-          else if (v.type === 'youtube' || v.type === 'vimeo') videoHTML += `<div class="mb-4"><div class="text-xs text-gray-500 mb-1">${v.title}</div><div class="aspect-video rounded-2xl overflow-hidden border border-gray-700"><iframe src="${v.url}" class="w-full h-full" frameborder="0" allowfullscreen></iframe></div></div>`;
+          if (v.type === 'file') videoHTML += `<div class="mb-3"><video controls class="w-full rounded-2xl border border-gray-700"><source src="${v.data}" type="video/mp4"></video></div>`;
+          else if (v.type === 'youtube' || v.type === 'vimeo') videoHTML += `<div class="mb-3"><div class="aspect-video rounded-2xl overflow-hidden border border-gray-700"><iframe src="${v.url}" class="w-full h-full" frameborder="0" allowfullscreen></iframe></div></div>`;
         });
         videoHTML += `</div>`;
       }
-      let panoramaHTML = plot.panorama ? `<div class="mt-6"><div class="flex items-center justify-between mb-2"><div class="text-xs text-gray-400">360° PANORAMA</div><button onclick="viewPanorama('${plot.panorama}')" class="px-4 py-1 bg-purple-600 hover:bg-purple-700 rounded-xl text-xs flex items-center gap-2"><i class="fas fa-globe"></i> View 360°</button></div><div class="w-full h-32 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 relative cursor-pointer" onclick="viewPanorama('${plot.panorama}')"><img src="${plot.panorama}" class="w-full h-full object-cover"><div class="absolute inset-0 flex items-center justify-center bg-black/40"><div class="text-center"><i class="fas fa-globe text-3xl text-white mb-1"></i><div class="text-white text-xs">Click to view 360°</div></div></div></div></div>` : '';
+      const panoramaHTML = plot.panorama ? `<div class="mt-4"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>360° PANORAMA</span><button onclick="viewPanorama('${plot.panorama}'); closeCard()" class="px-3 py-1 bg-purple-600 rounded-xl text-xs">View</button></div><div class="w-full h-28 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 cursor-pointer" onclick="viewPanorama('${plot.panorama}'); closeCard()"><img src="${plot.panorama}" class="w-full h-full object-cover"></div></div>` : '';
+      // Enhanced tabbed plot card
+      const pricePerSqm = plot.size ? (Number(plot.price) / Number(plot.size)).toFixed(0) : 'N/A';
+      const plotDeals = deals.filter(d => d.plotId === plot.id);
+      const linkedClient = clients.find(c => c.linkedPlots && c.linkedPlots.includes(plot.id));
+      const hasMetrics = plot.gfa || plot.nfa || plot.far || plot.bua;
+      
       card.innerHTML = `
-        <button onclick="closeCard()" class="float-right text-3xl">×</button>
-        <h3 class="text-3xl font-bold">Plot ${plot.no}</h3>
-        <p class="text-blue-400">${plot.dev}</p>
-        <div class="inline-block px-6 py-2 rounded-2xl mt-4 ${plot.status==='Available'?'bg-green-600':plot.status==='Reserved'?'bg-orange-600':'bg-red-600'}">${plot.status}</div>
-        <div class="grid grid-cols-2 gap-6 mt-8 text-sm">
-          <div>Size: <span class="font-bold">${plot.size} sqm</span></div>
-          <div>Price: <span class="font-bold">AED ${Number(plot.price).toLocaleString()}</span></div>
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <button onclick="closeCard()" class="text-3xl float-right ml-2">×</button>
+            <h3 class="text-3xl font-bold">Plot ${plot.no}</h3>
+            <p class="text-blue-400">${plot.dev}</p>
+          </div>
+          <div class="text-right">
+            <div class="inline-block px-5 py-1.5 rounded-2xl text-sm font-medium ${plot.status==='Available'?'bg-green-600':plot.status==='Reserved'?'bg-orange-600':'bg-red-600'}">${plot.status}</div>
+            <div class="mt-1 text-xs text-gray-400">Updated just now</div>
+          </div>
         </div>
+        
+        <div class="flex border-b border-gray-700 mb-5 text-sm">
+          <div onclick="switchPlotCardTab(this,'overview',${plot.id})" class="plot-card-tab active px-5 py-2.5 cursor-pointer border-b-2 border-blue-500 font-medium">Overview</div>
+          <div onclick="switchPlotCardTab(this,'analytics',${plot.id})" class="plot-card-tab px-5 py-2.5 cursor-pointer font-medium">Analytics</div>
+          <div onclick="switchPlotCardTab(this,'media',${plot.id})" class="plot-card-tab px-5 py-2.5 cursor-pointer font-medium">Media</div>
+          <div onclick="switchPlotCardTab(this,'crm',${plot.id})" class="plot-card-tab px-5 py-2.5 cursor-pointer font-medium">CRM</div>
+        </div>
+        
+        <div id="tab-overview" class="plot-card-tab-content">
+          <div class="grid grid-cols-2 gap-3 mb-5">
+            <div class="bg-gray-800 p-4 rounded-2xl"><div class="text-xs text-gray-400">SIZE</div><div class="font-bold text-xl mt-1">${plot.size} sqm</div></div>
+            <div class="bg-gray-800 p-4 rounded-2xl"><div class="text-xs text-gray-400">PRICE</div><div class="font-bold text-xl mt-1">AED ${(Number(plot.price)/1e6).toFixed(1)}M</div></div>
+            <div class="bg-gray-800 p-4 rounded-2xl"><div class="text-xs text-gray-400">/SQM</div><div class="font-bold text-xl mt-1">${pricePerSqm} AED</div></div>
+            <div class="bg-gray-800 p-4 rounded-2xl"><div class="text-xs text-gray-400">TYPE</div><div class="font-bold text-xl mt-1">${plot.type || 'Residential'}</div></div>
+          </div>
+          ${hasMetrics ? `<div class="border border-gray-700 bg-gray-950 rounded-2xl p-4 mb-5"><div class="text-xs flex items-center gap-2 text-gray-400 mb-2"><i class="fas fa-chart-area"></i> AREA METRICS</div><div class="grid grid-cols-2 text-sm gap-x-6">${plot.gfa?`<div>GFA <span class="font-bold float-right">${plot.gfa} sqm</span></div>`:''}${plot.nfa?`<div>NFA <span class="font-bold float-right">${plot.nfa} sqm</span></div>`:''}${plot.far?`<div>FAR <span class="font-bold float-right">${plot.far}</span></div>`:''}${plot.bua?`<div>BUA <span class="font-bold float-right">${plot.bua} sqm</span></div>`:''}</div></div>` : ''}
+          <div><div class="text-xs text-gray-400 mb-1">STATUS</div><select onchange="changePlotStatusFromCard(${plot.id},this.value)" class="w-full bg-gray-800 border border-gray-700 rounded-2xl px-5 py-3 text-sm"><option value="Available" ${plot.status==='Available'?'selected':''}>Available</option><option value="Reserved" ${plot.status==='Reserved'?'selected':''}>Reserved</option><option value="Sold" ${plot.status==='Sold'?'selected':''}>Sold</option></select></div>
+        </div>
+        
+        <div id="tab-analytics" class="plot-card-tab-content hidden">
+          <div class="text-xs text-gray-400 mb-2">VALUE TREND (SIMULATED)</div>
+          <canvas id="priceTrendChart" height="120"></canvas>
+          <div class="grid grid-cols-3 gap-3 mt-4 text-center text-sm">
+            <div class="bg-gray-800 p-3 rounded-2xl"><div class="text-emerald-400 font-bold">+18%</div><div class="text-xs text-gray-400">YoY</div></div>
+            <div class="bg-gray-800 p-3 rounded-2xl"><div class="text-blue-400 font-bold">4.2</div><div class="text-xs text-gray-400">Demand</div></div>
+            <div class="bg-gray-800 p-3 rounded-2xl"><div class="text-purple-400 font-bold">AED ${Math.round(Number(plot.price)/Number(plot.size)*1.1)}</div><div class="text-xs text-gray-400">Target</div></div>
+          </div>
+        </div>
+        
+        <div id="tab-media" class="plot-card-tab-content hidden">
+          ${imageHTML || `<div class="h-40 bg-gray-800 rounded-2xl flex flex-col items-center justify-center text-gray-500 text-sm"><i class="fas fa-image text-2xl mb-2"></i> No photo<br><button onclick="uploadPlotImage(${plot.id}); closeCard()" class="mt-3 px-4 py-1.5 text-xs border border-gray-600 rounded-xl">Upload Photo</button></div>`}
+          ${panoramaHTML}${videoHTML}
+        </div>
+        
+        <div id="tab-crm" class="plot-card-tab-content hidden">
+          <div class="mb-4"><div class="text-xs text-gray-400 mb-2">LINKED CLIENT</div>${linkedClient ? `<div onclick="viewClient(${linkedClient.id}); closeCard()" class="cursor-pointer bg-gray-800 p-4 rounded-2xl flex justify-between"><div><div class="font-bold">${linkedClient.name}</div><div class="text-xs text-gray-400">${linkedClient.type}</div></div><i class="fas fa-arrow-right text-indigo-400"></i></div>` : `<button onclick="linkPlotToClientFromCard(${plot.id}); closeCard()" class="w-full py-4 border border-dashed border-gray-600 hover:border-indigo-500 rounded-2xl text-sm flex justify-center gap-2"><i class="fas fa-link"></i> Link Client</button>`}</div>
+          <div class="mb-4"><div class="text-xs text-gray-400 mb-2">DEALS (${plotDeals.length})</div>${plotDeals.length ? plotDeals.map(d => `<div class="bg-gray-800 p-3 rounded-xl mb-2 text-sm flex justify-between"><div>${clients.find(c=>c.id===d.clientId)?.name || 'Client'}<div class="text-xs text-gray-400">${d.stage}</div></div><div class="font-bold text-emerald-400">AED ${(parseInt(d.value)/1e6).toFixed(1)}M</div></div>`).join('') : '<div class="text-xs text-center py-4 border border-dashed border-gray-700 rounded-2xl text-gray-500">No deals yet</div>'}</div>
+          <div class="grid grid-cols-2 gap-3 text-sm">
+            <button onclick="linkToDeal(${plot.id}); closeCard()" class="py-4 bg-blue-600 rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-handshake"></i> Link Deal</button>
+            <button onclick="showScheduleModal(${plot.id}); closeCard()" class="py-4 bg-white text-black rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-calendar"></i> Schedule</button>
+          </div>
+        </div>
+      `;
+      
+      setTimeout(() => {
+        const c = document.getElementById('priceTrendChart');
+        if (c && window.Chart) {
+          new Chart(c, { type: 'line', data: { labels: ['Sep','Nov','Jan','Mar','May'], datasets: [{ data: [3.8,4.1,4.4,4.9, (Number(plot.price)/1e6).toFixed(1)], borderColor: '#22c55e', tension: 0.35, fill: true, backgroundColor: 'rgba(34,197,94,0.15)' }] }, options: { responsive:true, maintainAspectRatio:false, scales:{x:{grid:{color:'#374151'},ticks:{color:'#9ca3af',font:{size:9}}},y:{grid:{color:'#374151'},ticks:{color:'#9ca3af',font:{size:9},callback:v=>'AED '+v+'M'}}}, plugins:{legend:{display:false}} } });
+        }
+      }, 80);
+      
+      map.flyTo([plot.lat, plot.lng], 16);
+    }
+
+        ${(plot.gfa || plot.nfa || plot.far || plot.bua) ? `<div class="mt-6 border border-gray-700 rounded-2xl p-4 bg-gray-950"><div class="text-xs text-gray-400 mb-2 font-semibold flex items-center gap-2"><i class="fas fa-chart-area"></i> AREA METRICS</div><div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+          ${plot.gfa ? `<div>GFA: <span class="font-bold">${plot.gfa} sqm</span></div>` : ''}
+          ${plot.nfa ? `<div>NFA: <span class="font-bold">${plot.nfa} sqm</span></div>` : ''}
+          ${plot.far ? `<div>FAR: <span class="font-bold">${plot.far}</span></div>` : ''}
+          ${plot.bua ? `<div>BUA: <span class="font-bold">${plot.bua} sqm</span></div>` : ''}
+        </div></div>` : ''}
+
+        ${(plot.owner || plot.phone || plot.email) ? `<div class="mt-6 border-t border-gray-700 pt-6"><div class="text-xs text-gray-400 mb-3 font-semibold flex items-center gap-2"><i class="fas fa-user-shield"></i> OWNER / CUSTOMER (Internal Only)</div>
+          <div class="text-sm space-y-1">
+            ${plot.owner ? `<div><span class="text-gray-400">Name:</span> <span class="font-bold">${plot.owner}</span></div>` : ''}
+            ${plot.phone ? `<div><span class="text-gray-400">Phone:</span> <span class="font-bold">${plot.phone}</span></div>` : ''}
+            ${plot.email ? `<div><span class="text-gray-400">Email:</span> <span class="font-bold">${plot.email}</span></div>` : ''}
+          </div>
+        </div>` : ''}
+
         ${imageHTML}
         <div class="mt-8 flex gap-3">
-          <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl">Link to Deal</button>
-          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl">Delete</button>
+          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 bg-purple-600 hover:bg-purple-700 py-4 rounded-2xl text-sm font-medium">Edit Plot</button>
+          <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl text-sm font-medium">Link to Deal</button>
+          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl text-sm font-medium">Delete</button>
         </div>
         <div class="mt-6">
           <div class="text-xs text-gray-400 mb-3 font-semibold">SEND TO CLIENT</div>
@@ -545,6 +667,23 @@
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id); saveToLocalStorage(); addPlotMarkers(); populateTable();
     }
+
+    function changePlotStatusFromCard(id, newStatus) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot || plot.status === newStatus) return;
+      const oldStatus = plot.status;
+      plot.status = newStatus;
+      saveToLocalStorage();
+      applyFilters(); // updates table + map markers based on current filter
+      if (currentFilter.status && newStatus !== currentFilter.status) {
+        closeCard();
+        showToastNotification('Status Updated', `Plot ${plot.no} changed to ${newStatus} and filtered out of current view`, 'info');
+      } else {
+        // refresh the open card
+        setTimeout(() => selectPlot(id), 100);
+      }
+    }
+
     function importPlots() { document.getElementById('importModal').classList.remove('hidden'); document.getElementById('fileInput').value = ''; }
     function closeImportModal() { document.getElementById('importModal').classList.add('hidden'); }
 
@@ -728,7 +867,28 @@
       if (imageInput.files.length > 0) { const r = new FileReader(); r.onload = e => { newPlot.image = e.target.result; finish(); }; r.readAsDataURL(imageInput.files[0]); }
       else finish();
     }
-    function linkToDeal() { alert("Plot linked to new deal!"); }
+    function linkToDeal(plotId = null) { 
+      if (plotId) {
+        const plot = plots.find(p => p.id === plotId);
+        showCRMModal();
+        setTimeout(() => {
+          const dealPrompt = confirm(`Create deal for Plot ${plot.no}?`);
+          if (dealPrompt) {
+            const clientName = prompt("Client name:", "New Investor");
+            let client = clients.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()));
+            if (!client) {
+              client = { id: Date.now(), name: clientName, email: clientName.toLowerCase().replace(' ','.')+'@ae', phone: '+971 50 111 2222', type: 'Investor', linkedPlots: [plot.id] };
+              clients.push(client);
+            }
+            deals.push({ id: Date.now(), plotId: plot.id, clientId: client.id, stage: "Negotiation", value: plot.price, closeDate: "2026-07-01", notes: "Linked from plot card" });
+            showToastNotification('Deal', `Deal created for ${plot.no}`, 'success');
+            closeCRMModal();
+          }
+        }, 300);
+      } else {
+        showCRMModal();
+      }
+    }
 
     function showSendOptions(plotId) {
       const plot = plots.find(p => p.id === plotId); if (!plot) return;
@@ -925,6 +1085,355 @@
       if (distanceLine) map.removeLayer(distanceLine);
       map.closePopup(); distanceMode = false; firstPoint = null;
       document.getElementById('map').style.cursor = '';
+    }
+
+    function updateSyncStatus() {
+      const btn = document.getElementById('onlineSyncBtn');
+      const icon = document.getElementById('syncIcon');
+      const label = document.getElementById('syncLabel');
+      if (!btn || !icon || !label) return;
+      if (onlineSynced) {
+        btn.className = 'px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 rounded-2xl flex items-center gap-2 text-sm font-medium';
+        icon.className = 'fas fa-cloud-check text-white';
+        label.innerHTML = 'Synced';
+        btn.title = 'Online sync active. Click to go offline.';
+      } else {
+        btn.className = 'px-5 py-2.5 bg-red-600 hover:bg-red-700 rounded-2xl flex items-center gap-2 text-sm font-medium';
+        icon.className = 'fas fa-cloud text-white';
+        label.innerHTML = 'Offline';
+        btn.title = 'Offline mode. Click to sync online.';
+      }
+    }
+
+    function toggleOnlineSync() {
+      onlineSynced = !onlineSynced;
+      updateSyncStatus();
+      if (onlineSynced) {
+        showToastNotification('Online Sync', '🔄 Syncing with cloud server...', 'info');
+        setTimeout(() => {
+          showToastNotification('Sync Complete', '✅ All plots synced successfully. Last sync: just now', 'success');
+        }, 1400);
+      } else {
+        showToastNotification('Offline Mode', '📴 Switched to offline mode. All changes saved locally only.', 'warning');
+      }
+    }
+
+    function startAreaMeasurement() {
+      if (typeof distanceMode !== 'undefined' && distanceMode) clearDistanceMeasurement();
+      areaMode = true;
+      areaPoints = [];
+      if (areaPolyline) map.removeLayer(areaPolyline);
+      if (areaPolygon) map.removeLayer(areaPolygon);
+      alert('🗺️ Click on the map to add polygon points. Double-click or use the Finish button to calculate area.');
+      const mapContainer = document.getElementById('map');
+      mapContainer.style.cursor = 'crosshair';
+      map.on('click', addAreaPoint);
+      // Add floating finish button
+      const finishBtn = document.createElement('button');
+      finishBtn.id = 'finishAreaBtn';
+      finishBtn.className = 'absolute bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium z-[1001] flex items-center gap-2 shadow-xl';
+      finishBtn.innerHTML = '<i class="fas fa-check"></i> Finish Area';
+      finishBtn.onclick = finishAreaMeasurement;
+      mapContainer.parentElement.appendChild(finishBtn);
+      map.once('dblclick', finishAreaMeasurement);
+    }
+
+    function addAreaPoint(e) {
+      if (!areaMode) return;
+      areaPoints.push(e.latlng);
+      if (areaPolyline) map.removeLayer(areaPolyline);
+      areaPolyline = L.polyline(areaPoints, { color: '#a855f7', weight: 2.5, dashArray: '4,4' }).addTo(map);
+      L.circleMarker(e.latlng, { radius: 4, color: '#a855f7', fillColor: '#fff', fillOpacity: 1, weight: 2 }).addTo(map);
+    }
+
+    function finishAreaMeasurement() {
+      areaMode = false;
+      const mapContainer = document.getElementById('map');
+      mapContainer.style.cursor = '';
+      map.off('click', addAreaPoint);
+      const finishBtn = document.getElementById('finishAreaBtn');
+      if (finishBtn) finishBtn.remove();
+      if (areaPoints.length < 3) {
+        alert('⚠️ At least 3 points required for area calculation');
+        clearAreaMeasurement();
+        return;
+      }
+      if (areaPolyline) map.removeLayer(areaPolyline);
+      areaPolygon = L.polygon(areaPoints, { color: '#a855f7', weight: 3, fillColor: '#a855f7', fillOpacity: 0.25 }).addTo(map);
+      const areaSqm = calculatePolygonArea(areaPoints);
+      const center = areaPolygon.getBounds().getCenter();
+      L.popup({ closeOnClick: false, offset: [0, -10], className: 'custom-tooltip' }).setLatLng(center).setContent(`<div class="text-center p-3"><div class="text-xl font-bold text-purple-400">${areaSqm.toFixed(0)} sqm</div><div class="text-xs text-gray-400">${(areaSqm / 10000).toFixed(2)} ha • ${(areaSqm / 1000).toFixed(2)} km²</div><button onclick="clearAreaMeasurement()" class="mt-3 px-5 py-1 bg-red-600 hover:bg-red-700 rounded-xl text-xs font-medium">Clear Measurement</button></div>`).openOn(map);
+    }
+
+    function calculatePolygonArea(points) {
+      let area = 0;
+      const n = points.length;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += points[i].lat * points[j].lng;
+        area -= points[j].lat * points[i].lng;
+      }
+      area = Math.abs(area) / 2;
+      // Approximate conversion to sqm for Dubai area (lat ~25°)
+      const lat = points[0].lat;
+      const mPerDegLat = 110600;
+      const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180);
+      return area * mPerDegLat * mPerDegLng;
+    }
+
+    function clearAreaMeasurement() {
+      if (areaPolyline) map.removeLayer(areaPolyline);
+      if (areaPolygon) map.removeLayer(areaPolygon);
+      map.closePopup();
+      areaPoints = [];
+      areaMode = false;
+      const finishBtn = document.getElementById('finishAreaBtn');
+      if (finishBtn) finishBtn.remove();
+      const mapContainer = document.getElementById('map');
+      mapContainer.style.cursor = '';
+      map.off('click', addAreaPoint);
+    }
+
+    // ==================== ADVANCED GIS ANALYSIS ====================
+    let bufferLayer = null;
+    let analysisMarkers = [];
+    let customZoneLayer = null;
+
+    function startBufferAnalysis(plotId = null) {
+      if (bufferLayer) map.removeLayer(bufferLayer);
+      analysisMarkers.forEach(m => map.removeLayer(m));
+      analysisMarkers = [];
+      
+      let centerLat, centerLng, radius = 2000; // default 2km
+      let plot = null;
+      
+      if (plotId) {
+        plot = plots.find(p => p.id === plotId);
+        centerLat = plot.lat;
+        centerLng = plot.lng;
+        // Auto radius based on plot size
+        radius = Math.max(500, Math.min(5000, parseInt(plot.size) / 2));
+      } else {
+        // Use map center or prompt
+        const center = map.getCenter();
+        centerLat = center.lat;
+        centerLng = center.lng;
+        const userRadius = prompt("Enter buffer radius in meters (default 2000):", "2000");
+        radius = parseInt(userRadius) || 2000;
+      }
+      
+      bufferLayer = L.circle([centerLat, centerLng], {
+        radius: radius,
+        color: '#3b82f6',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.15,
+        weight: 3,
+        dashArray: '5, 5'
+      }).addTo(map);
+      
+      // Find intersecting plots
+      let intersecting = [];
+      plots.forEach(p => {
+        const dist = calculateDistance(centerLat, centerLng, p.lat, p.lng);
+        if (dist <= radius && (!plot || p.id !== plot.id)) {
+          intersecting.push(p);
+          const marker = L.marker([p.lat, p.lng], {
+            icon: L.divIcon({
+              html: `<div style="background:#ef4444;color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">${p.no}</div>`,
+              className: 'analysis-marker',
+              iconSize: [40, 20]
+            })
+          }).addTo(map).bindPopup(`<b>${p.no}</b><br>Distance: ${dist.toFixed(0)}m<br>Status: ${p.status}`);
+          analysisMarkers.push(marker);
+        }
+      });
+      
+      const popupContent = `
+        <div style="min-width:220px">
+          <h4 class="font-bold text-blue-400">Buffer Analysis</h4>
+          <p>Radius: <b>${(radius/1000).toFixed(1)} km</b></p>
+          <p>Plots in buffer: <b>${intersecting.length}</b></p>
+          <div class="mt-2 text-xs">
+            ${intersecting.length > 0 ? intersecting.map(p => `• ${p.no} (${(calculateDistance(centerLat, centerLng, p.lat, p.lng)/1000).toFixed(1)}km)`).join('<br>') : 'No other plots in range'}
+          </div>
+          <button onclick="clearAnalysis()" class="mt-3 px-3 py-1 bg-red-600 text-xs rounded">Clear Analysis</button>
+        </div>
+      `;
+      bufferLayer.bindPopup(popupContent).openPopup();
+      
+      showToastNotification('GIS Analysis', `Buffer created: ${intersecting.length} plots within ${(radius/1000).toFixed(1)}km`, 'info');
+    }
+
+    function startSpatialQuery() {
+      const queryType = prompt("Spatial Query Type:\n1. Within distance of selected plot\n2. Custom point + radius\nEnter 1 or 2:", "1");
+      
+      if (queryType === "1") {
+        // Select plot first
+        const plotNo = prompt("Enter Plot Number (e.g. A-128):");
+        const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
+        if (!plot) return alert("Plot not found");
+        const radius = parseInt(prompt("Radius in meters:", "1500")) || 1500;
+        startBufferAnalysis(plot.id); // reuse
+      } else if (queryType === "2") {
+        alert("Click on map to set query center...");
+        map.once('click', function(e) {
+          const radius = parseInt(prompt("Radius in meters:", "1500")) || 1500;
+          if (bufferLayer) map.removeLayer(bufferLayer);
+          bufferLayer = L.circle([e.latlng.lat, e.latlng.lng], {
+            radius: radius, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2
+          }).addTo(map);
+          
+          let count = 0, totalValue = 0;
+          plots.forEach(p => {
+            if (calculateDistance(e.latlng.lat, e.latlng.lng, p.lat, p.lng) <= radius) {
+              count++;
+              totalValue += parseInt(p.price);
+            }
+          });
+          
+          bufferLayer.bindPopup(`
+            <div>
+              <b>Custom Spatial Query</b><br>
+              Radius: ${(radius/1000).toFixed(1)}km<br>
+              Plots found: <b>${count}</b><br>
+              Total Value: <b>AED ${(totalValue/1000000).toFixed(1)}M</b><br>
+              <button onclick="clearAnalysis()" class="mt-2 px-3 py-1 bg-red-600 text-xs rounded">Clear</button>
+            </div>
+          `).openPopup();
+        });
+      }
+    }
+
+    function analyzeCustomZone() {
+      if (customZoneLayer) map.removeLayer(customZoneLayer);
+      alert("Draw custom zone: Click points on map. Double-click to finish & analyze.");
+      
+      let zonePoints = [];
+      let zonePolyline = null;
+      
+      const clickHandler = function(e) {
+        zonePoints.push(e.latlng);
+        if (zonePolyline) map.removeLayer(zonePolyline);
+        zonePolyline = L.polyline(zonePoints, {color: '#22c55e', weight: 3, dashArray: '8,4'}).addTo(map);
+      };
+      
+      map.on('click', clickHandler);
+      
+      map.once('dblclick', function() {
+        map.off('click', clickHandler);
+        if (zonePoints.length < 3) {
+          alert("Need at least 3 points");
+          if (zonePolyline) map.removeLayer(zonePolyline);
+          return;
+        }
+        
+        customZoneLayer = L.polygon(zonePoints, {color: '#22c55e', weight: 3, fillColor: '#22c55e', fillOpacity: 0.2}).addTo(map);
+        if (zonePolyline) map.removeLayer(zonePolyline);
+        
+        // Point in polygon check (simple ray casting)
+        let inZone = [], totalPrice = 0, avgSize = 0;
+        plots.forEach(p => {
+          if (isPointInPolygon(p.lat, p.lng, zonePoints)) {
+            inZone.push(p);
+            totalPrice += parseInt(p.price);
+            avgSize += parseInt(p.size);
+          }
+        });
+        avgSize = inZone.length > 0 ? (avgSize / inZone.length).toFixed(0) : 0;
+        
+        const popup = L.popup({closeOnClick: false}).setLatLng(zonePoints[0]).setContent(`
+          <div style="min-width:240px">
+            <h4 class="font-bold text-green-400 mb-2">Custom Zone Analysis</h4>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>Plots in Zone: <b class="text-lg">${inZone.length}</b></div>
+              <div>Total Value: <b>AED ${(totalPrice/1e6).toFixed(1)}M</b></div>
+              <div>Avg Size: <b>${avgSize} sqm</b></div>
+              <div>Avg Price: <b>AED ${inZone.length ? (totalPrice/inZone.length/1e6).toFixed(1) : 0}M</b></div>
+            </div>
+            <div class="mt-3 text-xs">${inZone.map(p => `• ${p.no} (${p.status})`).join('<br>')}</div>
+            <button onclick="clearZoneAnalysis()" class="mt-3 w-full py-1.5 bg-red-600 rounded-xl text-sm">Clear Zone</button>
+          </div>
+        `).openOn(map);
+        
+        showToastNotification('Zone Analysis', `${inZone.length} plots in custom zone • Total AED ${(totalPrice/1e6).toFixed(1)}M`, 'success');
+      });
+    }
+
+    function isPointInPolygon(lat, lng, poly) {
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].lat, yi = poly[i].lng;
+        const xj = poly[j].lat, yj = poly[j].lng;
+        const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    }
+
+    function clearAnalysis() {
+      if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
+      analysisMarkers.forEach(m => map.removeLayer(m));
+      analysisMarkers = [];
+      showToastNotification('GIS', 'Analysis cleared', 'info');
+    }
+
+    function clearZoneAnalysis() {
+      if (customZoneLayer) { map.removeLayer(customZoneLayer); customZoneLayer = null; }
+      map.closePopup();
+    }
+
+    function toggleProximityAmenities() {
+      // Mock amenities layers
+      if (window.amenityLayers && window.amenityLayers.length > 0) {
+        window.amenityLayers.forEach(l => map.removeLayer(l));
+        window.amenityLayers = [];
+        showToastNotification('Amenities', 'Amenity layers hidden', 'info');
+        return;
+      }
+      
+      window.amenityLayers = [];
+      const amenities = [
+        { name: "Dubai Mall Metro", lat: 25.1972, lng: 55.2796, type: "metro", color: "#06b6d4" },
+        { name: "Emirates School", lat: 25.2654, lng: 55.3012, type: "school", color: "#eab308" },
+        { name: "Burj Al Arab View", lat: 25.1413, lng: 55.1855, type: "landmark", color: "#ec4899" },
+        { name: "Jumeirah Beach", lat: 25.2123, lng: 55.2487, type: "beach", color: "#14b8a6" }
+      ];
+      
+      amenities.forEach(a => {
+        const icon = a.type === 'metro' ? '🚇' : a.type === 'school' ? '🏫' : a.type === 'landmark' ? '🏛️' : '🏖️';
+        const marker = L.marker([a.lat, a.lng], {
+          icon: L.divIcon({ html: `<div style="font-size:18px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${icon}</div>`, iconSize: [24,24], className: '' })
+        }).addTo(map).bindPopup(`<b>${a.name}</b><br><span class="text-xs">Type: ${a.type}</span><br><button onclick="findPlotsNearAmenity(${a.lat},${a.lng},1500)" class="mt-1 px-2 py-0.5 bg-blue-600 text-xs rounded">Find Plots Nearby</button>`);
+        window.amenityLayers.push(marker);
+      });
+      
+      showToastNotification('Proximity Analysis', 'Amenity layers activated • Click markers for nearby plots', 'info');
+    }
+
+    function findPlotsNearAmenity(lat, lng, radius = 1500) {
+      let nearby = [];
+      plots.forEach(p => {
+        const d = calculateDistance(lat, lng, p.lat, p.lng);
+        if (d <= radius) nearby.push({plot: p, dist: d});
+      });
+      nearby.sort((a,b) => a.dist - b.dist);
+      
+      const content = nearby.length > 0 ? 
+        nearby.slice(0,5).map(n => `• ${n.plot.no} (${n.dist.toFixed(0)}m) - ${n.plot.status}`).join('<br>') : 
+        'No plots within range';
+      
+      L.popup().setLatLng([lat, lng]).setContent(`
+        <div><b>Nearby Plots</b> (${nearby.length} total)<br><span class="text-xs">${content}</span><br>
+        <button onclick="clearAnalysis()" class="mt-2 text-xs px-3 py-1 bg-red-600 rounded">Close</button></div>
+      `).openOn(map);
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
     function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
@@ -1171,15 +1680,231 @@
       input.click();
     }
 
-    window.onload = () => {
-      loadFromLocalStorage();
-      setTimeout(() => { initMap(); }, 300);
-      populateTable(); togglePlotView('map'); checkAuth();
-      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-      startNotificationSimulation();
-      setTimeout(() => { if (currentUser && notifications.length === 0) addNotification('System Online', 'All systems operational', 'success'); }, 2000);
-      window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-    };
-  </script>
-</body>
-</html>
+    // ==================== REAL ESTATE CRM ====================
+    function showCRMModal() {
+      let html = `
+        <div id="crmModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[6000]">
+          <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl border border-gray-700 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-gray-700 flex justify-between items-center bg-gray-950">
+              <div class="flex items-center gap-4">
+                <i class="fas fa-users-cog text-indigo-400 text-3xl"></i>
+                <div>
+                  <h3 class="text-3xl font-bold">Real Estate CRM</h3>
+                  <p class="text-sm text-gray-400">Client & Deal Pipeline Management</p>
+                </div>
+              </div>
+              <div class="flex gap-3">
+                <button onclick="addNewClient()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-sm flex items-center gap-2"><i class="fas fa-user-plus"></i> New Client</button>
+                <button onclick="addNewDeal()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm flex items-center gap-2"><i class="fas fa-handshake"></i> New Deal</button>
+                <button onclick="closeCRMModal()" class="text-3xl text-gray-400 hover:text-white px-3">×</button>
+              </div>
+            </div>
+            
+            <div class="flex-1 overflow-auto p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <!-- Clients Section -->
+              <div>
+                <div class="flex justify-between items-center mb-4">
+                  <h4 class="font-semibold flex items-center gap-2"><i class="fas fa-user-tie text-indigo-400"></i> Clients (${clients.length})</h4>
+                  <input type="text" id="clientSearch" placeholder="Search clients..." oninput="filterClients()" class="bg-gray-800 text-sm px-4 py-2 rounded-2xl w-64 border border-gray-700">
+                </div>
+                <div id="clientsList" class="space-y-3 max-h-[420px] overflow-auto pr-2"></div>
+              </div>
+              
+              <!-- Deals / Pipeline -->
+              <div>
+                <h4 class="font-semibold flex items-center gap-2 mb-4"><i class="fas fa-chart-line text-blue-400"></i> Deal Pipeline</h4>
+                <div class="grid grid-cols-3 gap-3">
+                  ${['Lead','Negotiation','Under Contract','Closed'].map(stage => {
+                    const stageDeals = deals.filter(d => d.stage === stage || (stage==='Lead' && d.stage==='Lead'));
+                    return `<div class="bg-gray-950 border border-gray-700 rounded-2xl p-4">
+                      <div class="text-xs uppercase tracking-widest text-gray-400 mb-2">${stage} <span class="text-indigo-400">(${stageDeals.length})</span></div>
+                      ${stageDeals.length > 0 ? stageDeals.map(d => {
+                        const plot = plots.find(p => p.id === d.plotId);
+                        const client = clients.find(c => c.id === d.clientId);
+                        return `<div onclick="viewDeal(${d.id})" class="cursor-pointer bg-gray-800 hover:bg-gray-700 p-3 rounded-xl mb-2 text-sm">
+                          <div class="font-bold">${plot ? plot.no : 'N/A'} • ${client ? client.name.split(' ')[0] : ''}</div>
+                          <div class="text-xs text-gray-400">AED ${(parseInt(d.value)/1e6).toFixed(1)}M • ${d.closeDate}</div>
+                          <div class="text-[10px] mt-1 px-2 py-0.5 inline-block rounded ${d.stage==='Closed'?'bg-green-600':d.stage==='Under Contract'?'bg-orange-600':'bg-blue-600'}">${d.stage}</div>
+                        </div>`;
+                      }).join('') : `<div class="text-xs text-gray-500 py-4 text-center">No deals</div>`}
+                    </div>`;
+                  }).join('')}
+                </div>
+                
+                <div class="mt-6 bg-gray-950 border border-gray-700 rounded-2xl p-5">
+                  <div class="text-xs text-gray-400 mb-3">PIPELINE VALUE</div>
+                  <div class="text-4xl font-bold text-emerald-400">AED ${(deals.reduce((sum,d) => sum + parseInt(d.value),0)/1e6).toFixed(1)}M</div>
+                  <div class="text-xs text-gray-500 mt-1">${deals.length} active deals • ${deals.filter(d=>d.stage==='Closed').length} closed</div>
+                  
+                  <div class="mt-4 h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div class="h-2 bg-gradient-to-r from-emerald-500 to-blue-500" style="width: ${Math.min(100, (deals.filter(d=>d.stage==='Closed').length / Math.max(1,deals.length)) * 100)}%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="px-8 py-4 border-t border-gray-700 bg-gray-950 flex justify-between text-xs text-gray-500">
+              <div>CRM synced with plots • Click client to link plots • Drag deals between stages (demo)</div>
+              <button onclick="exportCRMData()" class="text-indigo-400 hover:text-white flex items-center gap-1"><i class="fas fa-download fa-xs"></i> Export CRM</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', html);
+      renderClientsList();
+    }
+    
+    function closeCRMModal() {
+      const m = document.getElementById('crmModal'); if (m) m.remove();
+    }
+    
+    function renderClientsList(filteredClients = null) {
+      const container = document.getElementById('clientsList');
+      if (!container) return;
+      const list = filteredClients || clients;
+      container.innerHTML = list.map(c => {
+        const linked = plots.filter(p => c.linkedPlots && c.linkedPlots.includes(p.id));
+        return `<div class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-2xl p-4 cursor-pointer transition-all" onclick="viewClient(${c.id})">
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-semibold">${c.name}</div>
+              <div class="text-xs text-gray-400">${c.type} • ${c.email}</div>
+            </div>
+            <div class="text-right">
+              <div class="text-xs px-2 py-0.5 bg-indigo-900 text-indigo-300 rounded">${c.linkedPlots ? c.linkedPlots.length : 0} plots</div>
+            </div>
+          </div>
+          <div class="mt-3 flex flex-wrap gap-1">
+            ${linked.length > 0 ? linked.map(p => `<span onclick="event.stopImmediatePropagation(); selectPlot(${p.id}); closeCRMModal();" class="text-[10px] bg-blue-900 text-blue-300 px-2 py-0.5 rounded cursor-pointer">${p.no}</span>`).join('') : '<span class="text-[10px] text-gray-500">No linked plots</span>'}
+          </div>
+          <div class="text-xs text-gray-500 mt-2">${c.phone}</div>
+        </div>`;
+      }).join('') || '<div class="text-center py-8 text-gray-500">No clients found</div>';
+    }
+    
+    function filterClients() {
+      const q = document.getElementById('clientSearch').value.toLowerCase().trim();
+      const filtered = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
+      renderClientsList(filtered);
+    }
+    
+    function viewClient(clientId) {
+      const client = clients.find(c => c.id === clientId);
+      if (!client) return;
+      const linkedPlots = plots.filter(p => client.linkedPlots && client.linkedPlots.includes(p.id));
+      const clientDeals = deals.filter(d => d.clientId === clientId);
+      
+      document.body.insertAdjacentHTML('beforeend', `
+        <div id="clientDetailModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[7000]">
+          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
+            <div class="px-8 py-6 border-b border-gray-700 flex justify-between">
+              <div><h3 class="text-2xl font-bold">${client.name}</h3><p class="text-sm text-gray-400">${client.type} • ${client.email}</p></div>
+              <button onclick="closeClientModal()" class="text-3xl">×</button>
+            </div>
+            <div class="p-8 space-y-6">
+              <div class="flex gap-4">
+                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-emerald-400">${linkedPlots.length}</div><div class="text-xs">LINKED PLOTS</div></div>
+                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-blue-400">${clientDeals.length}</div><div class="text-xs">DEALS</div></div>
+                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-purple-400">${clientDeals.reduce((s,d)=>s+parseInt(d.value),0)/1e6 || 0}</div><div class="text-xs">AED M</div></div>
+              </div>
+              
+              <div>
+                <div class="text-xs uppercase text-gray-400 mb-2">CONTACT</div>
+                <div class="text-sm">${client.phone} • ${client.email}</div>
+              </div>
+              
+              ${linkedPlots.length > 0 ? `<div>
+                <div class="text-xs uppercase text-gray-400 mb-2">LINKED PLOTS</div>
+                <div class="space-y-2">${linkedPlots.map(p => `<div onclick="selectPlot(${p.id}); closeClientModal(); closeCRMModal();" class="cursor-pointer flex justify-between bg-gray-800 hover:bg-gray-700 p-3 rounded-xl"><div><span class="font-bold">${p.no}</span> <span class="text-xs text-gray-400">${p.dev}</span></div><div class="text-emerald-400">AED ${(parseInt(p.price)/1e6).toFixed(1)}M</div></div>`).join('')}</div>
+              </div>` : ''}
+              
+              <div>
+                <div class="text-xs uppercase text-gray-400 mb-2">QUICK ACTIONS</div>
+                <div class="flex gap-3">
+                  <button onclick="linkPlotToClient(${clientId}); closeClientModal()" class="flex-1 py-3 bg-indigo-600 rounded-2xl text-sm">Link Plot to Client</button>
+                  <button onclick="createDealForClient(${clientId}); closeClientModal()" class="flex-1 py-3 bg-blue-600 rounded-2xl text-sm">Create Deal</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+    
+    function closeClientModal() {
+      const m = document.getElementById('clientDetailModal'); if (m) m.remove();
+      // Refresh CRM if open
+      const crm = document.getElementById('crmModal');
+      if (crm) { crm.remove(); showCRMModal(); }
+    }
+    
+    function linkPlotToClient(clientId) {
+      const plotNo = prompt("Enter Plot Number to link (e.g. A-128):");
+      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
+      if (!plot) return alert("Plot not found");
+      const client = clients.find(c => c.id === clientId);
+      if (!client.linkedPlots) client.linkedPlots = [];
+      if (!client.linkedPlots.includes(plot.id)) {
+        client.linkedPlots.push(plot.id);
+        showToastNotification('CRM', `${plot.no} linked to ${client.name}`, 'success');
+        closeClientModal();
+      }
+    }
+    
+    function createDealForClient(clientId) {
+      const plotNo = prompt("Plot Number for deal:");
+      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
+      if (!plot) return alert("Plot not found");
+      const value = prompt("Deal Value (AED):", plot.price);
+      const stage = prompt("Stage (Lead/Negotiation/Under Contract/Closed):", "Negotiation");
+      deals.push({
+        id: Date.now(),
+        plotId: plot.id,
+        clientId: clientId,
+        stage: stage,
+        value: value,
+        closeDate: new Date(Date.now() + 30*864e5).toISOString().split('T')[0],
+        notes: "Created via CRM"
+      });
+      showToastNotification('Deal Created', `New deal for ${plot.no} • ${stage}`, 'success');
+      closeClientModal();
+    }
+    
+    function viewDeal(dealId) {
+      const deal = deals.find(d => d.id === dealId);
+      if (!deal) return;
+      const plot = plots.find(p => p.id === deal.plotId);
+      const client = clients.find(c => c.id === deal.clientId);
+      alert(`Deal #${deal.id}\nPlot: ${plot ? plot.no : 'N/A'} (${plot ? plot.dev : ''})\nClient: ${client ? client.name : 'N/A'}\nStage: ${deal.stage}\nValue: AED ${Number(deal.value).toLocaleString()}\nClose: ${deal.closeDate}\nNotes: ${deal.notes || 'None'}`);
+    }
+    
+    function addNewClient() {
+      const name = prompt("Client Name:");
+      if (!name) return;
+      const email = prompt("Email:", name.toLowerCase().replace(' ','.') + "@invest.ae");
+      const phone = prompt("Phone:", "+971 5" + Math.floor(10000000 + Math.random()*90000000));
+      const type = prompt("Type (Investor/Developer/End User):", "Investor");
+      clients.push({ id: Date.now(), name, email, phone, type, linkedPlots: [] });
+      showToastNotification('CRM', `Client ${name} added`, 'success');
+      const crm = document.getElementById('crmModal'); if (crm) crm.remove();
+      showCRMModal();
+    }
+    
+    function addNewDeal() {
+      const plotNo = prompt("Plot Number:");
+      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
+      if (!plot) return alert("Plot not found");
+      const clientName = prompt("Client Name or ID:");
+      let client = clients.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()) || c.id == clientName);
+      if (!client) {
+        client = { id: Date.now(), name: clientName, email: clientName.toLowerCase().replace(' ','.')+'@client.ae', phone: '+971 50 000 0000', type: 'Investor', linkedPlots: [plot.id] };
+        clients.push(client);
+      }
+      const value = prompt("Deal Value:", plot.price);
+      const stage = prompt("Stage:", "Negotiation");
+      deals.push({ id: Date.now(), plotId: plot.id, clientId: client.id, stage, value, closeDate: new Date(Date.now()+45*864e5).toISOString().split('T')[0], notes: "" });
+      showToastNotification('Deal', `New deal created for ${plot.no}`, 'success');
+      const crm = document.getElementById('crmModal'); if (crm) crm.remove();
+      showCRMModal();
+    }
+    
