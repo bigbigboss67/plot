@@ -608,9 +608,10 @@
         <div id="tab-crm" class="plot-card-tab-content hidden">
           <div class="mb-4"><div class="text-xs text-gray-400 mb-2">LINKED CLIENT</div>${linkedClient ? `<div onclick="viewClient(${linkedClient.id}); closeCard()" class="cursor-pointer bg-gray-800 p-4 rounded-2xl flex justify-between"><div><div class="font-bold">${linkedClient.name}</div><div class="text-xs text-gray-400">${linkedClient.type}</div></div><i class="fas fa-arrow-right text-indigo-400"></i></div>` : `<button onclick="linkPlotToClientFromCard(${plot.id}); closeCard()" class="w-full py-4 border border-dashed border-gray-600 hover:border-indigo-500 rounded-2xl text-sm flex justify-center gap-2"><i class="fas fa-link"></i> Link Client</button>`}</div>
           <div class="mb-4"><div class="text-xs text-gray-400 mb-2">DEALS (${plotDeals.length})</div>${plotDeals.length ? plotDeals.map(d => `<div class="bg-gray-800 p-3 rounded-xl mb-2 text-sm flex justify-between"><div>${clients.find(c=>c.id===d.clientId)?.name || 'Client'}<div class="text-xs text-gray-400">${d.stage}</div></div><div class="font-bold text-emerald-400">AED ${(parseInt(d.value)/1e6).toFixed(1)}M</div></div>`).join('') : '<div class="text-xs text-center py-4 border border-dashed border-gray-700 rounded-2xl text-gray-500">No deals yet</div>'}</div>
-          <div class="grid grid-cols-2 gap-3 text-sm">
+          <div class="grid grid-cols-3 gap-3 text-sm">
             <button onclick="linkToDeal(${plot.id}); closeCard()" class="py-4 bg-blue-600 rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-handshake"></i> Link Deal</button>
             <button onclick="showScheduleModal(${plot.id}); closeCard()" class="py-4 bg-white text-black rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-calendar"></i> Schedule</button>
+            <button onclick="printPlot(${plot.id}); closeCard()" class="py-4 bg-gray-700 hover:bg-gray-600 rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-print"></i> Print</button>
           </div>
         </div>
       `;
@@ -622,43 +623,6 @@
         }
       }, 80);
       
-      map.flyTo([plot.lat, plot.lng], 16);
-    }
-
-        ${(plot.gfa || plot.nfa || plot.far || plot.bua) ? `<div class="mt-6 border border-gray-700 rounded-2xl p-4 bg-gray-950"><div class="text-xs text-gray-400 mb-2 font-semibold flex items-center gap-2"><i class="fas fa-chart-area"></i> AREA METRICS</div><div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-          ${plot.gfa ? `<div>GFA: <span class="font-bold">${plot.gfa} sqm</span></div>` : ''}
-          ${plot.nfa ? `<div>NFA: <span class="font-bold">${plot.nfa} sqm</span></div>` : ''}
-          ${plot.far ? `<div>FAR: <span class="font-bold">${plot.far}</span></div>` : ''}
-          ${plot.bua ? `<div>BUA: <span class="font-bold">${plot.bua} sqm</span></div>` : ''}
-        </div></div>` : ''}
-
-        ${(plot.owner || plot.phone || plot.email) ? `<div class="mt-6 border-t border-gray-700 pt-6"><div class="text-xs text-gray-400 mb-3 font-semibold flex items-center gap-2"><i class="fas fa-user-shield"></i> OWNER / CUSTOMER (Internal Only)</div>
-          <div class="text-sm space-y-1">
-            ${plot.owner ? `<div><span class="text-gray-400">Name:</span> <span class="font-bold">${plot.owner}</span></div>` : ''}
-            ${plot.phone ? `<div><span class="text-gray-400">Phone:</span> <span class="font-bold">${plot.phone}</span></div>` : ''}
-            ${plot.email ? `<div><span class="text-gray-400">Email:</span> <span class="font-bold">${plot.email}</span></div>` : ''}
-          </div>
-        </div>` : ''}
-
-        ${imageHTML}
-        <div class="mt-8 flex gap-3">
-          <button onclick="editPlot(${plot.id}); closeCard()" class="flex-1 bg-purple-600 hover:bg-purple-700 py-4 rounded-2xl text-sm font-medium">Edit Plot</button>
-          <button onclick="linkToDeal()" class="flex-1 bg-blue-600 py-4 rounded-2xl text-sm font-medium">Link to Deal</button>
-          <button onclick="deletePlot(${plot.id}); closeCard()" class="flex-1 border border-red-600 text-red-400 py-4 rounded-2xl text-sm font-medium">Delete</button>
-        </div>
-        <div class="mt-6">
-          <div class="text-xs text-gray-400 mb-3 font-semibold">SEND TO CLIENT</div>
-          <div class="grid grid-cols-3 gap-3">
-            <button onclick="sendViaWhatsApp(${plot.id}); closeCard()" class="py-3 bg-green-600 hover:bg-green-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fab fa-whatsapp text-lg"></i><span>WhatsApp</span></button>
-            <button onclick="sendViaEmail(${plot.id}); closeCard()" class="py-3 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-envelope text-lg"></i><span>Email</span></button>
-            <button onclick="startVideoCall(${plot.id}); closeCard()" class="py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium flex items-center justify-center gap-2"><i class="fas fa-video text-lg"></i><span>Video Call</span></button>
-          </div>
-          <div class="mt-2 text-center">
-            <button onclick="showSendOptions(${plot.id}); closeCard()" class="text-xs text-gray-400 hover:text-white underline">More options (SMS, Audio, Custom)</button>
-          </div>
-        </div>
-        ${panoramaHTML}
-        ${videoHTML}`;
       map.flyTo([plot.lat, plot.lng], 16);
     }
 
@@ -736,6 +700,161 @@
     }
 
     function printPDF() { window.print(); }
+
+    function printPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      const printWin = window.open('', '_blank');
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Plot ${plot.no} - ${plot.dev}</title>
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 12mm;
+            }
+            body {
+              font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+              padding: 15mm;
+              max-width: 190mm;
+              margin: 0 auto;
+              color: #1f2937;
+              line-height: 1.6;
+              background: #ffffff;
+              font-size: 11pt;
+            }
+            h1 {
+              color: #1e3a8a;
+              border-bottom: 2.5px solid #1e40af;
+              padding-bottom: 8px;
+              margin-bottom: 18px;
+              font-size: 22pt;
+              font-weight: 700;
+            }
+            h3 {
+              color: #1e3a8a;
+              margin: 0 0 10px 0;
+              font-size: 13pt;
+              font-weight: 600;
+            }
+            .section {
+              margin: 14px 0;
+              padding: 12px 14px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 6px;
+              border-left: 5px solid #1e40af;
+              page-break-inside: avoid;
+            }
+            .label {
+              font-weight: 600;
+              color: #475569;
+              display: inline-block;
+              width: 135px;
+              font-size: 10pt;
+            }
+            .value {
+              font-weight: 600;
+              color: #0f172a;
+              font-size: 11pt;
+            }
+            .metrics {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 8px;
+              margin-top: 8px;
+            }
+            .metric {
+              background: #ffffff;
+              padding: 8px 10px;
+              border-radius: 5px;
+              border: 1px solid #cbd5e1;
+              text-align: center;
+              flex: 1 1 140px;
+              min-width: 130px;
+              page-break-inside: avoid;
+            }
+            .metric-label {
+              font-size: 9pt;
+              color: #64748b;
+              margin-bottom: 2px;
+            }
+            .metric-value {
+              font-size: 13pt;
+              font-weight: 700;
+              color: #0f172a;
+            }
+            .section p {
+              margin: 4px 0;
+            }
+            .footer {
+              margin-top: 25px;
+              font-size: 9pt;
+              color: #64748b;
+              text-align: center;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 8px;
+            }
+            @media print {
+              body { padding: 8mm; font-size: 10pt; }
+              h1 { font-size: 18pt; }
+              .section { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; }
+              .no-print { display: none !important; }
+            }
+          </style>
+        </head>
+        <body>
+          <h1>Plot Report: ${plot.no}</h1>
+          <div class="section">
+            <p><span class="label">Development:</span> <span class="value">${plot.dev}</span></p>
+            <p><span class="label">Status:</span> <span class="value">${plot.status}</span></p>
+            <p><span class="label">Type:</span> <span class="value">${plot.type || 'Residential'}</span></p>
+          </div>
+          
+          <div class="section">
+            <h3 style="margin-top:0; color:#1e40af;">Key Metrics</h3>
+            <div class="metrics">
+              <div class="metric"><div class="metric-label">Size</div><div class="metric-value">${plot.size} sqm</div></div>
+              <div class="metric"><div class="metric-label">Price</div><div class="metric-value">AED ${(Number(plot.price)/1000000).toFixed(1)}M</div></div>
+              <div class="metric"><div class="metric-label">Price/sqm</div><div class="metric-value">AED ${Math.round(Number(plot.price)/Number(plot.size))}</div></div>
+            </div>
+          </div>
+
+          ${(plot.gfa || plot.nfa || plot.far || plot.bua) ? `
+          <div class="section">
+            <h3 style="margin-top:0; color:#1e40af;">Area Metrics</h3>
+            <div class="metrics">
+              ${plot.gfa ? `<div class="metric"><div class="metric-label">GFA</div><div class="metric-value">${plot.gfa} sqm</div></div>` : ''}
+              ${plot.nfa ? `<div class="metric"><div class="metric-label">NFA</div><div class="metric-value">${plot.nfa} sqm</div></div>` : ''}
+              ${plot.far ? `<div class="metric"><div class="metric-label">FAR</div><div class="metric-value">${plot.far}</div></div>` : ''}
+              ${plot.bua ? `<div class="metric"><div class="metric-label">BUA</div><div class="metric-value">${plot.bua} sqm</div></div>` : ''}
+            </div>
+          </div>` : ''}
+
+          ${(plot.owner || plot.phone || plot.email) ? `
+          <div class="section">
+            <h3 style="margin-top:0; color:#1e40af;">Owner / Customer (Internal)</h3>
+            ${plot.owner ? `<p><span class="label">Name:</span> <span class="value">${plot.owner}</span></p>` : ''}
+            ${plot.phone ? `<p><span class="label">Phone:</span> <span class="value">${plot.phone}</span></p>` : ''}
+            ${plot.email ? `<p><span class="label">Email:</span> <span class="value">${plot.email}</span></p>` : ''}
+          </div>` : ''}
+
+          <div class="section">
+            <h3 style="margin-top:0; color:#1e40af;">Location</h3>
+            <p><span class="label">Coordinates:</span> <span class="value">${plot.lat.toFixed(4)}, ${plot.lng.toFixed(4)}</span></p>
+            <p style="font-size:12px; color:#64748b;">https://www.google.com/maps?q=${plot.lat},${plot.lng}</p>
+          </div>
+
+          <div class="footer">Generated by AI Plot Portal • ${new Date().toLocaleDateString()} • Confidential</div>
+          <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 1000); };</script>
+        </body>
+        </html>
+      `;
+      printWin.document.write(html);
+      printWin.document.close();
+    }
 
     function addNewPlot() {
       document.body.insertAdjacentHTML('beforeend', `
