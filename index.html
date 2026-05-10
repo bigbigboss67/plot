@@ -471,7 +471,12 @@
 
     // ==================== LEAFLET MAP (SIMPLE & WORKING) ====================
     function initMap() {
+      const loadingEl = document.getElementById('mapLoading');
       try {
+        if (typeof L === 'undefined') {
+          throw new Error('Leaflet library failed to load from CDN');
+        }
+        
         // Create map
         map = L.map('map').setView([25.2769, 55.2962], 11);
         
@@ -480,38 +485,66 @@
           attribution: '© OpenStreetMap contributors'
         }).addTo(map);
         
-        // Create marker cluster group for better performance
-        markerCluster = L.markerClusterGroup({
-          maxClusterRadius: 50,
-          spiderfyOnMaxZoom: true,
-          showCoverageOnHover: false
-        });
-        map.addLayer(markerCluster);
+        // Create marker cluster group if plugin loaded, else fallback
+        if (typeof L.markerClusterGroup === 'function') {
+          markerCluster = L.markerClusterGroup({
+            maxClusterRadius: 50,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false
+          });
+          map.addLayer(markerCluster);
+        } else {
+          console.warn('⚠️ MarkerCluster plugin not loaded, using regular markers (no clustering)');
+          markerCluster = null;
+        }
         
-        // Add plot markers
+        // Add plot markers (with fallback support)
         addPlotMarkers();
         
+        // Force Leaflet to recalculate container size (fixes many "blank map" issues)
+        setTimeout(() => {
+          if (map && typeof map.invalidateSize === 'function') {
+            map.invalidateSize();
+          }
+        }, 150);
+        
         // Hide loading overlay
-        const loadingEl = document.getElementById('mapLoading');
         if (loadingEl) loadingEl.style.display = 'none';
         
         console.log('✅ Map loaded successfully');
       } catch (error) {
         console.error('❌ Map failed to load:', error);
-        document.getElementById('map').innerHTML = `
-          <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
-            <div>
-              <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
-              <div class="text-xl font-bold mb-2">Map Loading Issue</div>
-              <div class="text-sm text-gray-400">Please refresh the page (F5)</div>
+        if (loadingEl) loadingEl.style.display = 'none';
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+          mapEl.innerHTML = `
+            <div class="flex items-center justify-center h-full bg-gray-800 text-center p-8">
+              <div>
+                <i class="fas fa-exclamation-triangle text-4xl text-orange-500 mb-4"></i>
+                <div class="text-xl font-bold mb-2">Map Loading Issue</div>
+                <div class="text-sm text-gray-400 mb-4">Could not initialize map. Check browser console (F12) for details.</div>
+                <button onclick="initMap()" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium flex items-center gap-2 mx-auto">
+                  <i class="fas fa-redo"></i> Retry Map Load
+                </button>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        }
       }
     }
 
     function addPlotMarkers() {
-      if (markerCluster) markerCluster.clearLayers();
+      if (markerCluster) {
+        markerCluster.clearLayers();
+      } else if (map) {
+        // Fallback: clear any existing markers from map
+        map.eachLayer(function(layer) {
+          if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+          }
+        });
+      }
+      
       plots.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
@@ -613,7 +646,13 @@
         }
         
         marker.on('click', () => selectPlot(plot.id));
-        markerCluster.addLayer(marker);
+        
+        // Add to cluster or directly to map (fallback)
+        if (markerCluster) {
+          markerCluster.addLayer(marker);
+        } else if (map) {
+          marker.addTo(map);
+        }
       });
     }
 
@@ -2592,7 +2631,10 @@ END:VCALENDAR`;
     // ==================== INITIALIZE ====================
     window.onload = () => {
       loadFromLocalStorage();
-      initMap();
+      // Slight delay ensures map container is fully laid out and sized before Leaflet init
+      setTimeout(() => {
+        initMap();
+      }, 80);
       populateTable();
       togglePlotView('map');
       checkAuth();
