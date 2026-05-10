@@ -135,6 +135,12 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 .rowsel td{background:rgba(99,102,241,0.1)!important;}
 .vcallurl{background:#0f172a;border:1px solid #334155;border-radius:9px;padding:10px;font-size:12px;color:#94a3b8;word-break:break-all;margin-bottom:10px;}
 @media print{.noprint{display:none!important;}}
+/* Leaflet popup overrides */
+.aiplot-popup .leaflet-popup-content-wrapper{padding:0;border-radius:10px;border:none;box-shadow:0 12px 40px rgba(0,0,0,0.25);overflow:hidden;}
+.aiplot-popup .leaflet-popup-content{margin:0;width:auto!important;}
+.aiplot-popup .leaflet-popup-tip{background:white;}
+.aiplot-popup .leaflet-popup-close-button{color:rgba(255,255,255,0.8)!important;top:7px!important;right:9px!important;font-size:18px!important;z-index:1;}
+.aiplot-popup .leaflet-popup-close-button:hover{color:white!important;}
 </style>
 </head>
 <body>
@@ -336,21 +342,72 @@ function initMap(){
   addPlotMarkers();
 }
 
-function getStatusColor(s){return s==='Available'?'#34d399':s==='Reserved'?'#fbbf24':s==='Sold'?'#f87171':'#94a3b8';}
-function makeIcon(color){return L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:'+color+';border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.5);"></div>',iconSize:[13,13],iconAnchor:[6,6]});}
+function getStatusColor(s){return s==='Available'?'#22c55e':s==='Reserved'?'#f59e0b':s==='Sold'?'#ef4444':'#94a3b8';}
+function getStatusDark(s){return s==='Available'?'#15803d':s==='Reserved'?'#b45309':s==='Sold'?'#b91c1c':'#475569';}
+
+function makeIcon(color,label){
+  var short=((label||'').toString()).substring(0,5);
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">'+
+    '<defs><filter id="ds" x="-30%" y="-10%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="rgba(0,0,0,0.45)"/></filter></defs>'+
+    '<path d="M18 0C8.06 0 0 8.06 0 18c0 13.25 18 28 18 28S36 31.25 36 18C36 8.06 27.94 0 18 0z" fill="'+color+'" filter="url(#ds)"/>'+
+    '<circle cx="18" cy="18" r="10" fill="white"/>'+
+    '<text x="18" y="22" text-anchor="middle" fill="'+color+'" font-size="'+(short.length>3?'6.5':'8')+'" font-weight="900" font-family="Arial,sans-serif" letter-spacing="-0.3">'+short+'</text>'+
+    '</svg>';
+  return L.divIcon({className:'',html:svg,iconSize:[36,46],iconAnchor:[18,46],popupAnchor:[0,-48]});
+}
+
+function makePopupHTML(p){
+  var color=getStatusColor(p.status),dark=getStatusDark(p.status);
+  var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
+  var ppm=(size&&price)?('AED '+Math.round(price/size).toLocaleString()+'/m²'):'';
+  var pid=p.id;
+  return '<div style="font-family:Inter,Arial,sans-serif;width:240px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.18);">'+
+    '<div style="background:'+color+';padding:10px 13px;display:flex;justify-content:space-between;align-items:center;">'+
+      '<span style="color:white;font-weight:900;font-size:15px;letter-spacing:-0.3px;">Plot '+esc(p.no)+'</span>'+
+      '<span style="background:rgba(0,0,0,0.2);color:white;border-radius:20px;padding:2px 9px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+esc(p.status||'')+'</span>'+
+    '</div>'+
+    '<div style="background:white;padding:10px 13px;">'+
+      '<div style="font-size:11px;color:#64748b;margin-bottom:8px;font-weight:500;">'+esc(p.dev||'—')+(p.type?' &bull; '+esc(p.type):'')+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'+
+        '<div style="background:#f8fafc;border-radius:7px;padding:7px 9px;border:1px solid #f1f5f9;">'+
+          '<div style="font-size:8px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Size</div>'+
+          '<div style="font-size:14px;font-weight:900;color:#0f172a;">'+(size?size.toLocaleString():'—')+'</div>'+
+          (size?'<div style="font-size:8px;color:#94a3b8;">sqm</div>':'')+
+        '</div>'+
+        '<div style="background:#f0fdf4;border-radius:7px;padding:7px 9px;border:1px solid #dcfce7;">'+
+          '<div style="font-size:8px;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Price</div>'+
+          '<div style="font-size:12px;font-weight:900;color:#15803d;">'+(price?'AED '+price.toLocaleString():'—')+'</div>'+
+          (ppm?'<div style="font-size:8px;color:#16a34a;">'+ppm+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      (p.notes?'<div style="font-size:10px;color:#64748b;background:#f8fafc;border-radius:5px;padding:5px 7px;margin-bottom:8px;border-left:3px solid '+color+';">'+esc(p.notes.substring(0,80))+(p.notes.length>80?'…':'')+'</div>':'')+
+      '<button onclick="window._popupOpen('+pid+')" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:7px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">'+
+        '&#128269; View Full Details'+
+      '</button>'+
+    '</div>'+
+  '</div>';
+}
+
+window._popupOpen=function(pid){
+  if(map)map.closePopup();
+  selectPlot(pid);
+};
 
 function addPlotMarkers(){
   if(!map)return;
   markerCluster.clearLayers();
+  var noGps=0;
   filteredPlots.forEach(function(p){
     var lat=parseFloat(p.lat),lng=parseFloat(p.lng);
-    if(isNaN(lat)||isNaN(lng))return;
-    var m=L.marker([lat,lng],{icon:makeIcon(getStatusColor(p.status))});
-    (function(pid){m.on('click',function(){selectPlot(pid);});})(p.id);
-    m.bindTooltip('<b>'+esc(p.no)+'</b><br>'+esc(p.dev||'')+'<br><span style="color:'+getStatusColor(p.status)+'">'+esc(p.status||'')+'</span>',{direction:'top'});
+    if(isNaN(lat)||isNaN(lng)){noGps++;return;}
+    var color=getStatusColor(p.status);
+    var m=L.marker([lat,lng],{icon:makeIcon(color,p.no)});
+    m.bindPopup(makePopupHTML(p),{maxWidth:260,className:'aiplot-popup'});
+    m.bindTooltip('<b>'+esc(p.no)+'</b> &mdash; '+esc(p.dev||''),{direction:'top',offset:[0,-42]});
     markerCluster.addLayer(m);
   });
   updateLegendCounts();
+  return noGps;
 }
 
 function updateLegendCounts(){
@@ -597,10 +654,19 @@ function confirmImport(){
       plots.push(p);existing.add((p.no||'').toLowerCase());added++;
     }
   });
-  filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeImportModal();
-  var msg=added+' plots imported';
-  if(replaced)msg+=', '+replaced+' updated';
-  if(_importData.length-added-replaced>0)msg+=', '+(_importData.length-added-replaced)+' skipped (duplicates)';
+  filteredPlots=plots.slice();saveToLocalStorage();populateTable();
+  var noGps=addPlotMarkers();
+  updateTotalPlotsBadge();closeImportModal();
+  var withGps=(added+replaced)-(noGps||0);
+  var msg=added+' imported'+(replaced?', '+replaced+' updated':'');
+  if(withGps>0&&map){
+    // Fly to first newly imported plot that has GPS
+    var first=_importData.find(function(p){return parseFloat(p.lat)&&parseFloat(p.lng);});
+    if(first)map.flyTo([parseFloat(first.lat),parseFloat(first.lng)],13,{duration:1.5});
+    msg+=' — '+withGps+' visible on map';
+  } else if(added>0&&withGps===0){
+    msg+=' — no GPS coordinates, add location via Edit';
+  }
   showToastNotification(msg,'success');
 }
 
