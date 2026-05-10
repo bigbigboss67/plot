@@ -7,14 +7,17 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   
-  <!-- Leaflet Map (reliable, no API key required) -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet Map (reliable, no API key required) - using CDNJS for better reliability -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
   
   <!-- Leaflet MarkerCluster plugin -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+  
+  <!-- Leaflet Heatmap plugin for density visualization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -477,6 +480,15 @@
           throw new Error('Leaflet library failed to load from CDN');
         }
         
+        // If map already exists (e.g. retry), clean it up first
+        if (map) {
+          map.remove();
+          map = null;
+        }
+        if (markerCluster) {
+          markerCluster = null;
+        }
+        
         // Create map
         map = L.map('map').setView([25.2769, 55.2962], 11);
         
@@ -498,6 +510,9 @@
           markerCluster = null;
         }
         
+        // Hide loading overlay as soon as map is ready (tiles load async)
+        if (loadingEl) loadingEl.style.display = 'none';
+        
         // Add plot markers (with fallback support)
         addPlotMarkers();
         
@@ -506,10 +521,7 @@
           if (map && typeof map.invalidateSize === 'function') {
             map.invalidateSize();
           }
-        }, 150);
-        
-        // Hide loading overlay
-        if (loadingEl) loadingEl.style.display = 'none';
+        }, 200);
         
         console.log('✅ Map loaded successfully');
       } catch (error) {
@@ -660,7 +672,7 @@
       // Since using Leaflet + OSM, style switching is limited.
       // For demo, we'll just refresh markers and show toast
       addPlotMarkers();
-      showToast(`Map style updated to ${style}`, 'info');
+      showToastNotification('Map Style Updated', `Style changed to ${style}`, 'info');
     }
 
     // ==================== GEOCODING (using free Nominatim) ====================
@@ -785,6 +797,13 @@
       document.getElementById('plotTableView').classList.toggle('hidden', view !== 'table');
       document.getElementById('mapTab').classList.toggle('bg-blue-600', view === 'map');
       document.getElementById('tableTab').classList.toggle('bg-blue-600', view === 'table');
+      
+      // Ensure map renders correctly when switching back to map view (common Leaflet issue with hidden containers)
+      if (view === 'map' && map && typeof map.invalidateSize === 'function') {
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 50);
+      }
     }
 
     function populateTable(data = plots) {
@@ -2142,12 +2161,12 @@ END:VCALENDAR`;
           map.removeLayer(heatmapLayer);
           heatmapLayer = null;
         }
-        markerCluster.addTo(map);
+        if (markerCluster) markerCluster.addTo(map);
         heatmapEnabled = false;
-        alert('Heatmap disabled - showing markers');
+        showToastNotification('Heatmap', 'Heatmap disabled - showing markers', 'info');
       } else {
         // Create heatmap
-        markerCluster.remove();
+        if (markerCluster) markerCluster.remove();
         
         const heatData = plots.map(plot => {
           let intensity = 0.5;
@@ -2171,7 +2190,7 @@ END:VCALENDAR`;
         }).addTo(map);
         
         heatmapEnabled = true;
-        alert('Heatmap enabled - showing plot density');
+        showToastNotification('Heatmap', 'Heatmap enabled - showing plot density', 'info');
       }
     }
 
@@ -2650,6 +2669,13 @@ END:VCALENDAR`;
           addNotification('System Online', 'All systems operational', 'success');
         }
       }, 2000);
+      
+      // Re-render map on window resize (fixes blank map issues on responsive layouts)
+      window.addEventListener('resize', () => {
+        if (map && typeof map.invalidateSize === 'function') {
+          map.invalidateSize();
+        }
+      });
     };
 
     // ==================== OFFLINE SYNC & BACKUP ====================
