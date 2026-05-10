@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Plot Portal Pro</title>
+<title>AI Plot Portal Pro v3.4</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -79,7 +79,8 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 @keyframes toastOut{from{transform:translateX(0);opacity:1;}to{transform:translateX(110%);opacity:0;}}
 .moverlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
 .moverlay.hidden{display:none;}
-.mbox{background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:580px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;}
+.mbox{background:#1e293b;border:1px solid #334155;border-radius:18px;width:96%;max-width:720px;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;}
+.mbox-lg{max-width:860px;}
 .mhdr{padding:18px 22px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#1e293b;}
 .mhdr h2{font-size:16px;font-weight:700;color:#f1f5f9;}
 .mclose{background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
@@ -121,10 +122,11 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 #pm_imgPH{border:2px dashed #334155;border-radius:9px;height:90px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;gap:7px;cursor:pointer;}
 #pm_imgPH:hover{border-color:#6366f1;color:#94a3b8;}
 .mgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
-.mcard{background:#0f172a;border-radius:9px;padding:10px;}
-.mlabel{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
-.mval{font-size:15px;font-weight:700;color:#f1f5f9;margin-top:2px;}
+.mcard{background:#0f172a;border-radius:9px;padding:9px 10px;}
+.mlabel{font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:2px;}
+.mval{font-size:14px;font-weight:700;color:#f1f5f9;}
 .mval.grn{color:#34d399;}
+.mcard[style*="span 2"]{grid-column:span 2;}
 .atable{width:100%;border-collapse:collapse;font-size:11px;margin-top:5px;}
 .atable td{padding:5px 8px;border:1px solid #334155;}
 .atable td:first-child{color:#64748b;font-weight:600;background:#0f172a;}
@@ -220,8 +222,8 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <div id="importModal" class="moverlay hidden">
-  <div class="mbox">
-    <div class="mhdr"><h2>Import Plots</h2><button class="mclose" onclick="closeImportModal()">&times;</button></div>
+  <div class="mbox mbox-lg">
+    <div class="mhdr"><h2><i class="fas fa-file-import" style="color:#6366f1;margin-right:7px;"></i>Import Plots</h2><button class="mclose" onclick="closeImportModal()">&times;</button></div>
     <div class="mbody">
       <div class="dropz" id="dropZone"
         ondragover="event.preventDefault();this.classList.add('dragov')"
@@ -262,6 +264,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
       <a onclick="exportCSV()"><i class="fas fa-file-export"></i> Export CSV</a>
       <a onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</a>
       <a onclick="showOfflineSyncModal()"><i class="fas fa-sync"></i> Offline Sync</a>
+      <a onclick="showOwnerCodeSetup()" style="color:#c4b5fd;"><i class="fas fa-lock"></i> Set Owner Code</a>
       <div class="sbsec" style="margin-top:6px;">Account</div>
       <a onclick="toggleOnlineSync()"><i class="fas fa-cloud"></i> Online Sync</a>
       <a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
@@ -270,7 +273,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
   <div id="main">
     <div id="topbar">
       <button class="ibtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro</span>
+      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v3.4</span></span>
       <div class="tbsrch"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search plots..." oninput="debounceSearch()"></div>
       <div class="tbacts">
         <button class="ibtn" onclick="toggleOnlineSync()" title="Sync"><i class="fas fa-cloud"></i></button>
@@ -281,21 +284,53 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
         <span id="userBadge" style="font-size:11px;color:#64748b;"></span>
       </div>
     </div>
-    <div id="filterbar">
-      <select class="fi" id="filterStatus" onchange="applyFilters()"><option value="">All Status</option><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select>
-      <select class="fi" id="filterType" onchange="applyFilters()"><option value="">All Types</option><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Mixed Use">Mixed Use</option><option value="Industrial">Industrial</option><option value="Agricultural">Agricultural</option></select>
-      <input class="fi" type="number" id="filterMinPrice" placeholder="Min Price" onchange="applyFilters()">
-      <input class="fi" type="number" id="filterMaxPrice" placeholder="Max Price" onchange="applyFilters()">
-      <button class="fbtn" onclick="clearFilters()"><i class="fas fa-times"></i> Clear</button>
-      <input class="fi" id="geocodeInput" placeholder="Geocode address..." style="flex:1;min-width:120px;">
-      <button class="fbtn" onclick="geocodeAddress()"><i class="fas fa-search-location"></i></button>
-      <select class="fi" onchange="setMapStyle(this.value)"><option value="carto">CartoDB Dark</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
+    <div id="filterbar" style="flex-wrap:wrap;gap:5px 8px;align-items:center;padding:6px 12px;">
+      <!-- Row 1: Status / Type / Map Style / Map Tools -->
+      <select class="fi" id="filterStatus" onchange="applyFilters()" title="Filter by Status"><option value="">All Status</option><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select>
+      <select class="fi" id="filterType" onchange="applyFilters()" title="Filter by Type"><option value="">All Types</option><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Mixed Use">Mixed Use</option><option value="Industrial">Industrial</option><option value="Agricultural">Agricultural</option></select>
+      <div style="width:1px;height:22px;background:#334155;flex-shrink:0;"></div>
+      <!-- Land Size Range -->
+      <span style="font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;">SIZE&nbsp;(sqm)</span>
+      <input class="fi" type="number" id="filterMinSize" placeholder="Min" oninput="debounceSearch()" style="width:72px;" title="Min land size (sqm)">
+      <span style="color:#475569;font-size:11px;">–</span>
+      <input class="fi" type="number" id="filterMaxSize" placeholder="Max" oninput="debounceSearch()" style="width:72px;" title="Max land size (sqm)">
+      <div style="width:1px;height:22px;background:#334155;flex-shrink:0;"></div>
+      <!-- Price Range -->
+      <span style="font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;">PRICE&nbsp;(AED)</span>
+      <input class="fi" type="number" id="filterMinPrice" placeholder="Min" oninput="debounceSearch()" style="width:88px;" title="Min price (AED)">
+      <span style="color:#475569;font-size:11px;">–</span>
+      <input class="fi" type="number" id="filterMaxPrice" placeholder="Max" oninput="debounceSearch()" style="width:88px;" title="Max price (AED)">
+      <div style="width:1px;height:22px;background:#334155;flex-shrink:0;"></div>
+      <!-- GFA Range -->
+      <span style="font-size:10px;color:#64748b;font-weight:700;white-space:nowrap;">GFA</span>
+      <input class="fi" type="number" id="filterMinGfa" placeholder="Min" oninput="debounceSearch()" style="width:68px;" title="Min GFA">
+      <span style="color:#475569;font-size:11px;">–</span>
+      <input class="fi" type="number" id="filterMaxGfa" placeholder="Max" oninput="debounceSearch()" style="width:68px;" title="Max GFA">
+      <div style="width:1px;height:22px;background:#334155;flex-shrink:0;"></div>
+      <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
+      <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;">
+      <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
+      <select class="fi" onchange="setMapStyle(this.value)" title="Map Style"><option value="carto">Dark</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
-      <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export Sel.</button>
+      <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export</button>
     </div>
     <div id="content">
       <div id="mapWrap">
         <div id="map"></div>
+        <!-- No-GPS overlay shown when all plots lack coordinates -->
+        <div id="mapNoGps" style="display:none;position:absolute;inset:0;z-index:800;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+          <div style="background:rgba(15,23,42,0.92);border:1px solid #334155;border-radius:16px;padding:28px 36px;text-align:center;pointer-events:all;max-width:340px;box-shadow:0 16px 48px rgba(0,0,0,0.6);">
+            <div style="font-size:36px;margin-bottom:10px;">📍</div>
+            <div style="font-size:15px;font-weight:800;color:#f1f5f9;margin-bottom:6px;">No GPS Coordinates</div>
+            <div id="mapNoGpsMsg" style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.6;">Your plots don't have Latitude/Longitude data.<br>Add coordinates to see them on the map.</div>
+            <button onclick="startSetOnMapMode()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:9px;padding:9px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;width:100%;"><i class="fas fa-map-marker-alt"></i> Click Map to Place a Plot</button>
+            <button onclick="togglePlotView('table')" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;width:100%;"><i class="fas fa-table"></i> Switch to Table View</button>
+          </div>
+        </div>
+        <!-- Set-on-map mode banner -->
+        <div id="setOnMapBanner" style="display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:1000;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border-radius:10px;padding:10px 18px;font-size:12px;font-weight:700;text-align:center;box-shadow:0 6px 20px rgba(99,102,241,0.5);cursor:pointer;" onclick="cancelSetOnMapMode()">
+          <i class="fas fa-crosshairs"></i> Click anywhere on the map to place <span id="setOnMapLabel"></span> &nbsp;|&nbsp; <span style="opacity:0.8;font-weight:400;">ESC to cancel</span>
+        </div>
         <div class="mctrl noprint">
           <button class="mcbtn" id="heatmapBtn" onclick="toggleHeatmap()"><i class="fas fa-fire"></i> Heatmap</button>
           <button class="mcbtn" onclick="startBufferAnalysis()"><i class="fas fa-circle-dot"></i> Buffer</button>
@@ -309,6 +344,9 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
           <div class="litem"><div class="ldot" style="background:#34d399;"></div><span>Available (<span id="legendAvail">0</span>)</span></div>
           <div class="litem"><div class="ldot" style="background:#fbbf24;"></div><span>Reserved (<span id="legendReserved">0</span>)</span></div>
           <div class="litem"><div class="ldot" style="background:#f87171;"></div><span>Sold (<span id="legendSold">0</span>)</span></div>
+          <div style="margin-top:7px;padding-top:7px;border-top:1px solid #334155;">
+            <div style="font-size:10px;color:#64748b;" id="legendNoGps"></div>
+          </div>
         </div>
       </div>
       <div id="plotCard"></div>
@@ -318,7 +356,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
           <span id="selectionCount" style="font-size:11px;color:#64748b;"></span>
         </div>
         <table class="dtable">
-          <thead><tr><th style="width:32px;"></th><th>Plot No</th><th>Development</th><th>Type</th><th>Size (sqm)</th><th>Price (AED)</th><th>Price/sqm</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead><tr><th style="width:32px;"></th><th>Plot No</th><th>Development</th><th>Type</th><th>Size</th><th>Price (AED)</th><th>Price/sqft</th><th>Status</th><th>Actions</th></tr></thead>
           <tbody id="tableBody"></tbody>
         </table>
       </div>
@@ -327,19 +365,62 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_sharePlotId=null,currentView='map';
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map';
 var _gun=null,_gunNode=null,_syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
 var _syncConfig={room:'',active:false};
+/* Owner access code system */
+var _ownerCode=null,_ownerUnlocked=false;
 
 function saveToLocalStorage(){try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}try{if(currentUser)localStorage.setItem('aiplot_user',JSON.stringify(currentUser));}catch(e){}if(_syncActive)pushSync();}
-function loadFromLocalStorage(){try{var p=localStorage.getItem('aiplot_plots');if(p)plots=JSON.parse(p);}catch(e){plots=[];}try{var u=localStorage.getItem('aiplot_user');if(u)currentUser=JSON.parse(u);}catch(e){}try{var s=localStorage.getItem('aiplot_sync');if(s)_syncConfig=JSON.parse(s);}catch(e){}filteredPlots=plots.slice();}
+function loadFromLocalStorage(){
+  try{var p=localStorage.getItem('aiplot_plots');if(p)plots=JSON.parse(p);}catch(e){plots=[];}
+  try{var u=localStorage.getItem('aiplot_user');if(u)currentUser=JSON.parse(u);}catch(e){}
+  try{var s=localStorage.getItem('aiplot_sync');if(s)_syncConfig=JSON.parse(s);}catch(e){}
+  try{_ownerCode=localStorage.getItem('aiplot_owner_code')||null;}catch(e){}
+  filteredPlots=plots.slice();
+}
+
+/* ── Owner Code Functions ── */
+function setOwnerCode(code){
+  _ownerCode=(code||'').trim()||null;
+  try{if(_ownerCode)localStorage.setItem('aiplot_owner_code',_ownerCode);else localStorage.removeItem('aiplot_owner_code');}catch(e){}
+  _ownerUnlocked=false;
+  showToastNotification(_ownerCode?'🔒 Owner code set successfully':'Owner code removed','success');
+}
+function showOwnerCodeSetup(){
+  var cur=_ownerCode?'Current code is set. Enter new code (or leave blank to remove):':'No code set yet. Enter a code to protect owner info:';
+  var c=prompt(cur);if(c===null)return;setOwnerCode(c);
+}
+function unlockOwner(pid){
+  if(!_ownerCode){_ownerUnlocked=true;if(pid)selectPlot(pid);return;}
+  var c=prompt('Enter owner access code:');if(c===null)return;
+  if(c===_ownerCode){_ownerUnlocked=true;showToastNotification('🔓 Owner info unlocked','success');if(pid)selectPlot(pid);}
+  else showToastNotification('Incorrect code','error');
+}
+function lockOwner(){_ownerUnlocked=false;showToastNotification('🔒 Owner info locked','info');}
+
+/* ── Google Maps URL parser ── */
+function extractLatLngFromUrl(url){
+  if(!url||typeof url!=='string')return null;
+  /* Format: @lat,lng,zoom */
+  var m=url.match(/@(-?\d{1,3}\.?\d*),(-?\d{1,3}\.?\d*)/);
+  if(m)return{lat:m[1],lng:m[2]};
+  /* Format: ?q=lat,lng or ll=lat,lng */
+  m=url.match(/[?&](?:q|ll)=(-?\d{1,3}\.?\d*),(-?\d{1,3}\.?\d*)/);
+  if(m)return{lat:m[1],lng:m[2]};
+  /* Format: /place/lat,lng */
+  m=url.match(/\/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
+  if(m&&parseFloat(m[1])>=-90&&parseFloat(m[1])<=90)return{lat:m[1],lng:m[2]};
+  return null;
+}
 
 function initMap(){
   map=L.map('map',{zoomControl:true}).setView([25.2048,55.2708],10);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CartoDB',subdomains:'abcd',maxZoom:20}).addTo(map);
-  markerCluster=L.markerClusterGroup({chunkedLoading:true});
+  markerCluster=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:60,spiderfyOnMaxZoom:true});
   map.addLayer(markerCluster);
   addPlotMarkers();
+  _initSetOnMapClick();
 }
 
 function getStatusColor(s){return s==='Available'?'#22c55e':s==='Reserved'?'#f59e0b':s==='Sold'?'#ef4444':'#94a3b8';}
@@ -347,41 +428,49 @@ function getStatusDark(s){return s==='Available'?'#15803d':s==='Reserved'?'#b453
 
 function makeIcon(color,label){
   var short=((label||'').toString()).substring(0,5);
-  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="36" height="46" viewBox="0 0 36 46">'+
-    '<defs><filter id="ds" x="-30%" y="-10%" width="160%" height="160%"><feDropShadow dx="0" dy="3" stdDeviation="2.5" flood-color="rgba(0,0,0,0.45)"/></filter></defs>'+
-    '<path d="M18 0C8.06 0 0 8.06 0 18c0 13.25 18 28 18 28S36 31.25 36 18C36 8.06 27.94 0 18 0z" fill="'+color+'" filter="url(#ds)"/>'+
-    '<circle cx="18" cy="18" r="10" fill="white"/>'+
-    '<text x="18" y="22" text-anchor="middle" fill="'+color+'" font-size="'+(short.length>3?'6.5':'8')+'" font-weight="900" font-family="Arial,sans-serif" letter-spacing="-0.3">'+short+'</text>'+
+  /* Unique filter ID per icon — duplicate id="ds" across markers breaks shadows in browsers */
+  var fid='mkf'+(_iconSeq=((_iconSeq||0)+1));
+  var sz=short.length>4?6:short.length>3?7:8.5;
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="38" height="50" viewBox="0 0 38 50">'+
+    '<defs><filter id="'+fid+'" x="-40%" y="-10%" width="180%" height="170%">'+
+    '<feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="rgba(0,0,0,0.5)"/></filter></defs>'+
+    '<path d="M19 1C8.51 1 0 9.51 0 20c0 14.36 19 30 19 30S38 34.36 38 20C38 9.51 29.49 1 19 1z" fill="'+color+'" filter="url(#'+fid+')"/>'+
+    '<circle cx="19" cy="19" r="11" fill="white" opacity="0.95"/>'+
+    '<text x="19" y="23" text-anchor="middle" fill="'+color+'" font-size="'+sz+'" font-weight="900" font-family="Arial,sans-serif" letter-spacing="-0.5">'+short+'</text>'+
     '</svg>';
-  return L.divIcon({className:'',html:svg,iconSize:[36,46],iconAnchor:[18,46],popupAnchor:[0,-48]});
+  return L.divIcon({className:'',html:svg,iconSize:[38,50],iconAnchor:[19,50],popupAnchor:[0,-52]});
 }
 
 function makePopupHTML(p){
-  var color=getStatusColor(p.status),dark=getStatusDark(p.status);
-  var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
-  var ppm=(size&&price)?('AED '+Math.round(price/size).toLocaleString()+'/m²'):'';
+  var color=getStatusColor(p.status);
+  var price=parseNum(p.price),size=parseNum(p.size);
+  var szOk=!isNaN(size)&&size>0,prOk=!isNaN(price)&&price>0;
+  var ppsf=(szOk&&prOk)?pricePerSqft(price,size):'—';
   var pid=p.id;
-  return '<div style="font-family:Inter,Arial,sans-serif;width:240px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.18);">'+
-    '<div style="background:'+color+';padding:10px 13px;display:flex;justify-content:space-between;align-items:center;">'+
-      '<span style="color:white;font-weight:900;font-size:15px;letter-spacing:-0.3px;">Plot '+esc(p.no)+'</span>'+
-      '<span style="background:rgba(0,0,0,0.2);color:white;border-radius:20px;padding:2px 9px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+esc(p.status||'')+'</span>'+
+  return '<div style="font-family:Inter,Arial,sans-serif;width:255px;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.22);">'+
+    '<div style="background:'+color+';padding:11px 14px;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div>'+
+        '<div style="color:white;font-weight:900;font-size:15px;letter-spacing:-0.3px;">'+esc(p.no)+'</div>'+
+        (p.dev?'<div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:1px;">'+esc(p.dev)+'</div>':'')+
+      '</div>'+
+      '<span style="background:rgba(0,0,0,0.22);color:white;border-radius:20px;padding:3px 9px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+esc(p.status||'')+'</span>'+
     '</div>'+
-    '<div style="background:white;padding:10px 13px;">'+
-      '<div style="font-size:11px;color:#64748b;margin-bottom:8px;font-weight:500;">'+esc(p.dev||'—')+(p.type?' &bull; '+esc(p.type):'')+'</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'+
-        '<div style="background:#f8fafc;border-radius:7px;padding:7px 9px;border:1px solid #f1f5f9;">'+
-          '<div style="font-size:8px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Size</div>'+
-          '<div style="font-size:14px;font-weight:900;color:#0f172a;">'+(size?size.toLocaleString():'—')+'</div>'+
-          (size?'<div style="font-size:8px;color:#94a3b8;">sqm</div>':'')+
+    '<div style="background:white;padding:11px 14px;">'+
+      (p.type?'<div style="font-size:10px;color:#94a3b8;margin-bottom:8px;font-style:italic;">'+esc(p.type)+'</div>':'')+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:9px;">'+
+        '<div style="background:#f8fafc;border-radius:7px;padding:7px 9px;border:1px solid #f1f5f9;text-align:center;">'+
+          '<div style="font-size:8px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">AREA</div>'+
+          '<div style="font-size:15px;font-weight:900;color:#0f172a;">'+(szOk?fmtN(size):'—')+'</div>'+
+          (szOk?'<div style="font-size:9px;color:#64748b;">sqm &bull; '+fmtN(size*10.764)+' sqft</div>':'')+
         '</div>'+
-        '<div style="background:#f0fdf4;border-radius:7px;padding:7px 9px;border:1px solid #dcfce7;">'+
-          '<div style="font-size:8px;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;">Price</div>'+
-          '<div style="font-size:12px;font-weight:900;color:#15803d;">'+(price?'AED '+price.toLocaleString():'—')+'</div>'+
-          (ppm?'<div style="font-size:8px;color:#16a34a;">'+ppm+'</div>':'')+
+        '<div style="background:#f0fdf4;border-radius:7px;padding:7px 9px;border:1px solid #dcfce7;text-align:center;">'+
+          '<div style="font-size:8px;color:#15803d;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;">PRICE</div>'+
+          '<div style="font-size:12px;font-weight:900;color:#15803d;">'+(prOk?'AED '+fmtN(price):'—')+'</div>'+
+          '<div style="font-size:8px;color:#16a34a;">'+ppsf+'</div>'+
         '</div>'+
       '</div>'+
-      (p.notes?'<div style="font-size:10px;color:#64748b;background:#f8fafc;border-radius:5px;padding:5px 7px;margin-bottom:8px;border-left:3px solid '+color+';">'+esc(p.notes.substring(0,80))+(p.notes.length>80?'…':'')+'</div>':'')+
-      '<button onclick="window._popupOpen('+pid+')" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:7px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:0.3px;">'+
+      (p.notes?'<div style="font-size:10px;color:#64748b;background:#f8fafc;border-radius:5px;padding:5px 8px;margin-bottom:9px;border-left:3px solid '+color+';">'+esc(p.notes.substring(0,90))+(p.notes.length>90?'…':'')+'</div>':'')+
+      '<button onclick="window._popupOpen('+pid+')" style="width:100%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:7px;padding:8px;font-size:11px;font-weight:700;cursor:pointer;">'+
         '&#128269; View Full Details'+
       '</button>'+
     '</div>'+
@@ -394,27 +483,113 @@ window._popupOpen=function(pid){
 };
 
 function addPlotMarkers(){
-  if(!map)return;
+  if(!map||!markerCluster)return;
   markerCluster.clearLayers();
-  var noGps=0;
+  var noGps=0,added=0;
   filteredPlots.forEach(function(p){
-    var lat=parseFloat(p.lat),lng=parseFloat(p.lng);
-    if(isNaN(lat)||isNaN(lng)){noGps++;return;}
-    var color=getStatusColor(p.status);
-    var m=L.marker([lat,lng],{icon:makeIcon(color,p.no)});
-    m.bindPopup(makePopupHTML(p),{maxWidth:260,className:'aiplot-popup'});
-    m.bindTooltip('<b>'+esc(p.no)+'</b> &mdash; '+esc(p.dev||''),{direction:'top',offset:[0,-42]});
-    markerCluster.addLayer(m);
+    try{
+      var lat=parseNum(p.lat),lng=parseNum(p.lng);
+      if(isNaN(lat)||isNaN(lng)||lat===0&&lng===0){noGps++;return;}
+      if(lat<-90||lat>90||lng<-180||lng>180){noGps++;return;}
+      var color=getStatusColor(p.status);
+      var m=L.marker([lat,lng],{icon:makeIcon(color,p.no)});
+      m.on('click',function(){selectPlot(p.id);});
+      m.bindPopup(makePopupHTML(p),{maxWidth:265,className:'aiplot-popup',closeButton:true});
+      m.bindTooltip('<b>'+esc(p.no)+'</b>'+(p.dev?' &mdash; '+esc(p.dev):''),{direction:'top',offset:[0,-52],opacity:0.95});
+      markerCluster.addLayer(m);
+      added++;
+    }catch(e){console.warn('Marker error for plot '+p.no+':',e);}
   });
-  updateLegendCounts();
-  return noGps;
+  updateLegendCounts();/* overlay updated inside updateLegendCounts */
+  return {noGps:noGps,added:added};
 }
 
 function updateLegendCounts(){
-  var a=0,r=0,s=0;
-  plots.forEach(function(p){if(p.status==='Available')a++;else if(p.status==='Reserved')r++;else if(p.status==='Sold')s++;});
+  var a=0,r=0,s=0,ng=0;
+  plots.forEach(function(p){
+    if(p.status==='Available')a++;else if(p.status==='Reserved')r++;else if(p.status==='Sold')s++;
+    if(!parseNum(p.lat)||!parseNum(p.lng)||isNaN(parseNum(p.lat)))ng++;
+  });
   var ea=document.getElementById('legendAvail'),er=document.getElementById('legendReserved'),es=document.getElementById('legendSold');
   if(ea)ea.textContent=a;if(er)er.textContent=r;if(es)es.textContent=s;
+  var el=document.getElementById('legendNoGps');
+  if(el)el.innerHTML=ng>0?'<span style="color:#f59e0b;"><i class="fas fa-exclamation-triangle"></i> '+ng+' without GPS</span>':'';
+  /* Show/hide the no-GPS overlay */
+  _updateNoGpsOverlay();
+}
+
+function _updateNoGpsOverlay(){
+  var overlay=document.getElementById('mapNoGps');
+  if(!overlay)return;
+  var total=filteredPlots.length;
+  var withGps=filteredPlots.filter(function(p){var la=parseNum(p.lat),ln=parseNum(p.lng);return!isNaN(la)&&!isNaN(ln)&&la!==0&&ln!==0;}).length;
+  var noGps=total-withGps;
+  var msg=document.getElementById('mapNoGpsMsg');
+  if(total===0){
+    overlay.style.display='none';return;
+  }
+  if(withGps===0){
+    overlay.style.display='flex';
+    if(msg)msg.innerHTML=(total===1?'This plot has':'All '+total+' plots have')+' no Latitude/Longitude.<br>Use <b>Place on Map</b> to set locations or add GPS data via Import.';
+  }else if(noGps>0){
+    overlay.style.display='none';/* Some have GPS — show warning only in legend */
+  }else{
+    overlay.style.display='none';
+  }
+}
+
+/* ── Set-on-Map Mode ── */
+var _setOnMapPlotId=null;
+function startSetOnMapMode(){
+  /* Pick the first plot without GPS */
+  var p=plots.find(function(x){var la=parseNum(x.lat),ln=parseNum(x.lng);return isNaN(la)||isNaN(ln)||la===0;});
+  if(!p){showToastNotification('All plots already have GPS coordinates!','success');return;}
+  startSetOnMapModeForPlot(p.id);
+}
+function startSetOnMapModeForPlot(pid){
+  var p=plots.find(function(x){return x.id===pid;});
+  if(!p)return;
+  _setOnMapPlotId=pid;
+  var banner=document.getElementById('setOnMapBanner');
+  var lbl=document.getElementById('setOnMapLabel');
+  if(banner)banner.style.display='block';
+  if(lbl)lbl.textContent='Plot '+p.no;
+  if(currentView!=='map')togglePlotView('map');
+  /* Hide no-GPS overlay while placing */
+  var overlay=document.getElementById('mapNoGps');if(overlay)overlay.style.display='none';
+  document.getElementById('map').style.cursor='crosshair';
+  showToastNotification('Click on the map to place Plot '+p.no,'info');
+}
+function cancelSetOnMapMode(){
+  _setOnMapPlotId=null;
+  var banner=document.getElementById('setOnMapBanner');
+  if(banner)banner.style.display='none';
+  document.getElementById('map').style.cursor='';
+  _updateNoGpsOverlay();
+}
+function _initSetOnMapClick(){
+  if(!map)return;
+  map.on('click',function(e){
+    if(!_setOnMapPlotId)return;
+    var lat=e.latlng.lat.toFixed(6),lng=e.latlng.lng.toFixed(6);
+    var p=plots.find(function(x){return x.id===_setOnMapPlotId;});
+    if(p){
+      p.lat=lat;p.lng=lng;
+      saveToLocalStorage();addPlotMarkers();populateTable();
+      showToastNotification('Plot '+p.no+' placed at '+lat+', '+lng,'success');
+      /* Ask if want to place next */
+      var next=plots.find(function(x){var la=parseNum(x.lat),ln=parseNum(x.lng);return isNaN(la)||isNaN(ln)||la===0;});
+      if(next){
+        _setOnMapPlotId=next.id;
+        var lbl=document.getElementById('setOnMapLabel');if(lbl)lbl.textContent='Plot '+next.no;
+        showToastNotification('Now place Plot '+next.no+' — or press ESC to stop','info');
+      }else{
+        cancelSetOnMapMode();
+        showToastNotification('All plots now have GPS coordinates!','success');
+      }
+    }
+  });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&_setOnMapPlotId)cancelSetOnMapMode();});
 }
 
 function setMapStyle(style){
@@ -435,40 +610,57 @@ function togglePlotView(view){
 function populateTable(){
   var tb=document.getElementById('tableBody');if(!tb)return;tb.innerHTML='';
   filteredPlots.forEach(function(p){
-    var ppm=(p.size&&p.price)?Math.round(parseFloat(p.price)/parseFloat(p.size)).toLocaleString():'-';
+    var sz=parseNum(p.size),pr=parseNum(p.price);
+    var szOk=!isNaN(sz)&&sz>0,prOk=!isNaN(pr)&&pr>0;
+    var szSqft=szOk?fmtN(sz*10.764)+' sqft':'';
+    var ppsf=(szOk&&prOk)?('AED '+Math.round(pr/(sz*10.764)).toLocaleString()):'-';
     var sel=selectedIds.has(p.id);var pid=p.id;
     var tr=document.createElement('tr');if(sel)tr.className='rowsel';
     tr.innerHTML='<td><input type="checkbox"'+(sel?' checked':'')+' onchange="toggleSelection('+pid+',this.checked)"></td>'+
-      '<td style="font-weight:600;color:#f1f5f9;">'+esc(p.no)+'</td>'+
-      '<td style="color:#94a3b8;">'+esc(p.dev||'-')+'</td>'+
-      '<td style="color:#94a3b8;">'+esc(p.type||'-')+'</td>'+
-      '<td>'+(p.size?parseFloat(p.size).toLocaleString():'-')+'</td>'+
-      '<td style="color:#34d399;">'+(p.price?'AED '+parseFloat(p.price).toLocaleString():'-')+'</td>'+
-      '<td>'+ppm+'</td>'+
+      '<td style="font-weight:700;color:#f1f5f9;">'+esc(p.no)+'</td>'+
+      '<td style="color:#94a3b8;">'+esc(p.dev||'—')+'</td>'+
+      '<td style="color:#94a3b8;">'+esc(p.type||'—')+'</td>'+
+      '<td><div style="font-weight:600;color:#e2e8f0;">'+(szOk?fmtN(sz)+' sqm':'—')+'</div>'+(szSqft?'<div style="font-size:10px;color:#64748b;">'+szSqft+'</div>':'')+'</td>'+
+      '<td><div style="font-weight:700;color:#34d399;">'+(prOk?'AED '+fmtN(pr):'—')+'</div></td>'+
+      '<td style="color:#94a3b8;">'+ppsf+'</td>'+
       '<td><span class="sbadge sb-'+(p.status||'Available')+'">'+esc(p.status||'Available')+'</span></td>'+
       '<td style="white-space:nowrap;">'+
-        '<button class="fbtn" onclick="selectPlot('+pid+')" style="margin-right:3px;"><i class="fas fa-eye"></i></button>'+
-        '<button class="fbtn" onclick="openPlotModal('+pid+')" style="margin-right:3px;"><i class="fas fa-edit"></i></button>'+
-        '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;"><i class="fas fa-print"></i></button>'+
-        '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')"><i class="fas fa-trash"></i></button>'+
+        '<button class="fbtn" onclick="selectPlot('+pid+')" style="margin-right:3px;" title="View"><i class="fas fa-eye"></i></button>'+
+        '<button class="fbtn" onclick="openPlotModal('+pid+')" style="margin-right:3px;" title="Edit"><i class="fas fa-edit"></i></button>'+
+        (!p.lat||!p.lng?'<button class="fbtn" style="color:#6366f1;margin-right:3px;" onclick="startSetOnMapModeForPlot('+pid+')" title="Place on Map"><i class="fas fa-map-marker-alt"></i></button>':'')+
+        '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;" title="Print"><i class="fas fa-print"></i></button>'+
+        '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')" title="Delete"><i class="fas fa-trash"></i></button>'+
       '</td>';
     tb.appendChild(tr);
   });
 }
 
+function _gv(id){var el=document.getElementById(id);return el?el.value:'';}
 function applyFilters(){
-  var status=document.getElementById('filterStatus').value,type=document.getElementById('filterType').value;
-  var minP=parseFloat(document.getElementById('filterMinPrice').value)||0,maxP=parseFloat(document.getElementById('filterMaxPrice').value)||Infinity;
-  var srch=(document.getElementById('searchInput').value||'').toLowerCase().trim();
+  var status=_gv('filterStatus'),type=_gv('filterType');
+  var minP=parseNum(_gv('filterMinPrice')),maxP=parseNum(_gv('filterMaxPrice'));
+  var minS=parseNum(_gv('filterMinSize')),maxS=parseNum(_gv('filterMaxSize'));
+  var minG=parseNum(_gv('filterMinGfa')),maxG=parseNum(_gv('filterMaxGfa'));
+  var srch=(_gv('searchInput')).toLowerCase().trim();
   filteredPlots=plots.filter(function(p){
-    if(status&&p.status!==status)return false;if(type&&p.type!==type)return false;
-    var pr=parseFloat(p.price)||0;if(pr<minP||pr>maxP)return false;
-    if(srch){var h=((p.no||'')+' '+(p.dev||'')+' '+(p.type||'')+' '+(p.status||'')+' '+(p.notes||'')).toLowerCase();if(h.indexOf(srch)===-1)return false;}
+    if(status&&p.status!==status)return false;
+    if(type&&p.type!==type)return false;
+    var pr=parseNum(p.price),sz=parseNum(p.size),gf=parseNum(p.gfa);
+    if(!isNaN(minP)&&(isNaN(pr)||pr<minP))return false;
+    if(!isNaN(maxP)&&(isNaN(pr)||pr>maxP))return false;
+    if(!isNaN(minS)&&(isNaN(sz)||sz<minS))return false;
+    if(!isNaN(maxS)&&(isNaN(sz)||sz>maxS))return false;
+    if(!isNaN(minG)&&(isNaN(gf)||gf<minG))return false;
+    if(!isNaN(maxG)&&(isNaN(gf)||gf>maxG))return false;
+    if(srch){var h=((p.no||'')+' '+(p.dev||'')+' '+(p.type||'')+' '+(p.status||'')+' '+(p.notes||''));if(h.toLowerCase().indexOf(srch)===-1)return false;}
     return true;
   });
   addPlotMarkers();if(currentView==='table')populateTable();
 }
-function clearFilters(){document.getElementById('filterStatus').value='';document.getElementById('filterType').value='';document.getElementById('filterMinPrice').value='';document.getElementById('filterMaxPrice').value='';document.getElementById('searchInput').value='';filteredPlots=plots.slice();addPlotMarkers();if(currentView==='table')populateTable();}
+function clearFilters(){
+  ['filterStatus','filterType','filterMinPrice','filterMaxPrice','filterMinSize','filterMaxSize','filterMinGfa','filterMaxGfa','searchInput'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  filteredPlots=plots.slice();addPlotMarkers();if(currentView==='table')populateTable();
+}
 function filterByStatus(s){document.getElementById('filterStatus').value=s;applyFilters();}
 function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(applyFilters,280);}
 
@@ -479,34 +671,116 @@ function bulkExport(){downloadCSV(plots.filter(function(p){return selectedIds.ha
 
 function selectPlot(id){
   var p=plots.find(function(x){return x.id===id;});if(!p)return;
-  var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
-  var ppm=(size&&price)?'AED '+Math.round(price/size).toLocaleString()+'/sqm':'-';
-  var totalM=price?(price/1000000).toFixed(2)+'M':'-';
-  var photoHtml=p.image&&p.image.length>10?'<img src="'+p.image+'" style="width:100%;height:136px;object-fit:cover;border-radius:10px;margin-bottom:10px;" alt="photo">':'';
-  var areaHtml='';
-  if(p.gfa||p.nfa||p.far||p.bua){areaHtml='<div style="background:#0f172a;border-radius:9px;padding:9px;margin-bottom:9px;"><div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:5px;">Area Metrics</div><table class="atable">';if(p.gfa)areaHtml+='<tr><td>GFA</td><td>'+esc(p.gfa)+' sqm</td></tr>';if(p.nfa)areaHtml+='<tr><td>NFA</td><td>'+esc(p.nfa)+' sqm</td></tr>';if(p.far)areaHtml+='<tr><td>FAR</td><td>'+esc(p.far)+'</td></tr>';if(p.bua)areaHtml+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqm</td></tr>';areaHtml+='</table></div>';}
-  var notesHtml=p.notes?'<div style="background:#0f172a;border-radius:9px;padding:9px;margin-bottom:9px;font-size:11px;color:#94a3b8;">'+esc(p.notes)+'</div>':'';
-  var videoHtml=p.videoUrl?'<a href="'+esc(p.videoUrl)+'" target="_blank" style="display:block;color:#6366f1;font-size:11px;margin-bottom:9px;"><i class="fas fa-video"></i> Watch Video Tour</a>':'';
+  var price=parseNum(p.price),size=parseNum(p.size),gfaN=parseNum(p.gfa);
+  var szOk=!isNaN(size)&&size>0,prOk=!isNaN(price)&&price>0,gfaOk=!isNaN(gfaN)&&gfaN>0;
+  var ppsf=(szOk&&prOk)?pricePerSqft(price,size):'—';
+  var ppsm=(szOk&&prOk)?'AED '+Math.round(price/size).toLocaleString()+'/sqm':'—';
+  var totalM=prOk?(price/1000000).toFixed(3)+' M AED':'—';
+  var szSqft=szOk?fmtN(size*10.764)+' sqft':'—';
+  var hasGps=p.lat&&p.lng&&!isNaN(parseNum(p.lat));
   var pid=p.id;
+
+  var photoHtml=p.image&&p.image.length>10?'<img src="'+p.image+'" style="width:100%;height:120px;object-fit:cover;border-radius:9px;margin-bottom:10px;">':'';
+
+  /* ── Breadcrumb ── */
+  var breadcrumb=[p.country,p.city,p.dev].filter(Boolean).map(esc).join(' › ');
+
+  /* ── Area metrics table ── */
+  var areaRows='';
+  if(p.gfa)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">GFA</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.gfa)+' sqm</td></tr>';
+  if(p.nfa)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">NFA</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.nfa)+' sqm</td></tr>';
+  if(p.bua)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">BUA</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.bua)+' sqm</td></tr>';
+  if(p.far)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">FAR</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.far)+'</td></tr>';
+  if(p.pricePerGfa)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">AED/GFA</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.pricePerGfa)+'</td></tr>';
+  if(p.height)areaRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">Height</td><td style="font-weight:600;color:#e2e8f0;">'+esc(p.height)+'</td></tr>';
+
+  /* ── Extra info rows ── */
+  var extraRows='';
+  if(p.saleType)extraRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">For</td><td style="color:#e2e8f0;">'+esc(p.saleType)+'</td></tr>';
+  if(p.propUse)extraRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">Use</td><td style="color:#e2e8f0;">'+esc(p.propUse)+'</td></tr>';
+  if(p.source)extraRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">Source</td><td style="color:#e2e8f0;">'+esc(p.source)+'</td></tr>';
+  if(p.attachedDocs)extraRows+='<tr><td style="color:#64748b;padding:3px 6px 3px 0;">Docs</td><td style="color:#e2e8f0;">'+esc(p.attachedDocs)+'</td></tr>';
+
+  /* ── Location URL ── */
+  var locHtml='';
+  if(p.locationUrl){
+    locHtml='<a href="'+esc(p.locationUrl)+'" target="_blank" style="display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:7px 10px;margin-bottom:9px;color:#38bdf8;font-size:11px;text-decoration:none;"><i class="fas fa-map-marked-alt" style="font-size:13px;"></i><span>Open in Google Maps</span><i class="fas fa-external-link-alt" style="margin-left:auto;font-size:10px;"></i></a>';
+  }
+
+  /* ── Notes/comments ── */
+  var notesHtml='';
+  if(p.notes)notesHtml='<div style="background:#0f172a;border-radius:9px;padding:9px 11px;margin-bottom:9px;font-size:11px;color:#94a3b8;line-height:1.6;border-left:3px solid '+getStatusColor(p.status)+';">'+esc(p.notes)+'</div>';
+  if(p.videoUrl)notesHtml+='<a href="'+esc(p.videoUrl)+'" target="_blank" style="display:block;color:#6366f1;font-size:11px;margin-bottom:9px;"><i class="fas fa-video"></i> Watch Video Tour</a>';
+
+  /* ── Private owner section ── */
+  var hasPrivate=(p.ownerName||p.ownerContact||p.ownerNation||p.ownerRef||p.ownerDocs);
+  var ownerHtml='';
+  if(hasPrivate){
+    if(_ownerUnlocked||!_ownerCode){
+      ownerHtml='<div style="background:linear-gradient(135deg,#1e1035,#2e1065);border:1px solid #6d28d9;border-radius:10px;padding:11px 13px;margin-bottom:9px;">';
+      ownerHtml+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+      ownerHtml+='<div style="font-size:10px;font-weight:800;color:#c4b5fd;text-transform:uppercase;letter-spacing:1px;"><i class="fas fa-unlock" style="margin-right:4px;"></i>Owner Information</div>';
+      ownerHtml+='<button onclick="lockOwner();selectPlot('+pid+')" style="background:#4c1d95;color:#c4b5fd;border:none;border-radius:5px;padding:2px 8px;font-size:9px;font-weight:700;cursor:pointer;">🔒 Lock</button>';
+      ownerHtml+='</div>';
+      ownerHtml+='<table style="width:100%;border-collapse:collapse;font-size:11px;">';
+      if(p.ownerName)ownerHtml+='<tr><td style="color:#7c3aed;padding:3px 8px 3px 0;font-weight:700;white-space:nowrap;">Owner</td><td style="color:#e9d5ff;font-weight:700;">'+esc(p.ownerName)+'</td></tr>';
+      if(p.ownerContact)ownerHtml+='<tr><td style="color:#7c3aed;padding:3px 8px 3px 0;font-weight:700;">Contact</td><td><a href="tel:'+esc(p.ownerContact)+'" style="color:#a78bfa;text-decoration:none;"><i class="fas fa-phone" style="margin-right:4px;font-size:10px;"></i>'+esc(p.ownerContact)+'</a> <a href="https://wa.me/'+p.ownerContact.replace(/\D/g,'')+'" target="_blank" style="color:#34d399;font-size:10px;margin-left:6px;"><i class="fab fa-whatsapp"></i> WA</a></td></tr>';
+      if(p.ownerNation)ownerHtml+='<tr><td style="color:#7c3aed;padding:3px 8px 3px 0;font-weight:700;">Nationality</td><td style="color:#e9d5ff;">'+esc(p.ownerNation)+'</td></tr>';
+      if(p.ownerRef)ownerHtml+='<tr><td style="color:#7c3aed;padding:3px 8px 3px 0;font-weight:700;">Ref</td><td style="color:#e9d5ff;">'+esc(p.ownerRef)+'</td></tr>';
+      if(p.ownerDocs)ownerHtml+='<tr><td style="color:#7c3aed;padding:3px 8px 3px 0;font-weight:700;">Docs</td><td style="color:#e9d5ff;">'+esc(p.ownerDocs)+'</td></tr>';
+      ownerHtml+='</table></div>';
+    }else{
+      ownerHtml='<div style="background:#0f172a;border:1px solid #4c1d95;border-radius:10px;padding:14px;margin-bottom:9px;text-align:center;">';
+      ownerHtml+='<div style="font-size:22px;margin-bottom:6px;">🔒</div>';
+      ownerHtml+='<div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:4px;">Owner Info Protected</div>';
+      ownerHtml+='<div style="font-size:10px;color:#64748b;margin-bottom:10px;">Enter access code to view owner name, contact &amp; details</div>';
+      ownerHtml+='<button onclick="unlockOwner('+pid+')" style="background:linear-gradient(135deg,#6d28d9,#7c3aed);color:white;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;width:100%;">🔑 Enter Code to View</button>';
+      ownerHtml+='</div>';
+    }
+  }
+
+  /* ── No GPS warning ── */
+  var noGpsHtml=!hasGps?'<div style="background:#1e1b4b;border:1px solid #3730a3;border-radius:8px;padding:8px 11px;margin-bottom:9px;font-size:11px;color:#a5b4fc;"><i class="fas fa-map-marker-alt" style="margin-right:5px;"></i><b>No GPS</b> — won\'t show on map. <button onclick="startSetOnMapModeForPlot('+pid+')" style="background:#6366f1;color:white;border:none;border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px;">📍 Place on Map</button></div>':'';
+
   var html='<div style="padding:14px;">'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'+
-      '<div><div style="font-size:17px;font-weight:800;color:#f1f5f9;">'+esc(p.no)+'</div>'+
-      '<div style="font-size:12px;color:#64748b;">'+esc(p.dev||'')+'</div>'+
-      (p.type?'<div style="font-size:10px;color:#94a3b8;margin-top:1px;">'+esc(p.type)+'</div>':'')+'</div>'+
-      '<span class="sbadge sb-'+(p.status||'Available')+'">'+esc(p.status||'Available')+'</span></div>'+
+    /* Header */
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'+
+      '<div>'+
+        '<div style="font-size:18px;font-weight:900;color:#f1f5f9;letter-spacing:-0.5px;">'+esc(p.no)+'</div>'+
+        (breadcrumb?'<div style="font-size:10px;color:#64748b;margin-top:2px;">'+breadcrumb+'</div>':'')+
+        (p.type?'<div style="font-size:10px;color:#94a3b8;margin-top:2px;font-style:italic;">'+esc(p.type)+(p.saleType?' &bull; '+esc(p.saleType):'')+'</div>':'')+
+      '</div>'+
+      '<span class="sbadge sb-'+(p.status||'Available')+'">'+esc(p.status||'Available')+'</span>'+
+    '</div>'+
     photoHtml+
+    /* Financial cards */
     '<div class="mgrid" style="margin-bottom:10px;">'+
-      '<div class="mcard"><div class="mlabel">Size</div><div class="mval">'+(size?size.toLocaleString()+' sqm':'-')+'</div></div>'+
-      '<div class="mcard"><div class="mlabel">Price</div><div class="mval grn">'+(price?'AED '+price.toLocaleString():'-')+'</div></div>'+
-      '<div class="mcard"><div class="mlabel">Price/sqm</div><div class="mval">'+ppm+'</div></div>'+
-      '<div class="mcard"><div class="mlabel">Total (M)</div><div class="mval">'+totalM+'</div></div>'+
-    '</div>'+areaHtml+notesHtml+videoHtml+
+      '<div class="mcard"><div class="mlabel">Land Size</div><div class="mval">'+(szOk?fmtN(size)+' sqm':'—')+'</div><div style="font-size:9px;color:#475569;">'+szSqft+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Land Cost</div><div class="mval grn">'+(prOk?'AED '+fmtN(price):'—')+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Price/sqft</div><div class="mval">'+ppsf+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Price/sqm</div><div class="mval">'+ppsm+'</div></div>'+
+      '<div class="mcard" style="grid-column:span 2;"><div class="mlabel">Total Value</div><div class="mval">'+totalM+'</div></div>'+
+    '</div>'+
+    /* Area metrics */
+    (areaRows?'<div style="background:#0f172a;border-radius:9px;padding:9px 11px;margin-bottom:9px;"><div style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Floor Area Metrics</div><table style="width:100%;border-collapse:collapse;font-size:11px;">'+areaRows+'</table></div>':'')+
+    /* Extra info */
+    (extraRows?'<div style="background:#0f172a;border-radius:9px;padding:9px 11px;margin-bottom:9px;"><table style="width:100%;border-collapse:collapse;font-size:11px;">'+extraRows+'</table></div>':'')+
+    /* Location URL */
+    locHtml+
+    /* Notes */
+    notesHtml+
+    /* Owner / Private */
+    ownerHtml+
+    /* No GPS */
+    noGpsHtml+
+    /* Status change */
     '<div style="margin-bottom:9px;"><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Change Status</div>'+
       '<select style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:7px;padding:5px 8px;color:#e2e8f0;font-size:12px;outline:none;" onchange="changePlotStatusFromCard('+pid+',this.value)">'+
         '<option value="Available"'+(p.status==='Available'?' selected':'')+'>Available</option>'+
         '<option value="Reserved"'+(p.status==='Reserved'?' selected':'')+'>Reserved</option>'+
         '<option value="Sold"'+(p.status==='Sold'?' selected':'')+'>Sold</option>'+
       '</select></div>'+
+    /* Actions */
     '<div class="mgrid" style="margin-bottom:7px;">'+
       '<button class="btn" style="background:#4f46e5;color:white;justify-content:center;font-size:11px;padding:7px 4px;" onclick="openPlotModal('+pid+')"><i class="fas fa-edit"></i> Edit</button>'+
       '<button class="btn" style="background:#334155;color:#94a3b8;justify-content:center;font-size:11px;padding:7px 4px;" onclick="printPlot('+pid+')"><i class="fas fa-print"></i> Print</button>'+
@@ -517,7 +791,8 @@ function selectPlot(id){
     '<button class="fbtn" style="margin-top:7px;width:100%;text-align:center;" onclick="closeCard()"><i class="fas fa-times"></i> Close</button>'+
   '</div>';
   var card=document.getElementById('plotCard');card.innerHTML=html;card.classList.add('show');
-  if(map&&!isNaN(parseFloat(p.lat))&&!isNaN(parseFloat(p.lng)))map.flyTo([parseFloat(p.lat),parseFloat(p.lng)],15,{duration:1});
+  var la=parseNum(p.lat),ln=parseNum(p.lng);
+  if(map&&!isNaN(la)&&!isNaN(ln)&&la!==0)map.flyTo([la,ln],15,{duration:1});
 }
 function closeCard(){var c=document.getElementById('plotCard');if(c){c.classList.remove('show');c.innerHTML='';}}
 function changePlotStatusFromCard(id,status){var p=plots.find(function(x){return x.id===id;});if(!p)return;p.status=status;saveToLocalStorage();addPlotMarkers();updateLegendCounts();if(currentView==='table')populateTable();showToastNotification('Status updated to '+status,'success');selectPlot(id);}
@@ -568,46 +843,188 @@ function importPlots(){document.getElementById('importModal').classList.remove('
 function closeImportModal(){document.getElementById('importModal').classList.add('hidden');document.getElementById('importPreview').innerHTML='';document.getElementById('confirmImportBtn').style.display='none';_importData=[];var fi=document.getElementById('importFileInput');if(fi)fi.value='';}
 
 function parseCSV(text){
+  /* auto-detect delimiter: comma, semicolon, or tab */
+  var firstLine=text.split(/\r?\n/)[0]||'';
+  var delim=',';
+  var tabs=(firstLine.match(/\t/g)||[]).length;
+  var semis=(firstLine.match(/;/g)||[]).length;
+  var commas=(firstLine.match(/,/g)||[]).length;
+  if(tabs>commas&&tabs>semis)delim='\t';
+  else if(semis>commas)delim=';';
   var lines=text.split(/\r?\n/);if(!lines.length)return[];
-  function pline(line){var res=[],cur='',inQ=false;for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
+  function pline(line){var res=[],cur='',inQ=false;for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(c===delim&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
   var hdrs=pline(lines[0]),rows=[];
   for(var i=1;i<lines.length;i++){if(!lines[i].trim())continue;var vals=pline(lines[i]);var obj={};hdrs.forEach(function(h,idx){obj[h.trim()]=(vals[idx]||'').trim();});rows.push(obj);}
   return rows;
 }
 
-function mapRow(row){
-  function get(keys){
-    for(var k in row){
-      var kl=k.toLowerCase().trim();
-      for(var i=0;i<keys.length;i++){
-        if(kl===keys[i]||kl.indexOf(keys[i])===0||kl.indexOf(' '+keys[i])!==-1||kl.replace(/[^a-z0-9]/g,'')===(keys[i].replace(/[^a-z0-9]/g,'')))return row[k]||'';
-      }
-    }
-    return'';
-  }
-  return{id:Date.now()+Math.random(),no:get(['plot no','plotno','no','plot_no','plot number','plotnumber']),dev:get(['development','dev','project','project name']),size:get(['size','sqm','area','plot size']),price:get(['price','aed','value','amount']),status:get(['status'])||'Available',lat:get(['lat','latitude']),lng:get(['lng','lon','longitude']),type:get(['type','plot type']),gfa:get(['gfa']),nfa:get(['nfa']),far:get(['far']),bua:get(['bua']),notes:get(['notes','note','comments','comment']),videoUrl:get(['video','videourl','video url','video url','tour']),image:''};
+/* private:true fields are hidden behind owner access code */
+var _importFields=[
+  /* ── PROPERTY ── */
+  {key:'no',          label:'Plot/Ref No ★',     group:'prop'},
+  {key:'country',     label:'Country',            group:'prop'},
+  {key:'city',        label:'City',               group:'prop'},
+  {key:'dev',         label:'Area / Development', group:'prop'},
+  {key:'status',      label:'Status',             group:'prop'},
+  {key:'type',        label:'Property Type',      group:'prop'},
+  {key:'saleType',    label:'For / Sale Type',    group:'prop'},
+  {key:'propUse',     label:'Property Use',       group:'prop'},
+  /* ── FINANCIALS ── */
+  {key:'size',        label:'Land Size (sqm)',    group:'fin'},
+  {key:'price',       label:'Land Cost (AED)',    group:'fin'},
+  {key:'gfa',         label:'GFA (sqm)',          group:'fin'},
+  {key:'nfa',         label:'NFA (sqm)',          group:'fin'},
+  {key:'far',         label:'FAR',                group:'fin'},
+  {key:'pricePerGfa', label:'Price per GFA',      group:'fin'},
+  {key:'bua',         label:'BUA (sqm)',          group:'fin'},
+  {key:'height',      label:'Height / Floors',    group:'fin'},
+  /* ── LOCATION ── */
+  {key:'lat',         label:'Latitude',           group:'loc'},
+  {key:'lng',         label:'Longitude',          group:'loc'},
+  {key:'locationUrl', label:'Location URL/Link',  group:'loc'},
+  /* ── NOTES ── */
+  {key:'notes',       label:'Comment / Notes',    group:'note'},
+  {key:'source',      label:'Source / Lead',      group:'note'},
+  {key:'attachedDocs',label:'Attached Documents', group:'note'},
+  /* ── PRIVATE (owner code required) ── */
+  {key:'ownerName',   label:'🔒 Owner Name',      group:'priv', private:true},
+  {key:'ownerContact',label:'🔒 Owner Contact',   group:'priv', private:true},
+  {key:'ownerNation', label:'🔒 Nationality',     group:'priv', private:true},
+  {key:'ownerRef',    label:'🔒 Plot Ref / ID',   group:'priv', private:true},
+  {key:'ownerDocs',   label:'🔒 Owner Docs',      group:'priv', private:true},
+];
+
+function _autoMatchCols(headers){
+  var patterns={
+    no:         ['property ref','prop ref','plot no','plot number','plot id','unit no','lot no','ref no','ref','serial no','no','id','number','plot','unit','lot'],
+    country:    ['country','nation','country name'],
+    city:       ['city','emirate','town','municipality'],
+    dev:        ['area','development','dev','community','project','zone','district','location area','neighbourhood','neighborhood','compound','block','sector','phase'],
+    status:     ['status','availability'],
+    type:       ['property type','prop type','type','land type','land use','category','class','usage','zoning'],
+    saleType:   ['for','sale type','sale mode','listing type','offer type'],
+    propUse:    ['property use','prop use','intended use','use'],
+    size:       ['land size sq','land size','plot size sq','plot size','area sq','area sqm','sqm','land area','gross area','plot area','size sq','size'],
+    price:      ['land cost aed','land cost','total cost','asking price','sale price','price aed','price','cost','amount','value'],
+    gfa:        ['gfa sq','gfa sqm','gfa','gross floor area','gross floor'],
+    nfa:        ['nfa sqm','nfa','net floor area','net floor'],
+    far:        ['far','floor area ratio','plot ratio'],
+    pricePerGfa:['land cost price per gfa','price per gfa','cost per gfa','land cost per gfa'],
+    bua:        ['bua','built up area','built-up','builtup'],
+    height:     ['height','floors','floor height','no of floors','number of floors','storeys','stories'],
+    lat:        ['latitude','lat','y coordinate','northing','gps lat'],
+    lng:        ['longitude','lng','lon','long','x coordinate','easting','gps lng','gps lon'],
+    locationUrl:['location','location url','map url','google maps','maps link','map link','maps url','gps link'],
+    notes:      ['comment','comments','notes','note','remarks','remark','description','details','additional info'],
+    source:     ['source','lead source','source type','enquiry source'],
+    attachedDocs:['attached','attached docs','documents','docs','files','attachments','file'],
+    ownerName:  ['name','owner name','owner','client name','client','seller name','seller'],
+    ownerContact:['contact','phone','mobile','tel','contact no','telephone','whatsapp'],
+    ownerNation:['nationality','national','passport','citizenship'],
+    ownerRef:   ['plot','plot ref','owner ref','owner id','client id'],
+    ownerDocs:  ['attached','title deed','documents','spa','affection plan']
+  };
+  /* normalise header for matching */
+  function norm(h){return h.toLowerCase().trim().replace(/[()\/\\_\-\.]/g,' ').replace(/\s+/g,' ').trim();}
+  var result={};
+  var usedHeaders={};/* prevent same header mapping to two fields */
+  Object.keys(patterns).forEach(function(field){
+    if(result[field])return;
+    var pats=patterns[field];
+    var found=null;
+    /* Pass 1: exact */
+    found=headers.find(function(h){return!usedHeaders[h]&&pats.indexOf(norm(h))!==-1;});
+    if(!found)
+    /* Pass 2: header contains pattern as prefix or word */
+    found=headers.find(function(h){if(usedHeaders[h])return false;var hl=norm(h);return pats.some(function(p){return hl===p||hl.indexOf(p)===0||hl.indexOf(' '+p)!==-1||(' '+hl).indexOf(' '+p)!==-1;});});
+    if(!found)
+    /* Pass 3: pattern starts with header (short header like 'lat') */
+    found=headers.find(function(h){if(usedHeaders[h])return false;var hl=norm(h);return pats.some(function(p){return p.indexOf(hl)===0&&hl.length>=3;});});
+    if(found){result[field]=found;usedHeaders[found]=true;}
+  });
+  return result;
 }
 
-function _showImportPreview(){
-  var prev=document.getElementById('importPreview');
-  if(!_importData.length){prev.innerHTML='<span style="color:#ef4444;">No valid rows found in file.</span>';return;}
-  var noNo=_importData.filter(function(p){return!p.no;}).length;
-  var html='<div style="margin-top:4px;">';
-  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
-  html+='<span style="color:#34d399;font-weight:600;"><i class="fas fa-check-circle"></i> '+_importData.length+' records detected</span>';
-  html+='<label style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="replaceChk" style="cursor:pointer;"> Replace duplicates</label>';
+function _buildMappingUI(prev){
+  if(!_rawRows.length){prev.innerHTML='<div style="text-align:center;padding:20px;color:#ef4444;"><i class="fas fa-exclamation-circle" style="font-size:24px;margin-bottom:8px;"></i><br>No data rows found in file.<br><small style="color:#64748b;">Make sure Row 1 contains column headers and there is data below.</small></div>';return;}
+  var headers=Object.keys(_rawRows[0]||{}).filter(function(h){return h.trim();});
+  if(!headers.length){prev.innerHTML='<div style="color:#ef4444;padding:12px;">Could not detect column headers. Ensure Row 1 has headers.</div>';return;}
+  var auto=_autoMatchCols(headers);
+  var matchCount=Object.keys(auto).length;
+  var hasGps=auto.lat&&auto.lng;
+
+  var html='<div>';
+
+  /* ── STATUS BAR ── */
+  html+='<div style="background:linear-gradient(135deg,#0f4c2a,#064e3b);border:1px solid #065f46;border-radius:9px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;">';
+  html+='<div><div style="color:#34d399;font-weight:700;font-size:13px;"><i class="fas fa-check-circle"></i> '+_rawRows.length+' rows detected &bull; '+headers.length+' columns</div>';
+  html+='<div style="color:#6ee7b7;font-size:11px;margin-top:2px;">'+matchCount+' of '+_importFields.length+' fields auto-matched</div></div>';
+  html+='<label style="font-size:11px;color:#a7f3d0;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;"><input type="checkbox" id="replaceChk" style="width:14px;height:14px;"> Replace existing plots</label>';
   html+='</div>';
-  if(noNo>0)html+='<div style="color:#fbbf24;font-size:11px;margin-bottom:7px;"><i class="fas fa-exclamation-triangle"></i> '+noNo+' row(s) missing plot number — will be auto-numbered</div>';
-  // Preview table - first 3 rows
-  var cols=['no','dev','status','type','size','price'];
-  var labels=['Plot No','Development','Status','Type','Size','Price'];
-  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;">';
-  html+='<thead><tr>'+labels.map(function(l){return'<th style="padding:4px 6px;background:#0f172a;color:#64748b;font-weight:700;text-align:left;border:1px solid #334155;">'+l+'</th>';}).join('')+'</tr></thead><tbody>';
-  _importData.slice(0,3).forEach(function(p){
-    html+='<tr>'+cols.map(function(c){return'<td style="padding:4px 6px;border:1px solid #334155;color:'+(p[c]?'#e2e8f0':'#475569')+'">'+(p[c]||'—')+'</td>';}).join('')+'</tr>';
+
+  /* ── GPS WARNING ── */
+  if(!hasGps)html+='<div style="background:#422006;border:1px solid #92400e;border-radius:8px;padding:9px 12px;font-size:11px;color:#fbbf24;margin-bottom:12px;"><i class="fas fa-exclamation-triangle"></i> <b>No GPS columns auto-detected</b> — plots will be imported to table only (no map pins). Map "Latitude" and "Longitude" below if your file has coordinates.</div>';
+
+  /* ── DATA PREVIEW TABLE ── */
+  html+='<div style="margin-bottom:14px;">';
+  html+='<div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;"><i class="fas fa-eye" style="margin-right:4px;"></i>Data Preview (first 3 rows as read)</div>';
+  html+='<div style="overflow-x:auto;border-radius:8px;border:1px solid #334155;">';
+  html+='<table style="width:100%;border-collapse:collapse;font-size:10px;">';
+  html+='<thead><tr style="background:#0f172a;">';
+  headers.forEach(function(h){html+='<th style="padding:6px 8px;color:#64748b;font-weight:700;text-align:left;white-space:nowrap;border-right:1px solid #1e293b;">'+esc(h)+'</th>';});
+  html+='</tr></thead><tbody>';
+  _rawRows.slice(0,3).forEach(function(row,ri){
+    html+='<tr style="border-top:1px solid #1e293b;background:'+(ri%2?'#0f172a':'transparent')+'">';
+    headers.forEach(function(h){
+      var v=row[h]||'';
+      html+='<td style="padding:5px 8px;color:'+(v?'#e2e8f0':'#475569')+';max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-right:1px solid #1e293b;" title="'+esc(v)+'">'+(v?esc(v.length>20?v.substring(0,20)+'…':v):'<i style="color:#334155;">empty</i>')+'</td>';
+    });
+    html+='</tr>';
   });
-  if(_importData.length>3)html+='<tr><td colspan="6" style="padding:4px 6px;color:#475569;font-style:italic;border:1px solid #334155;">…and '+(_importData.length-3)+' more rows</td></tr>';
   html+='</tbody></table></div></div>';
+
+  /* ── COLUMN MAPPING (grouped) ── */
+  html+='<div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;"><i class="fas fa-sliders-h"></i> Map Your Columns to Fields</div>';
+  var groups=[
+    {id:'prop', label:'Property Details', color:'#6366f1'},
+    {id:'fin',  label:'Financials & Size', color:'#10b981'},
+    {id:'loc',  label:'Location / GPS',   color:'#0ea5e9'},
+    {id:'note', label:'Notes & Docs',     color:'#f59e0b'},
+    {id:'priv', label:'🔒 Owner / Private (hidden behind access code)', color:'#8b5cf6'}
+  ];
+  groups.forEach(function(g){
+    var gFields=_importFields.filter(function(f){return f.group===g.id;});
+    html+='<div style="margin-bottom:10px;">';
+    html+='<div style="font-size:9px;font-weight:800;color:'+g.color+';text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;padding:3px 0;border-bottom:1px solid #1e293b;">'+g.label+'</div>';
+    html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;">';
+    gFields.forEach(function(f){
+      var matched=auto[f.key]||'';
+      var isRequired=f.key==='no';
+      var bc=matched?'#334155':(isRequired?'#7f1d1d':(f.private?'#2e1065':'#1e293b'));
+      var lc=matched?'#34d399':(isRequired?'#fca5a5':(f.private?'#c4b5fd':'#64748b'));
+      html+='<div style="background:#0f172a;border-radius:6px;padding:6px 8px;border:1px solid '+bc+';">';
+      html+='<div style="font-size:9px;font-weight:700;color:'+lc+';margin-bottom:3px;">'+
+        (matched?'<i class="fas fa-link" style="color:#34d399;font-size:8px;"></i> ':'<i class="fas fa-unlink" style="color:#475569;font-size:8px;"></i> ')+esc(f.label)+
+        (isRequired?' <span style="color:#ef4444;">★</span>':'')+
+      '</div>';
+      html+='<select id="icol_'+f.key+'" style="width:100%;background:#1e293b;border:1px solid '+(matched?'#334155':'#1e293b')+';border-radius:5px;color:#e2e8f0;padding:3px 5px;font-size:10px;outline:none;">';
+      html+='<option value="">— Skip —</option>';
+      headers.forEach(function(h){html+='<option value="'+esc(h)+'"'+(matched===h?' selected':'')+'>'+esc(h.length>28?h.substring(0,28)+'…':h)+'</option>';});
+      html+='</select></div>';
+    });
+    html+='</div></div>';
+  });
+
+  /* ── MATCHED SUMMARY ── */
+  var matchedKeys=Object.keys(auto);
+  if(matchedKeys.length){
+    html+='<div style="margin-top:10px;background:#0f172a;border-radius:7px;padding:8px 10px;font-size:10px;color:#64748b;">';
+    html+='<span style="color:#475569;font-weight:700;">Auto-matched: </span>';
+    html+=matchedKeys.map(function(k){var f=_importFields.find(function(x){return x.key===k;});return'<span style="background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px;margin:2px;display:inline-block;color:#94a3b8;"><span style="color:#34d399;">'+esc(f?f.label:k)+'</span> ← '+esc(auto[k])+'</span>';}).join('');
+    html+='</div>';
+  }
+
+  html+='</div>';
   prev.innerHTML=html;
   document.getElementById('confirmImportBtn').style.display='';
 }
@@ -615,59 +1032,116 @@ function _showImportPreview(){
 function handleFileSelect(inp){
   var files=(inp.target||inp).files;if(!files||!files.length)return;
   var file=files[0],ext=file.name.toLowerCase(),prev=document.getElementById('importPreview');
-  prev.innerHTML='<span style="color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Reading '+esc(file.name)+'…</span>';
+  prev.innerHTML='<div style="text-align:center;padding:20px;color:#64748b;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;"></i><br>Reading <b style="color:#94a3b8;">'+esc(file.name)+'</b>…</div>';
   document.getElementById('confirmImportBtn').style.display='none';
+  _rawRows=[];_importData=[];
   function onRows(rows){
-    _importData=rows.map(function(r,i){var m=mapRow(r);if(!m.no)m.no='IMP-'+(i+1);return m;});
-    _showImportPreview();
+    /* Strip completely empty rows */
+    rows=rows.filter(function(r){var keys=Object.keys(r);return keys.some(function(k){var v=r[k];return v&&String(v).trim();});});
+    _rawRows=rows;
+    _buildMappingUI(prev);
   }
   if(ext.endsWith('.json')){
     var fr=new FileReader();
-    fr.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
-    fr.onload=function(e){try{var d=JSON.parse(e.target.result);var arr=Array.isArray(d)?d:(d&&d.plots?d.plots:[d]);onRows(arr);}catch(ex){prev.innerHTML='<span style="color:#ef4444;">JSON parse error: '+esc(ex.message)+'</span>';}};
+    fr.onerror=function(){prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Could not read file.</div>';};
+    fr.onload=function(e){try{var d=JSON.parse(e.target.result);onRows(Array.isArray(d)?d:(d&&d.plots?d.plots:[d]));}catch(ex){prev.innerHTML='<div style="color:#ef4444;padding:12px;">JSON error: '+esc(ex.message)+'</div>';}};
     fr.readAsText(file);
-  } else if(ext.endsWith('.xlsx')||ext.endsWith('.xls')){
+  }else if(ext.endsWith('.xlsx')||ext.endsWith('.xls')){
     var fr2=new FileReader();
-    fr2.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
-    fr2.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'binary'}),ws=wb.Sheets[wb.SheetNames[0]];var json=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});onRows(json);}catch(ex){prev.innerHTML='<span style="color:#ef4444;">Excel error: '+esc(ex.message)+'</span>';}};
+    fr2.onerror=function(){prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Could not read Excel file.</div>';};
+    fr2.onload=function(e){
+      try{
+        var wb=XLSX.read(e.target.result,{type:'binary'});
+        var ws=wb.Sheets[wb.SheetNames[0]];
+        /* Try header row detection - if row 1 looks empty try row 2 */
+        var rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
+        if(rows.length&&Object.keys(rows[0]).some(function(k){return k.startsWith('__EMPTY');})){
+          /* Re-parse with header on row 2 */
+          rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false,range:1});
+        }
+        onRows(rows);
+      }catch(ex){prev.innerHTML='<div style="color:#ef4444;padding:12px;">Excel error: '+esc(ex.message)+'</div>';}
+    };
     fr2.readAsBinaryString(file);
-  } else if(ext.endsWith('.csv')||ext.endsWith('.txt')){
+  }else if(ext.endsWith('.csv')||ext.endsWith('.txt')){
     var fr3=new FileReader();
-    fr3.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
-    fr3.onload=function(e){try{onRows(parseCSV(e.target.result));}catch(ex){prev.innerHTML='<span style="color:#ef4444;">CSV error: '+esc(ex.message)+'</span>';}};
-    fr3.readAsText(file);
-  } else {
-    prev.innerHTML='<span style="color:#ef4444;"><i class="fas fa-times-circle"></i> Unsupported file type. Use JSON, CSV, XLSX or TXT.</span>';
+    fr3.onerror=function(){prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Could not read file.</div>';};
+    fr3.onload=function(e){
+      try{
+        /* Strip BOM (UTF-8 and UTF-16) */
+        var text=e.target.result.replace(/^﻿/,'').replace(/^\xEF\xBB\xBF/,'');
+        onRows(parseCSV(text));
+      }catch(ex){prev.innerHTML='<div style="color:#ef4444;padding:12px;">CSV error: '+esc(ex.message)+'</div>';}
+    };
+    fr3.readAsText(file,'UTF-8');
+  }else{
+    prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Unsupported format. Use CSV, XLSX, JSON or TXT.</div>';
   }
 }
 
 function confirmImport(){
-  if(!_importData.length)return;
-  var replace=document.getElementById('replaceChk')&&document.getElementById('replaceChk').checked;
-  var existing=new Set(plots.map(function(p){return(p.no||'').toLowerCase();}));
-  var added=0,replaced=0;
+  if(!_rawRows.length){showToastNotification('No data to import.','error');return;}
+  /* Check Plot No is mapped */
+  var noSel=document.getElementById('icol_no');
+  if(!noSel||!noSel.value){
+    /* Auto-assign seq numbers if user didn't map Plot No */
+    /* Show confirm */
+    if(!confirm('Plot No (★) is not mapped — plots will get auto-numbered (P-1, P-2…). Continue?'))return;
+  }
+  _importData=_rawRows.map(function(row,i){
+    var p={id:Date.now()+Math.random(),image:'',status:'Available'};
+    _importFields.forEach(function(f){
+      var sel=document.getElementById('icol_'+f.key);
+      var col=sel?sel.value:'';
+      var val=col&&row[col]!==undefined?String(row[col]).trim():'';
+      p[f.key]=val;
+    });
+    /* Status normalisation */
+    if(p.status){
+      var sl=p.status.toLowerCase();
+      if(sl.indexOf('avail')!==-1)p.status='Available';
+      else if(sl.indexOf('reserv')!==-1||sl.indexOf('hold')!==-1||sl.indexOf('pend')!==-1)p.status='Reserved';
+      else if(sl.indexOf('sold')!==-1||sl.indexOf('taken')!==-1||sl.indexOf('complet')!==-1)p.status='Sold';
+      else p.status='Available';
+    }else{p.status='Available';}
+    /* Auto-extract GPS from locationUrl if lat/lng not mapped */
+    if((!p.lat||!p.lng)&&p.locationUrl){
+      var gps=extractLatLngFromUrl(p.locationUrl);
+      if(gps){p.lat=gps.lat;p.lng=gps.lng;}
+    }
+    /* Use property ref as plot no if no column mapped */
+    if(!p.no)p.no='P-'+(i+1);
+    return p;
+  });
+  if(!_importData.length){showToastNotification('Nothing to import.','error');return;}
+  var replace=!!(document.getElementById('replaceChk')&&document.getElementById('replaceChk').checked);
+  var existingMap={};plots.forEach(function(p,i){existingMap[(p.no||'').toLowerCase()]=i;});
+  var added=0,replaced=0,skipped=0;
   _importData.forEach(function(p){
     p.id=Date.now()+Math.random();
-    if(existing.has((p.no||'').toLowerCase())){
-      if(replace){var idx=plots.findIndex(function(x){return(x.no||'').toLowerCase()===(p.no||'').toLowerCase();});if(idx>-1){plots[idx]=p;replaced++;}}
-    } else {
-      plots.push(p);existing.add((p.no||'').toLowerCase());added++;
-    }
+    var key=(p.no||'').toLowerCase();
+    if(key in existingMap){
+      if(replace){plots[existingMap[key]]=p;replaced++;}
+      else skipped++;
+    }else{plots.push(p);existingMap[key]=plots.length-1;added++;}
   });
-  filteredPlots=plots.slice();saveToLocalStorage();populateTable();
-  var noGps=addPlotMarkers();
-  updateTotalPlotsBadge();closeImportModal();
-  var withGps=(added+replaced)-(noGps||0);
-  var msg=added+' imported'+(replaced?', '+replaced+' updated':'');
-  if(withGps>0&&map){
-    // Fly to first newly imported plot that has GPS
-    var first=_importData.find(function(p){return parseFloat(p.lat)&&parseFloat(p.lng);});
-    if(first)map.flyTo([parseFloat(first.lat),parseFloat(first.lng)],13,{duration:1.5});
-    msg+=' — '+withGps+' visible on map';
-  } else if(added>0&&withGps===0){
-    msg+=' — no GPS coordinates, add location via Edit';
+  filteredPlots=plots.slice();
+  saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();
+  closeImportModal();
+  var withGps=_importData.filter(function(p){return!isNaN(parseFloat(p.lat))&&!isNaN(parseFloat(p.lng));});
+  var total=added+replaced;
+  var parts=[];if(added)parts.push(added+' added');if(replaced)parts.push(replaced+' updated');if(skipped)parts.push(skipped+' skipped (duplicate)');
+  var msg=parts.join(', ')||'Nothing imported';
+  if(withGps.length>0&&map){
+    if(currentView!=='map')togglePlotView('map');
+    setTimeout(function(){map.flyTo([parseFloat(withGps[0].lat),parseFloat(withGps[0].lng)],13,{duration:1.5});},300);
+    showToastNotification('✓ '+msg+' — '+withGps.length+' on map','success');
+  }else{
+    togglePlotView('table');
+    if(total>0)showToastNotification('✓ '+msg+' (no GPS — table view)','info');
+    else showToastNotification(msg+(skipped?' — tick "Replace existing" to overwrite':''),'error');
   }
-  showToastNotification(msg,'success');
+  if(_syncActive)pushSync();
 }
 
 function exportCSV(){downloadCSV(plots,'plots_export.csv');}
@@ -993,8 +1467,16 @@ function toggleSidebar(){var sb=document.getElementById('sidebar');if(sb)sb.clas
 function showToastNotification(msg,type){var wrap=document.getElementById('toastWrap');if(!wrap)return;var t=document.createElement('div');t.className='toast '+(type||'info');var icon=type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle';t.innerHTML='<i class="fas fa-'+icon+'" style="margin-right:7px;"></i>'+esc(msg);wrap.appendChild(t);setTimeout(function(){t.style.animation='toastOut 0.3s ease forwards';setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},300);},3500);}
 
 function esc(str){if(str===null||str===undefined)return'';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+/* Robust number parser: strips commas, currency symbols, units, spaces */
+function parseNum(v){if(v===null||v===undefined||v==='')return NaN;var s=String(v).replace(/,/g,'').replace(/[^\d.\-]/g,'').trim();return s===''||s==='-'?NaN:parseFloat(s);}
+/* Format number with commas, or return dash */
+function fmtN(v,dec){var n=parseNum(v);if(isNaN(n))return'—';return dec?n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g,','):Math.round(n).toLocaleString();}
+/* Price per sqft: 1 sqm = 10.764 sqft */
+function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(isNaN(pr)||isNaN(sz)||sz===0)return'—';return'AED '+Math.round(pr/(sz*10.764)).toLocaleString()+'/sqft';}
 
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
+window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
+window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;
 window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showCRMModal=showCRMModal;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 window.onload=function(){
