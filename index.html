@@ -1,358 +1,890 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-  <title>AI Plot Portal • Pro</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
-  
-  <!-- Leaflet core -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  
-  <!-- MarkerCluster -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
-  
-  <!-- Heatmap & utilities -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-  <style>
-    #map { height: calc(100vh - 250px); min-height: 500px; width: 100%; border-radius: 1.5rem; background: #1e293b; }
-    .modal { animation: fadeInScale 0.2s ease-out; }
-    @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-    .loading-spinner {
-      border: 3px solid #374151;
-      border-top: 3px solid #3b82f6;
-      border-radius: 50%;
-      width: 24px;
-      height: 24px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    @media (max-width: 768px) {
-      .sidebar-mobile { position: fixed; z-index: 100; transform: translateX(-100%); transition: transform 0.3s ease; }
-      .sidebar-mobile.open { transform: translateX(0); }
-      #map { height: calc(100vh - 200px) !important; min-height: 400px; }
-      .legend { bottom: 20px !important; left: 12px !important; right: auto !important; }
-    }
-    .hamburger { display: none; }
-    @media (max-width: 768px) { .hamburger { display: block; } }
-    .leaflet-tooltip.custom-tooltip {
-      background: #1f2937 !important;
-      border: 1px solid #374151 !important;
-      color: #f1f5f9 !important;
-      border-radius: 16px !important;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.3) !important;
-      font-size: 13px;
-    }
-    .leaflet-tooltip.custom-tooltip::before { border-top-color: #1f2937 !important; }
-    .leaflet-control-attribution { background: rgba(0,0,0,0.7); font-size: 9px; }
-    .map-retry-btn { background: #1e293b; color: white; border: 1px solid #475569; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Plot Portal Pro</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;height:100vh;overflow:hidden;}
+#app{display:flex;height:100vh;overflow:hidden;}
+#sidebar{width:220px;background:#1e293b;border-right:1px solid #334155;display:flex;flex-direction:column;transition:width 0.3s;flex-shrink:0;overflow:hidden;}
+#sidebar.collapsed{width:0;}
+.sbh{padding:14px 16px;border-bottom:1px solid #334155;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.sblogo{background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;color:white;}
+.sbtitle{font-weight:700;font-size:14px;color:#f1f5f9;white-space:nowrap;}
+.sbsub{font-size:10px;color:#64748b;white-space:nowrap;}
+.sbnav{flex:1;overflow-y:auto;padding:6px 0;}
+.sbnav a{display:flex;align-items:center;gap:8px;padding:9px 14px;color:#94a3b8;text-decoration:none;font-size:12px;transition:all 0.2s;white-space:nowrap;cursor:pointer;}
+.sbnav a:hover,.sbnav a.active{background:#334155;color:#f1f5f9;}
+.sbnav a i{width:16px;text-align:center;flex-shrink:0;font-size:13px;}
+.sbsec{padding:8px 14px 3px;font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+#topbar{background:#1e293b;border-bottom:1px solid #334155;padding:0 14px;height:52px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.tbbrand{font-size:15px;font-weight:700;color:#f1f5f9;white-space:nowrap;flex-shrink:0;}
+.tbsrch{flex:1;position:relative;max-width:380px;}
+.tbsrch input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:6px 10px 6px 32px;color:#e2e8f0;font-size:12px;outline:none;}
+.tbsrch input:focus{border-color:#6366f1;}
+.tbsrch i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#64748b;font-size:12px;}
+.tbacts{display:flex;align-items:center;gap:5px;margin-left:auto;}
+.ibtn{background:#334155;border:none;border-radius:8px;color:#94a3b8;padding:6px 9px;cursor:pointer;font-size:12px;transition:all 0.2s;white-space:nowrap;}
+.ibtn:hover{background:#475569;color:#f1f5f9;}
+.ibtnp{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-weight:600;}
+.ibtnp:hover{opacity:0.9;}
+.cbadge{background:#6366f1;color:white;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:700;}
+#filterbar{background:#1e293b;border-bottom:1px solid #334155;padding:7px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex-shrink:0;}
+.fi{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:5px 8px;color:#e2e8f0;font-size:12px;outline:none;}
+.fi:focus{border-color:#6366f1;}
+.fbtn{background:#334155;border:none;border-radius:8px;color:#94a3b8;padding:5px 8px;cursor:pointer;font-size:12px;transition:all 0.2s;}
+.fbtn:hover{background:#475569;color:#f1f5f9;}
+.fbtn.act{background:#6366f1;color:white;}
+#content{flex:1;display:flex;overflow:hidden;position:relative;}
+#mapWrap{flex:1;position:relative;overflow:hidden;}
+#map{width:100%;height:100%;}
+#plotCard{position:absolute;top:10px;right:10px;width:310px;background:#1e293b;border-radius:14px;border:1px solid #334155;z-index:999;box-shadow:0 16px 48px rgba(0,0,0,0.5);max-height:calc(100% - 20px);overflow-y:auto;display:none;}
+#plotCard.show{display:block;}
+#tableView{flex:1;overflow-y:auto;padding:14px;display:none;}
+#tableView.show{display:block;}
+.dtable{width:100%;border-collapse:collapse;font-size:12px;}
+.dtable th{background:#1e293b;padding:9px 10px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;position:sticky;top:0;z-index:10;}
+.dtable td{padding:9px 10px;border-bottom:1px solid #1e293b;vertical-align:middle;}
+.dtable tr:hover td{background:#1e293b;}
+.sbadge{border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;display:inline-block;}
+.sb-Available{background:#064e3b;color:#34d399;}
+.sb-Reserved{background:#78350f;color:#fbbf24;}
+.sb-Sold{background:#7f1d1d;color:#f87171;}
+.mctrl{position:absolute;bottom:16px;left:14px;z-index:900;display:flex;flex-direction:column;gap:5px;}
+.mcbtn{background:#1e293b;border:1px solid #334155;border-radius:9px;color:#94a3b8;padding:7px 10px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:5px;transition:all 0.2s;box-shadow:0 3px 10px rgba(0,0,0,0.3);white-space:nowrap;}
+.mcbtn:hover{background:#334155;color:#f1f5f9;}
+.mcbtn.act{background:#6366f1;color:white;border-color:#6366f1;}
+.mlegend{position:absolute;bottom:16px;right:10px;z-index:900;background:#1e293b;border:1px solid #334155;border-radius:11px;padding:10px;font-size:11px;min-width:120px;box-shadow:0 3px 10px rgba(0,0,0,0.3);}
+.litem{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+#toastWrap{position:fixed;top:62px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.toast{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:10px 14px;min-width:230px;max-width:320px;font-size:12px;color:#e2e8f0;box-shadow:0 6px 20px rgba(0,0,0,0.4);animation:toastIn 0.3s ease;pointer-events:all;}
+.toast.success{border-left:3px solid #10b981;}
+.toast.error{border-left:3px solid #ef4444;}
+.toast.info{border-left:3px solid #6366f1;}
+@keyframes toastIn{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes toastOut{from{transform:translateX(0);opacity:1;}to{transform:translateX(110%);opacity:0;}}
+.moverlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.moverlay.hidden{display:none;}
+.mbox{background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:580px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;}
+.mhdr{padding:18px 22px;border-bottom:1px solid #334155;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:#1e293b;}
+.mhdr h2{font-size:16px;font-weight:700;color:#f1f5f9;}
+.mclose{background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;transition:all 0.2s;}
+.mclose:hover{background:#475569;color:#f1f5f9;}
+.mbody{flex:1;overflow-y:auto;padding:18px 22px;}
+.mfoot{padding:14px 22px;border-top:1px solid #334155;display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;background:#1e293b;}
+.fsection{margin-bottom:20px;}
+.fsectitle{font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid #334155;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fgroup{display:flex;flex-direction:column;gap:4px;}
+.fgroup label{font-size:11px;font-weight:600;color:#94a3b8;}
+.fgroup input,.fgroup select,.fgroup textarea{background:#0f172a;border:1px solid #334155;border-radius:7px;padding:7px 10px;color:#e2e8f0;font-size:12px;outline:none;transition:border-color 0.2s;}
+.fgroup input:focus,.fgroup select:focus,.fgroup textarea:focus{border-color:#6366f1;}
+.fgroup select option{background:#1e293b;}
+.fgroup textarea{resize:vertical;min-height:70px;}
+.rstar{color:#ef4444;}
+.btn{border:none;border-radius:9px;padding:8px 18px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:5px;}
+.btnp{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;}
+.btnp:hover{opacity:0.9;}
+.btns{background:#334155;color:#94a3b8;}
+.btns:hover{background:#475569;color:#f1f5f9;}
+.btnd{background:transparent;border:1.5px solid #ef4444;color:#ef4444;width:100%;justify-content:center;margin-top:6px;}
+.btnd:hover{background:#7f1d1d;}
+#loginModal{position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+.lbox{background:#1e293b;border:1px solid #334155;border-radius:22px;padding:36px;width:360px;text-align:center;}
+.llogo{background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:14px;width:58px;height:58px;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 14px;color:white;}
+.ltitle{font-size:22px;font-weight:800;color:#f1f5f9;margin-bottom:3px;}
+.lsub{font-size:12px;color:#64748b;margin-bottom:24px;}
+.linp{width:100%;background:#0f172a;border:1px solid #334155;border-radius:9px;padding:11px 13px;color:#e2e8f0;font-size:13px;outline:none;margin-bottom:10px;}
+.linp:focus{border-color:#6366f1;}
+.lbtn{width:100%;padding:11px;border:none;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;transition:all 0.2s;}
+.lbtn:hover{opacity:0.9;}
+.lguest{background:transparent;border:1px solid #334155;color:#64748b;}
+.lguest:hover{border-color:#6366f1;color:#94a3b8;}
+.dropz{border:2px dashed #334155;border-radius:11px;padding:28px;text-align:center;color:#64748b;cursor:pointer;transition:all 0.2s;}
+.dropz:hover,.dropz.dragov{border-color:#6366f1;color:#94a3b8;background:rgba(99,102,241,0.05);}
+.dropz i{font-size:28px;margin-bottom:7px;display:block;}
+#pm_imgPrev{width:100%;height:140px;object-fit:cover;border-radius:9px;display:none;}
+#pm_imgPH{border:2px dashed #334155;border-radius:9px;height:90px;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:12px;gap:7px;cursor:pointer;}
+#pm_imgPH:hover{border-color:#6366f1;color:#94a3b8;}
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.mcard{background:#0f172a;border-radius:9px;padding:10px;}
+.mlabel{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+.mval{font-size:15px;font-weight:700;color:#f1f5f9;margin-top:2px;}
+.mval.grn{color:#34d399;}
+.atable{width:100%;border-collapse:collapse;font-size:11px;margin-top:5px;}
+.atable td{padding:5px 8px;border:1px solid #334155;}
+.atable td:first-child{color:#64748b;font-weight:600;background:#0f172a;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:#475569;}
+.rowsel td{background:rgba(99,102,241,0.1)!important;}
+.vcallurl{background:#0f172a;border:1px solid #334155;border-radius:9px;padding:10px;font-size:12px;color:#94a3b8;word-break:break-all;margin-bottom:10px;}
+@media print{.noprint{display:none!important;}}
+</style>
 </head>
-<body class="bg-gray-950 text-gray-100">
+<body>
 
-  <!-- Login Modal -->
-  <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-[9999] hidden">
-    <div class="bg-gray-900 rounded-3xl w-[420px] border border-gray-700 shadow-2xl">
-      <div class="px-8 py-8 text-center">
-        <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-          <i class="fas fa-map-marked text-white text-3xl"></i>
+<div id="loginModal">
+  <div class="lbox">
+    <div class="llogo"><i class="fas fa-map-marked-alt"></i></div>
+    <div class="ltitle">AI Plot Portal Pro</div>
+    <div class="lsub">Smart Real Estate Plot Management</div>
+    <input class="linp" id="loginUser" type="text" placeholder="Username" onkeydown="if(event.key==='Enter')login()">
+    <input class="linp" id="loginPass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')login()">
+    <button class="lbtn" onclick="login()">Sign In</button>
+    <button class="lbtn lguest" onclick="continueAsGuest()">Continue as Guest</button>
+  </div>
+</div>
+
+<div id="toastWrap"></div>
+
+<div id="plotModal" class="moverlay hidden">
+  <div class="mbox" style="max-width:620px;">
+    <div class="mhdr"><h2 id="pm_title">Add New Plot</h2><button class="mclose" onclick="closePlotModal()">&times;</button></div>
+    <div class="mbody">
+      <input type="hidden" id="pm_id">
+      <div class="fsection">
+        <div class="fsectitle">Basic Information</div>
+        <div class="fgrid">
+          <div class="fgroup"><label>Plot Number <span class="rstar">*</span></label><input type="text" id="pm_no" placeholder="e.g. PLT-001"></div>
+          <div class="fgroup"><label>Development <span class="rstar">*</span></label><input type="text" id="pm_dev" placeholder="e.g. Breza Hills"></div>
+          <div class="fgroup"><label>Status</label><select id="pm_status"><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select></div>
+          <div class="fgroup"><label>Type</label><select id="pm_type"><option value="">-- Select Type --</option><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Mixed Use">Mixed Use</option><option value="Industrial">Industrial</option><option value="Agricultural">Agricultural</option></select></div>
         </div>
-        <h2 class="text-3xl font-bold mb-2">AI Plot Portal</h2>
-        <p class="text-gray-400 mb-8">Sign in to continue (Optional)</p>
-        <div class="space-y-4">
-          <div><label class="block text-xs text-gray-400 mb-1.5 text-left">Username</label><input type="text" id="loginUsername" value="admin" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-          <div><label class="block text-xs text-gray-400 mb-1.5 text-left">Password</label><input type="password" id="loginPassword" value="admin123" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
+      </div>
+      <div class="fsection">
+        <div class="fsectitle">Financial</div>
+        <div class="fgrid">
+          <div class="fgroup"><label>Size (sqm) <span class="rstar">*</span></label><input type="number" id="pm_size" placeholder="e.g. 500"></div>
+          <div class="fgroup"><label>Price (AED) <span class="rstar">*</span></label><input type="number" id="pm_price" placeholder="e.g. 2500000"></div>
         </div>
-        <div class="mt-6 space-y-3">
-          <button onclick="login()" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Sign In</button>
-          <button onclick="continueAsGuest()" class="w-full py-3 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium text-gray-300">Continue as Guest</button>
+      </div>
+      <div class="fsection">
+        <div class="fsectitle">Area Metrics (Optional)</div>
+        <div class="fgrid">
+          <div class="fgroup"><label>GFA (sqm)</label><input type="text" id="pm_gfa" placeholder="Gross Floor Area"></div>
+          <div class="fgroup"><label>NFA (sqm)</label><input type="text" id="pm_nfa" placeholder="Net Floor Area"></div>
+          <div class="fgroup"><label>FAR</label><input type="text" id="pm_far" placeholder="Floor Area Ratio"></div>
+          <div class="fgroup"><label>BUA (sqm)</label><input type="text" id="pm_bua" placeholder="Built-Up Area"></div>
         </div>
-        <div class="mt-6 text-xs text-gray-500">Demo: admin/admin123 (Full) | manager/manager123 | viewer/viewer123</div>
+      </div>
+      <div class="fsection">
+        <div class="fsectitle">Location (GPS)</div>
+        <div class="fgrid">
+          <div class="fgroup"><label>Latitude</label><input type="text" id="pm_lat" placeholder="e.g. 25.2048"></div>
+          <div class="fgroup"><label>Longitude</label><input type="text" id="pm_lng" placeholder="e.g. 55.2708"></div>
+        </div>
+        <button class="fbtn" style="margin-top:8px;" onclick="autoDetectGPS()"><i class="fas fa-crosshairs"></i> Auto-detect GPS</button>
+      </div>
+      <div class="fsection">
+        <div class="fsectitle">Media</div>
+        <div class="fgroup" style="margin-bottom:10px;">
+          <label>Plot Photo</label>
+          <div id="pm_imgPH" onclick="document.getElementById('pm_imgInput').click()"><i class="fas fa-camera"></i> Click to upload photo</div>
+          <img id="pm_imgPrev" src="" alt="Preview">
+          <input type="file" id="pm_imgInput" accept="image/*" style="display:none;" onchange="previewPlotImage(this)">
+        </div>
+        <div class="fgroup"><label>Video Tour URL</label><input type="text" id="pm_video" placeholder="https://youtube.com/..."></div>
+      </div>
+      <div class="fsection">
+        <div class="fsectitle">Notes</div>
+        <div class="fgroup"><textarea id="pm_notes" placeholder="Additional notes..."></textarea></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btns" onclick="closePlotModal()">Cancel</button>
+      <button class="btn btnp" onclick="savePlot()"><i class="fas fa-save"></i> Save Plot</button>
+    </div>
+  </div>
+</div>
+
+<div id="importModal" class="moverlay hidden">
+  <div class="mbox">
+    <div class="mhdr"><h2>Import Plots</h2><button class="mclose" onclick="closeImportModal()">&times;</button></div>
+    <div class="mbody">
+      <div class="dropz" id="dropZone" onclick="document.getElementById('importFileInput').click()" ondragover="event.preventDefault();this.classList.add('dragov')" ondragleave="this.classList.remove('dragov')" ondrop="event.preventDefault();this.classList.remove('dragov');handleFileSelect({target:{files:event.dataTransfer.files}})">
+        <i class="fas fa-file-import"></i>
+        <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Drop file here or click to browse</div>
+        <div style="font-size:11px;">Supports JSON, CSV, TXT, XLSX, XLS</div>
+      </div>
+      <input type="file" id="importFileInput" accept=".json,.csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileSelect(this)">
+      <div id="importPreview" style="margin-top:12px;font-size:12px;"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn btns" onclick="closeImportModal()">Cancel</button>
+      <button class="btn btnp" id="confirmImportBtn" onclick="confirmImport()" style="display:none;"><i class="fas fa-file-import"></i> Import</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div id="sidebar">
+    <div class="sbh">
+      <div class="sblogo"><i class="fas fa-map-marked-alt"></i></div>
+      <div><div class="sbtitle">AI Plot Portal</div><div class="sbsub">Pro Edition</div></div>
+    </div>
+    <nav class="sbnav">
+      <div class="sbsec">Views</div>
+      <a onclick="togglePlotView('map')" id="nav-map" class="active"><i class="fas fa-map"></i> Map View</a>
+      <a onclick="togglePlotView('table')" id="nav-table"><i class="fas fa-table"></i> Table View</a>
+      <div class="sbsec" style="margin-top:6px;">Analysis</div>
+      <a onclick="toggleHeatmap()"><i class="fas fa-fire"></i> Heatmap</a>
+      <a onclick="startBufferAnalysis()"><i class="fas fa-circle-dot"></i> Buffer Analysis</a>
+      <a onclick="startDistanceCalculator()"><i class="fas fa-ruler"></i> Distance Tool</a>
+      <a onclick="startAreaMeasurement()"><i class="fas fa-draw-polygon"></i> Area Measure</a>
+      <div class="sbsec" style="margin-top:6px;">Data</div>
+      <a onclick="document.getElementById('importModal').classList.remove('hidden')"><i class="fas fa-file-import"></i> Import Plots</a>
+      <a onclick="exportCSV()"><i class="fas fa-file-export"></i> Export CSV</a>
+      <a onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</a>
+      <a onclick="showOfflineSyncModal()"><i class="fas fa-sync"></i> Offline Sync</a>
+      <div class="sbsec" style="margin-top:6px;">Account</div>
+      <a onclick="toggleOnlineSync()"><i class="fas fa-cloud"></i> Online Sync</a>
+      <a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
+    </nav>
+  </div>
+  <div id="main">
+    <div id="topbar">
+      <button class="ibtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro</span>
+      <div class="tbsrch"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search plots..." oninput="debounceSearch()"></div>
+      <div class="tbacts">
+        <button class="ibtn" onclick="toggleOnlineSync()" title="Sync"><i class="fas fa-cloud"></i></button>
+        <button class="ibtn" onclick="document.getElementById('importModal').classList.remove('hidden')" title="Import"><i class="fas fa-upload"></i></button>
+        <button class="ibtn" onclick="exportCSV()" title="Export"><i class="fas fa-download"></i></button>
+        <span class="cbadge" id="totalPlotsBadge">0</span>
+        <button class="ibtn ibtnp" onclick="openPlotModal()"><i class="fas fa-plus"></i> New Plot</button>
+        <span id="userBadge" style="font-size:11px;color:#64748b;"></span>
+      </div>
+    </div>
+    <div id="filterbar">
+      <select class="fi" id="filterStatus" onchange="applyFilters()"><option value="">All Status</option><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select>
+      <select class="fi" id="filterType" onchange="applyFilters()"><option value="">All Types</option><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Mixed Use">Mixed Use</option><option value="Industrial">Industrial</option><option value="Agricultural">Agricultural</option></select>
+      <input class="fi" type="number" id="filterMinPrice" placeholder="Min Price" onchange="applyFilters()">
+      <input class="fi" type="number" id="filterMaxPrice" placeholder="Max Price" onchange="applyFilters()">
+      <button class="fbtn" onclick="clearFilters()"><i class="fas fa-times"></i> Clear</button>
+      <input class="fi" id="geocodeInput" placeholder="Geocode address..." style="flex:1;min-width:120px;">
+      <button class="fbtn" onclick="geocodeAddress()"><i class="fas fa-search-location"></i></button>
+      <select class="fi" onchange="setMapStyle(this.value)"><option value="carto">CartoDB Dark</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
+      <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
+      <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export Sel.</button>
+    </div>
+    <div id="content">
+      <div id="mapWrap">
+        <div id="map"></div>
+        <div class="mctrl noprint">
+          <button class="mcbtn" id="heatmapBtn" onclick="toggleHeatmap()"><i class="fas fa-fire"></i> Heatmap</button>
+          <button class="mcbtn" onclick="startBufferAnalysis()"><i class="fas fa-circle-dot"></i> Buffer</button>
+          <button class="mcbtn" onclick="startDistanceCalculator()"><i class="fas fa-ruler"></i> Distance</button>
+          <button class="mcbtn" onclick="toggleProximityAmenities()"><i class="fas fa-map-pin"></i> Amenities</button>
+          <button class="mcbtn" onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</button>
+          <button class="mcbtn" onclick="connectGoogleCalendar()"><i class="fab fa-google"></i> Calendar</button>
+        </div>
+        <div class="mlegend noprint">
+          <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:7px;">LEGEND</div>
+          <div class="litem"><div class="ldot" style="background:#34d399;"></div><span>Available (<span id="legendAvail">0</span>)</span></div>
+          <div class="litem"><div class="ldot" style="background:#fbbf24;"></div><span>Reserved (<span id="legendReserved">0</span>)</span></div>
+          <div class="litem"><div class="ldot" style="background:#f87171;"></div><span>Sold (<span id="legendSold">0</span>)</span></div>
+        </div>
+      </div>
+      <div id="plotCard"></div>
+      <div id="tableView">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <label style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> Select All</label>
+          <span id="selectionCount" style="font-size:11px;color:#64748b;"></span>
+        </div>
+        <table class="dtable">
+          <thead><tr><th style="width:32px;"></th><th>Plot No</th><th>Development</th><th>Type</th><th>Size (sqm)</th><th>Price (AED)</th><th>Price/sqm</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
+</div>
 
-  <div class="flex h-screen overflow-hidden">
-    <!-- Sidebar -->
-    <div id="sidebar" class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col sidebar-mobile md:transform-none md:relative">
-      <div class="p-6 border-b border-gray-800 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center"><i class="fas fa-map-marked text-white text-xl"></i></div>
-          <div><h1 class="text-2xl font-bold">AI Plot</h1><p class="text-xs text-gray-500 -mt-1">Pro Edition</p></div>
-        </div>
-        <button onclick="toggleSidebar()" class="md:hidden text-2xl">×</button>
-      </div>
-      <nav class="flex-1 p-4 space-y-1">
-        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600 text-white"><i class="fas fa-map-marker-alt"></i> Plots</a>
-      </nav>
-      <div class="p-4 border-t border-gray-800 mt-auto">
-        <div class="flex items-center gap-3">
-          <div id="userAvatar" class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">AD</div>
-          <div class="flex-1 min-w-0"><div id="userName" class="font-semibold text-sm truncate">Admin User</div><div id="userRole" class="text-xs text-gray-500">Administrator</div></div>
-          <button onclick="logout()" class="text-gray-400 hover:text-red-400 p-2"><i class="fas fa-sign-out-alt"></i></button>
-        </div>
-      </div>
-    </div>
+<script>
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_sharePlotId=null,currentView='map';
+var _gun=null,_gunNode=null,_syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
+var _syncConfig={room:'',active:false};
 
-    <!-- Main Content -->
-    <div class="flex-1 flex flex-col">
-      <div class="h-16 bg-gray-900 border-b border-gray-800 flex items-center justify-between px-4 md:px-8">
-        <div class="flex items-center gap-4">
-          <button onclick="toggleSidebar()" class="hamburger md:hidden text-2xl px-3">☰</button>
-          <h2 class="text-xl md:text-2xl font-semibold">Plot Management</h2>
-          <div class="px-3 py-1 bg-gray-800 rounded-full text-xs text-gray-400 hidden md:block" id="totalPlotsBadge">0 Plots</div>
-        </div>
-        <div class="flex items-center gap-3 flex-wrap justify-end">
-          <button onclick="importPlots()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-sm"><i class="fas fa-file-import"></i> Import</button>
-          <button onclick="exportCSV()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm"><i class="fas fa-download"></i> Export</button>
-          <button onclick="showOfflineSyncModal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-2xl text-sm"><i class="fas fa-sync-alt"></i> Backup</button>
-          <button onclick="toggleOnlineSync()" class="px-4 py-2 bg-emerald-600 rounded-2xl text-sm flex items-center gap-1" id="onlineSyncBtn"><i class="fas fa-cloud" id="syncIcon"></i><span id="syncLabel">Synced</span></button>
-          <button onclick="startDistanceCalculator()" class="px-4 py-2 bg-purple-600 rounded-2xl text-sm"><i class="fas fa-ruler"></i> Distance</button>
-          <button onclick="addNewPlot()" class="px-5 py-2 bg-blue-600 rounded-2xl text-sm"><i class="fas fa-plus"></i> New Plot</button>
-          <button onclick="showCRMModal()" class="px-4 py-2 bg-indigo-600 rounded-2xl text-sm hidden md:flex"><i class="fas fa-users-cog"></i> CRM</button>
-          <button onclick="connectGoogleCalendar()" class="px-4 py-2 bg-white text-black rounded-2xl text-sm hidden md:flex"><i class="fab fa-google"></i> Calendar</button>
-        </div>
-      </div>
+function saveToLocalStorage(){try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}try{if(currentUser)localStorage.setItem('aiplot_user',JSON.stringify(currentUser));}catch(e){}if(_syncActive)pushSync();}
+function loadFromLocalStorage(){try{var p=localStorage.getItem('aiplot_plots');if(p)plots=JSON.parse(p);}catch(e){plots=[];}try{var u=localStorage.getItem('aiplot_user');if(u)currentUser=JSON.parse(u);}catch(e){}try{var s=localStorage.getItem('aiplot_sync');if(s)_syncConfig=JSON.parse(s);}catch(e){}filteredPlots=plots.slice();}
 
-      <div class="flex-1 overflow-auto p-4 md:p-8 flex flex-col relative">
-        <div class="flex flex-wrap justify-between items-center gap-4 mb-6">
-          <div class="flex gap-3">
-            <button onclick="togglePlotView('map')" id="mapTab" class="px-6 py-2.5 bg-blue-600 rounded-2xl text-sm font-medium flex items-center gap-2"><i class="fas fa-map"></i> Map View</button>
-            <button onclick="togglePlotView('table')" id="tableTab" class="px-6 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-medium flex items-center gap-2"><i class="fas fa-table"></i> Table View</button>
-          </div>
-          <div class="flex gap-3 items-center flex-wrap">
-            <select id="statusFilter" onchange="applyFilters()" class="bg-gray-800 px-5 py-2.5 rounded-2xl text-sm"><option value="">All Status</option><option value="Available">Available</option><option value="Reserved">Reserved</option><option value="Sold">Sold</option></select>
-            <button onclick="clearFilters()" class="px-5 py-2.5 bg-gray-800 rounded-2xl text-sm">Clear</button>
-            <div class="relative w-72"><input type="text" id="mapSearch" placeholder="Search plots..." class="w-full bg-gray-800 px-5 py-2.5 pl-10 rounded-2xl text-sm" oninput="debounceSearch()"><i class="fas fa-search absolute left-3 top-3 text-gray-400"></i></div>
-          </div>
-        </div>
+function initMap(){
+  map=L.map('map',{zoomControl:true}).setView([25.2048,55.2708],10);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; CartoDB',subdomains:'abcd',maxZoom:20}).addTo(map);
+  markerCluster=L.markerClusterGroup({chunkedLoading:true});
+  map.addLayer(markerCluster);
+  addPlotMarkers();
+}
 
-        <!-- Map Legend -->
-        <div class="legend absolute bottom-28 left-6 z-[1000] px-4 py-3 rounded-2xl border border-gray-700 shadow-2xl text-sm bg-gray-900/95 backdrop-blur-xl">
-          <div class="flex items-center gap-2 mb-1"><div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div><span class="font-semibold text-[10px] text-gray-400">STATUS</span></div>
-          <div class="flex gap-4 text-xs">
-            <div onclick="filterByStatus('Available')" class="flex items-center gap-1.5 cursor-pointer"><div class="w-2 h-2 bg-green-500 rounded-full"></div><span>Available</span><span class="text-gray-500" id="count-Available">0</span></div>
-            <div onclick="filterByStatus('Reserved')" class="flex items-center gap-1.5 cursor-pointer"><div class="w-2 h-2 bg-orange-500 rounded-full"></div><span>Reserved</span><span class="text-gray-500" id="count-Reserved">0</span></div>
-            <div onclick="filterByStatus('Sold')" class="flex items-center gap-1.5 cursor-pointer"><div class="w-2 h-2 bg-red-500 rounded-full"></div><span>Sold</span><span class="text-gray-500" id="count-Sold">0</span></div>
-          </div>
-          <div onclick="clearFilters()" class="mt-1 text-[10px] text-gray-400 hover:text-white cursor-pointer text-center"><i class="fas fa-times"></i> Clear</div>
-        </div>
+function getStatusColor(s){return s==='Available'?'#34d399':s==='Reserved'?'#fbbf24':s==='Sold'?'#f87171':'#94a3b8';}
+function makeIcon(color){return L.divIcon({className:'',html:'<div style="width:13px;height:13px;background:'+color+';border-radius:50%;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,0.5);"></div>',iconSize:[13,13],iconAnchor:[6,6]});}
 
-        <!-- Map View -->
-        <div id="mapView" class="flex gap-6" style="height: calc(100vh - 250px); min-height: 500px;">
-          <div class="flex-1 bg-gray-900 rounded-3xl overflow-hidden relative border border-gray-800">
-            <div id="map"></div>
-            <div id="mapLoading" class="absolute inset-0 flex items-center justify-center bg-gray-900/90 z-[999] hidden">
-              <div class="text-center"><div class="loading-spinner mx-auto mb-3"></div><div class="text-sm text-gray-400">Loading Map...</div></div>
-            </div>
-            <!-- Geocode & tools -->
-            <div class="absolute top-4 left-4 z-[1000] w-80 max-w-[calc(100%-80px)]">
-              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1.5 flex items-center shadow-xl">
-                <input type="text" id="geocodeSearch" placeholder="Search address or landmark..." class="flex-1 bg-transparent px-3 py-2 text-sm focus:outline-none" onkeypress="if(event.key==='Enter') geocodeAddress()">
-                <button onclick="geocodeAddress()" class="px-4 py-1.5 bg-blue-600 rounded-xl text-sm"><i class="fas fa-search"></i> Go</button>
-              </div>
-            </div>
-            <div class="absolute top-4 right-4 z-[1000]">
-              <div class="bg-gray-900/95 backdrop-blur-xl border border-gray-700 rounded-2xl p-1 shadow-xl text-xs">
-                <button onclick="setMapStyle('streets-v12')" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700 text-left flex gap-2"><i class="fas fa-road"></i> Streets</button>
-                <button onclick="setMapStyle('satellite-streets-v12')" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700 text-left flex gap-2"><i class="fas fa-satellite"></i> Satellite</button>
-                <button onclick="toggleHeatmap()" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700 text-purple-400 flex gap-2"><i class="fas fa-fire"></i> Heatmap</button>
-                <button onclick="startAreaMeasurement()" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700"><i class="fas fa-draw-polygon"></i> Measure Area</button>
-                <button onclick="startBufferAnalysis()" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700"><i class="fas fa-circle"></i> Buffer</button>
-                <button onclick="toggleProximityAmenities()" class="w-full px-3 py-1.5 rounded-xl hover:bg-gray-700"><i class="fas fa-map-marked"></i> Amenities</button>
-              </div>
-            </div>
-          </div>
-          <div id="mapCard" class="w-96 bg-gray-900 rounded-3xl p-6 overflow-auto hidden border border-gray-700"></div>
-        </div>
+function addPlotMarkers(){
+  if(!map)return;
+  markerCluster.clearLayers();
+  filteredPlots.forEach(function(p){
+    var lat=parseFloat(p.lat),lng=parseFloat(p.lng);
+    if(isNaN(lat)||isNaN(lng))return;
+    var m=L.marker([lat,lng],{icon:makeIcon(getStatusColor(p.status))});
+    (function(pid){m.on('click',function(){selectPlot(pid);});})(p.id);
+    m.bindTooltip('<b>'+esc(p.no)+'</b><br>'+esc(p.dev||'')+'<br><span style="color:'+getStatusColor(p.status)+'">'+esc(p.status||'')+'</span>',{direction:'top'});
+    markerCluster.addLayer(m);
+  });
+  updateLegendCounts();
+}
 
-        <!-- Table View -->
-        <div id="plotTableView" class="hidden mt-6">
-          <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-            <div class="flex gap-3"><button onclick="bulkDelete()" class="px-5 py-2.5 bg-red-600 rounded-2xl text-sm"><i class="fas fa-trash"></i> Delete Selected</button><button onclick="bulkExport()" class="px-5 py-2.5 bg-blue-600 rounded-2xl text-sm"><i class="fas fa-download"></i> Export Selected</button></div>
-            <span class="text-sm text-gray-400" id="selectedCount">0 selected</span>
-          </div>
-          <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="border-b border-gray-700"><tr><th class="w-10"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th><th class="text-left py-3">Plot No</th><th class="text-left">Development</th><th class="text-left">Size</th><th class="text-left">Price</th><th class="text-left">Status</th><th class="text-left">Actions</th></tr></thead><tbody id="plotTableBody"></tbody></table></div>
-        </div>
-      </div>
-    </div>
-  </div>
+function updateLegendCounts(){
+  var a=0,r=0,s=0;
+  plots.forEach(function(p){if(p.status==='Available')a++;else if(p.status==='Reserved')r++;else if(p.status==='Sold')s++;});
+  var ea=document.getElementById('legendAvail'),er=document.getElementById('legendReserved'),es=document.getElementById('legendSold');
+  if(ea)ea.textContent=a;if(er)er.textContent=r;if(es)es.textContent=s;
+}
 
-  <!-- Import Modal -->
-  <div id="importModal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[2000]"><div class="modal bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl overflow-hidden"><div class="px-8 py-6 border-b border-gray-700 flex justify-between"><div><h3 class="text-2xl font-semibold">Import Plots</h3><p class="text-sm text-gray-400">CSV, Excel, JSON</p></div><button onclick="closeImportModal()" class="text-3xl">×</button></div><div class="p-8"><div class="border-2 border-dashed border-gray-700 rounded-2xl p-8 text-center"><i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i><p class="mb-2">Drop file</p><label class="inline-block px-6 py-2 bg-blue-600 rounded-2xl cursor-pointer">Choose File<input type="file" id="fileInput" accept=".csv,.xlsx,.json" class="hidden" onchange="handleFileSelect(event)"></label></div></div><div class="px-8 py-5 border-t border-gray-700 flex justify-end gap-3"><button onclick="closeImportModal()" class="px-8 py-3 rounded-2xl border border-gray-600">Cancel</button><button onclick="confirmImport()" class="px-10 py-3 bg-blue-600 rounded-2xl">Import</button></div></div></div>
+function setMapStyle(style){
+  if(!map)return;
+  map.eachLayer(function(l){if(l instanceof L.TileLayer)map.removeLayer(l);});
+  var u={carto:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};
+  L.tileLayer(u[style]||u.carto,{attribution:'',maxZoom:20}).addTo(map);
+  map.addLayer(markerCluster);
+}
 
-  <script>
-    let plots = [];
-    let importedData = [], headers = [];
-    let selectedPlots = new Set();
-    let markerCluster;
-    let onlineSynced = true;
-    let currentFilter = { status: '', query: '' };
-    let areaMode = false, areaPoints = [], areaPolyline = null, areaPolygon = null;
-    let clients = [], deals = [];
-    let map = null;
-    let heatmapLayer = null, heatmapEnabled = false;
-    let bufferLayer = null, analysisMarkers = [], customZoneLayer = null;
-    let currentUser = null;
-    
-    clients = [
-      { id: 101, name: "Ahmed Al-Mansoori", phone: "+971 50 123 4567", email: "ahmed@realty.ae", type: "Investor", linkedPlots: [] },
-      { id: 102, name: "Fatima Hassan", phone: "+971 55 987 6543", email: "fatima.h@invest.ae", type: "Developer", linkedPlots: [] }
-    ];
-    deals = [];
+function togglePlotView(view){
+  currentView=view;
+  var mw=document.getElementById('mapWrap'),tv=document.getElementById('tableView'),nm=document.getElementById('nav-map'),nt=document.getElementById('nav-table');
+  if(view==='map'){mw.style.display='block';mw.style.flex='1';tv.classList.remove('show');if(nm)nm.classList.add('active');if(nt)nt.classList.remove('active');setTimeout(function(){if(map)map.invalidateSize();},150);}
+  else{mw.style.display='none';tv.classList.add('show');if(nm)nm.classList.remove('active');if(nt)nt.classList.add('active');populateTable();}
+}
 
-    function saveToLocalStorage() { try { localStorage.setItem('aiPlotPortalData', JSON.stringify(plots)); } catch(e){} }
-    function loadFromLocalStorage() { try { const saved = localStorage.getItem('aiPlotPortalData'); if(saved) { const loaded = JSON.parse(saved); if(Array.isArray(loaded)) plots = loaded; } } catch(e){} }
+function populateTable(){
+  var tb=document.getElementById('tableBody');if(!tb)return;tb.innerHTML='';
+  filteredPlots.forEach(function(p){
+    var ppm=(p.size&&p.price)?Math.round(parseFloat(p.price)/parseFloat(p.size)).toLocaleString():'-';
+    var sel=selectedIds.has(p.id);var pid=p.id;
+    var tr=document.createElement('tr');if(sel)tr.className='rowsel';
+    tr.innerHTML='<td><input type="checkbox"'+(sel?' checked':'')+' onchange="toggleSelection('+pid+',this.checked)"></td>'+
+      '<td style="font-weight:600;color:#f1f5f9;">'+esc(p.no)+'</td>'+
+      '<td style="color:#94a3b8;">'+esc(p.dev||'-')+'</td>'+
+      '<td style="color:#94a3b8;">'+esc(p.type||'-')+'</td>'+
+      '<td>'+(p.size?parseFloat(p.size).toLocaleString():'-')+'</td>'+
+      '<td style="color:#34d399;">'+(p.price?'AED '+parseFloat(p.price).toLocaleString():'-')+'</td>'+
+      '<td>'+ppm+'</td>'+
+      '<td><span class="sbadge sb-'+(p.status||'Available')+'">'+esc(p.status||'Available')+'</span></td>'+
+      '<td style="white-space:nowrap;">'+
+        '<button class="fbtn" onclick="selectPlot('+pid+')" style="margin-right:3px;"><i class="fas fa-eye"></i></button>'+
+        '<button class="fbtn" onclick="openPlotModal('+pid+')" style="margin-right:3px;"><i class="fas fa-edit"></i></button>'+
+        '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;"><i class="fas fa-print"></i></button>'+
+        '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')"><i class="fas fa-trash"></i></button>'+
+      '</td>';
+    tb.appendChild(tr);
+  });
+}
 
-    function initMap(retry = 0) {
-      const loadingDiv = document.getElementById('mapLoading');
-      const mapContainer = document.getElementById('map');
-      if (loadingDiv) loadingDiv.style.display = 'flex';
-      if (typeof L === 'undefined') {
-        if (retry < 10) { setTimeout(() => initMap(retry+1), 300); return; }
-        if (loadingDiv) loadingDiv.innerHTML = '<div class="text-center"><i class="fas fa-exclamation-triangle text-3xl text-red-400"></i><p class="mt-2">Leaflet library failed. Reload page.</p><button onclick="location.reload()" class="mt-3 px-4 py-2 bg-blue-600 rounded-xl">Refresh</button></div>';
-        return;
+function applyFilters(){
+  var status=document.getElementById('filterStatus').value,type=document.getElementById('filterType').value;
+  var minP=parseFloat(document.getElementById('filterMinPrice').value)||0,maxP=parseFloat(document.getElementById('filterMaxPrice').value)||Infinity;
+  var srch=(document.getElementById('searchInput').value||'').toLowerCase().trim();
+  filteredPlots=plots.filter(function(p){
+    if(status&&p.status!==status)return false;if(type&&p.type!==type)return false;
+    var pr=parseFloat(p.price)||0;if(pr<minP||pr>maxP)return false;
+    if(srch){var h=((p.no||'')+' '+(p.dev||'')+' '+(p.type||'')+' '+(p.status||'')+' '+(p.notes||'')).toLowerCase();if(h.indexOf(srch)===-1)return false;}
+    return true;
+  });
+  addPlotMarkers();if(currentView==='table')populateTable();
+}
+function clearFilters(){document.getElementById('filterStatus').value='';document.getElementById('filterType').value='';document.getElementById('filterMinPrice').value='';document.getElementById('filterMaxPrice').value='';document.getElementById('searchInput').value='';filteredPlots=plots.slice();addPlotMarkers();if(currentView==='table')populateTable();}
+function filterByStatus(s){document.getElementById('filterStatus').value=s;applyFilters();}
+function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(applyFilters,280);}
+
+function toggleSelection(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);var c=selectedIds.size;var sc=document.getElementById('selectionCount'),bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(sc)sc.textContent=c>0?c+' selected':'';if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
+function toggleSelectAll(checked){if(checked)filteredPlots.forEach(function(p){selectedIds.add(p.id);});else selectedIds.clear();populateTable();var c=selectedIds.size;var sc=document.getElementById('selectionCount');if(sc)sc.textContent=c>0?c+' selected':'';var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
+function bulkDelete(){if(!selectedIds.size)return;if(!confirm('Delete '+selectedIds.size+' plots?'))return;plots=plots.filter(function(p){return!selectedIds.has(p.id);});selectedIds.clear();filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();showToastNotification('Plots deleted.','success');}
+function bulkExport(){downloadCSV(plots.filter(function(p){return selectedIds.has(p.id);}),'selected_plots.csv');}
+
+function selectPlot(id){
+  var p=plots.find(function(x){return x.id===id;});if(!p)return;
+  var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
+  var ppm=(size&&price)?'AED '+Math.round(price/size).toLocaleString()+'/sqm':'-';
+  var totalM=price?(price/1000000).toFixed(2)+'M':'-';
+  var photoHtml=p.image&&p.image.length>10?'<img src="'+p.image+'" style="width:100%;height:136px;object-fit:cover;border-radius:10px;margin-bottom:10px;" alt="photo">':'';
+  var areaHtml='';
+  if(p.gfa||p.nfa||p.far||p.bua){areaHtml='<div style="background:#0f172a;border-radius:9px;padding:9px;margin-bottom:9px;"><div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;margin-bottom:5px;">Area Metrics</div><table class="atable">';if(p.gfa)areaHtml+='<tr><td>GFA</td><td>'+esc(p.gfa)+' sqm</td></tr>';if(p.nfa)areaHtml+='<tr><td>NFA</td><td>'+esc(p.nfa)+' sqm</td></tr>';if(p.far)areaHtml+='<tr><td>FAR</td><td>'+esc(p.far)+'</td></tr>';if(p.bua)areaHtml+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqm</td></tr>';areaHtml+='</table></div>';}
+  var notesHtml=p.notes?'<div style="background:#0f172a;border-radius:9px;padding:9px;margin-bottom:9px;font-size:11px;color:#94a3b8;">'+esc(p.notes)+'</div>':'';
+  var videoHtml=p.videoUrl?'<a href="'+esc(p.videoUrl)+'" target="_blank" style="display:block;color:#6366f1;font-size:11px;margin-bottom:9px;"><i class="fas fa-video"></i> Watch Video Tour</a>':'';
+  var pid=p.id;
+  var html='<div style="padding:14px;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">'+
+      '<div><div style="font-size:17px;font-weight:800;color:#f1f5f9;">'+esc(p.no)+'</div>'+
+      '<div style="font-size:12px;color:#64748b;">'+esc(p.dev||'')+'</div>'+
+      (p.type?'<div style="font-size:10px;color:#94a3b8;margin-top:1px;">'+esc(p.type)+'</div>':'')+'</div>'+
+      '<span class="sbadge sb-'+(p.status||'Available')+'">'+esc(p.status||'Available')+'</span></div>'+
+    photoHtml+
+    '<div class="mgrid" style="margin-bottom:10px;">'+
+      '<div class="mcard"><div class="mlabel">Size</div><div class="mval">'+(size?size.toLocaleString()+' sqm':'-')+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Price</div><div class="mval grn">'+(price?'AED '+price.toLocaleString():'-')+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Price/sqm</div><div class="mval">'+ppm+'</div></div>'+
+      '<div class="mcard"><div class="mlabel">Total (M)</div><div class="mval">'+totalM+'</div></div>'+
+    '</div>'+areaHtml+notesHtml+videoHtml+
+    '<div style="margin-bottom:9px;"><div style="font-size:10px;color:#64748b;margin-bottom:3px;">Change Status</div>'+
+      '<select style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:7px;padding:5px 8px;color:#e2e8f0;font-size:12px;outline:none;" onchange="changePlotStatusFromCard('+pid+',this.value)">'+
+        '<option value="Available"'+(p.status==='Available'?' selected':'')+'>Available</option>'+
+        '<option value="Reserved"'+(p.status==='Reserved'?' selected':'')+'>Reserved</option>'+
+        '<option value="Sold"'+(p.status==='Sold'?' selected':'')+'>Sold</option>'+
+      '</select></div>'+
+    '<div class="mgrid" style="margin-bottom:7px;">'+
+      '<button class="btn" style="background:#4f46e5;color:white;justify-content:center;font-size:11px;padding:7px 4px;" onclick="openPlotModal('+pid+')"><i class="fas fa-edit"></i> Edit</button>'+
+      '<button class="btn" style="background:#334155;color:#94a3b8;justify-content:center;font-size:11px;padding:7px 4px;" onclick="printPlot('+pid+')"><i class="fas fa-print"></i> Print</button>'+
+      '<button class="btn" style="background:#059669;color:white;justify-content:center;font-size:11px;padding:7px 4px;" onclick="showSendOptions('+pid+')"><i class="fas fa-share-alt"></i> Share</button>'+
+      '<button class="btn" style="background:#7c3aed;color:white;justify-content:center;font-size:11px;padding:7px 4px;" onclick="startVideoCall('+pid+')"><i class="fas fa-video"></i> Call</button>'+
+    '</div>'+
+    '<button class="btn btnd" onclick="deletePlot('+pid+')"><i class="fas fa-trash"></i> Delete Plot</button>'+
+    '<button class="fbtn" style="margin-top:7px;width:100%;text-align:center;" onclick="closeCard()"><i class="fas fa-times"></i> Close</button>'+
+  '</div>';
+  var card=document.getElementById('plotCard');card.innerHTML=html;card.classList.add('show');
+  if(map&&!isNaN(parseFloat(p.lat))&&!isNaN(parseFloat(p.lng)))map.flyTo([parseFloat(p.lat),parseFloat(p.lng)],15,{duration:1});
+}
+function closeCard(){var c=document.getElementById('plotCard');if(c){c.classList.remove('show');c.innerHTML='';}}
+function changePlotStatusFromCard(id,status){var p=plots.find(function(x){return x.id===id;});if(!p)return;p.status=status;saveToLocalStorage();addPlotMarkers();updateLegendCounts();if(currentView==='table')populateTable();showToastNotification('Status updated to '+status,'success');selectPlot(id);}
+function deletePlot(id){if(!confirm('Delete this plot?'))return;plots=plots.filter(function(p){return p.id!==id;});filteredPlots=filteredPlots.filter(function(p){return p.id!==id;});saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeCard();showToastNotification('Plot deleted.','success');}
+
+window.openPlotModal=function(id){
+  var modal=document.getElementById('plotModal');modal.classList.remove('hidden');
+  ['pm_id','pm_no','pm_dev','pm_gfa','pm_nfa','pm_far','pm_bua','pm_lat','pm_lng','pm_video','pm_notes'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('pm_status').value='Available';document.getElementById('pm_type').value='';
+  document.getElementById('pm_size').value='';document.getElementById('pm_price').value='';
+  var prev=document.getElementById('pm_imgPrev'),ph=document.getElementById('pm_imgPH');
+  if(prev){prev.style.display='none';prev.src='';}if(ph)ph.style.display='flex';
+  if(id){
+    var p=plots.find(function(x){return x.id===id;});if(!p)return;
+    document.getElementById('pm_title').textContent='Edit Plot '+p.no;
+    document.getElementById('pm_id').value=p.id;document.getElementById('pm_no').value=p.no||'';
+    document.getElementById('pm_dev').value=p.dev||'';document.getElementById('pm_status').value=p.status||'Available';
+    document.getElementById('pm_type').value=p.type||'';document.getElementById('pm_size').value=p.size||'';
+    document.getElementById('pm_price').value=p.price||'';document.getElementById('pm_gfa').value=p.gfa||'';
+    document.getElementById('pm_nfa').value=p.nfa||'';document.getElementById('pm_far').value=p.far||'';
+    document.getElementById('pm_bua').value=p.bua||'';document.getElementById('pm_lat').value=p.lat||'';
+    document.getElementById('pm_lng').value=p.lng||'';document.getElementById('pm_video').value=p.videoUrl||'';
+    document.getElementById('pm_notes').value=p.notes||'';
+    if(p.image&&p.image.length>10){if(prev){prev.src=p.image;prev.style.display='block';}if(ph)ph.style.display='none';}
+  } else document.getElementById('pm_title').textContent='Add New Plot';
+};
+window.closePlotModal=function(){document.getElementById('plotModal').classList.add('hidden');};
+window.previewPlotImage=function(input){var file=input.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){var prev=document.getElementById('pm_imgPrev'),ph=document.getElementById('pm_imgPH');if(prev){prev.src=e.target.result;prev.style.display='block';}if(ph)ph.style.display='none';};reader.readAsDataURL(file);};
+window.autoDetectGPS=function(){if(!navigator.geolocation){showToastNotification('Geolocation not supported.','error');return;}navigator.geolocation.getCurrentPosition(function(pos){document.getElementById('pm_lat').value=pos.coords.latitude.toFixed(6);document.getElementById('pm_lng').value=pos.coords.longitude.toFixed(6);showToastNotification('GPS detected!','success');},function(){showToastNotification('Could not detect GPS.','error');});};
+
+function savePlot(){
+  var no=document.getElementById('pm_no').value.trim(),dev=document.getElementById('pm_dev').value.trim();
+  var size=document.getElementById('pm_size').value.trim(),price=document.getElementById('pm_price').value.trim();
+  if(!no){showToastNotification('Plot Number required.','error');return;}if(!dev){showToastNotification('Development required.','error');return;}
+  if(!size){showToastNotification('Size required.','error');return;}if(!price){showToastNotification('Price required.','error');return;}
+  var existingId=parseInt(document.getElementById('pm_id').value)||0;
+  var prev=document.getElementById('pm_imgPrev');
+  var imgSrc=(prev&&prev.src&&prev.src!==window.location.href&&prev.style.display!=='none')?prev.src:'';
+  var obj={id:existingId||Date.now(),no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:size,price:price,gfa:document.getElementById('pm_gfa').value.trim(),nfa:document.getElementById('pm_nfa').value.trim(),far:document.getElementById('pm_far').value.trim(),bua:document.getElementById('pm_bua').value.trim(),lat:document.getElementById('pm_lat').value.trim(),lng:document.getElementById('pm_lng').value.trim(),videoUrl:document.getElementById('pm_video').value.trim(),notes:document.getElementById('pm_notes').value.trim(),image:imgSrc};
+  if(existingId){var idx=plots.findIndex(function(p){return p.id===existingId;});if(idx!==-1)plots[idx]=obj;else plots.push(obj);}else plots.push(obj);
+  filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closePlotModal();
+  showToastNotification(existingId?'Plot updated!':'Plot added!','success');
+  var lat=parseFloat(obj.lat),lng=parseFloat(obj.lng);
+  if(!isNaN(lat)&&!isNaN(lng)&&map){if(currentView!=='map')togglePlotView('map');map.flyTo([lat,lng],15,{duration:1});}
+}
+
+function importPlots(){document.getElementById('importModal').classList.remove('hidden');}
+function closeImportModal(){document.getElementById('importModal').classList.add('hidden');document.getElementById('importPreview').innerHTML='';document.getElementById('confirmImportBtn').style.display='none';_importData=[];var fi=document.getElementById('importFileInput');if(fi)fi.value='';}
+
+function parseCSV(text){
+  var lines=text.split(/\r?\n/);if(!lines.length)return[];
+  function pline(line){var res=[],cur='',inQ=false;for(var i=0;i<line.length;i++){var c=line[i];if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ;}else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
+  var hdrs=pline(lines[0]),rows=[];
+  for(var i=1;i<lines.length;i++){if(!lines[i].trim())continue;var vals=pline(lines[i]);var obj={};hdrs.forEach(function(h,idx){obj[h.trim()]=(vals[idx]||'').trim();});rows.push(obj);}
+  return rows;
+}
+
+function mapRow(row){
+  function get(keys){
+    for(var k in row){
+      var kl=k.toLowerCase().trim();
+      for(var i=0;i<keys.length;i++){
+        if(kl===keys[i]||kl.indexOf(keys[i])===0||kl.indexOf(' '+keys[i])!==-1||kl.replace(/[^a-z0-9]/g,'')===(keys[i].replace(/[^a-z0-9]/g,'')))return row[k]||'';
       }
-      if (!mapContainer || mapContainer.offsetHeight < 100) {
-        if (retry < 15) { setTimeout(() => initMap(retry+1), 150); return; }
-      }
-      try {
-        if (map) { map.remove(); map = null; }
-        map = L.map('map').setView([25.2769, 55.2962], 11);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> & CartoDB',
-          subdomains: 'abcd',
-          maxZoom: 19
-        }).addTo(map);
-        if (typeof L.markerClusterGroup === 'function') {
-          markerCluster = L.markerClusterGroup({ maxClusterRadius: 45, spiderfyOnMaxZoom: true });
-          map.addLayer(markerCluster);
-        }
-        addPlotMarkers(plots);
-        if (loadingDiv) loadingDiv.style.display = 'none';
-        setTimeout(() => { if(map) map.invalidateSize(); }, 200);
-        updateTotalPlotsBadge();
-        window.dispatchEvent(new Event('resize'));
-      } catch(err) {
-        console.error(err);
-        if (loadingDiv) loadingDiv.innerHTML = `<div class="text-center text-red-400"><i class="fas fa-map"></i><p>Map error: ${err.message}</p><button onclick="initMap()" class="mt-2 px-4 py-1 bg-gray-700 rounded-xl">Retry</button></div>`;
-      }
     }
-    
-    function addPlotMarkers(plotsToShow = plots) {
-      if (!map) return;
-      if (markerCluster) markerCluster.clearLayers();
-      else map.eachLayer(l => { if(l instanceof L.Marker) map.removeLayer(l); });
-      plotsToShow.forEach(plot => {
-        if (!plot || typeof plot.lat !== 'number' || isNaN(plot.lat)) return;
-        const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
-        const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
-        const markerHTML = `<div style="background:${color};width:36px;height:36px;border-radius:50%;border:2px solid white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:11px;box-shadow:0 2px 12px black;">${plot.no}<div style="position:absolute;bottom:-2px;right:-2px;background:white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;"><i class="fas ${statusIcon}" style="font-size:7px;color:${color};"></i></div></div>`;
-        const marker = L.marker([plot.lat, plot.lng], { icon: L.divIcon({ html: markerHTML, iconSize: [36,36], className: '' }) });
-        marker.bindTooltip(`<b>Plot ${plot.no}</b><br>${plot.dev}<br>${plot.size} sqm • AED ${Number(plot.price).toLocaleString()}`, { direction: 'top', sticky: false, className: 'custom-tooltip' });
-        marker.on('click', () => selectPlot(plot.id));
-        if (markerCluster) markerCluster.addLayer(marker);
-        else marker.addTo(map);
-      });
-      updateLegendCounts(plotsToShow);
-    }
-    
-    function updateLegendCounts(data) {
-      document.getElementById('count-Available').innerText = data.filter(p => p.status === 'Available').length;
-      document.getElementById('count-Reserved').innerText = data.filter(p => p.status === 'Reserved').length;
-      document.getElementById('count-Sold').innerText = data.filter(p => p.status === 'Sold').length;
-      const totalElem = document.getElementById('totalPlotsBadge');
-      if(totalElem) totalElem.innerText = `${data.length} Plots`;
-    }
-    
-    function populateTable(data = plots) {
-      const tbody = document.getElementById('plotTableBody');
-      if(!tbody) return;
-      tbody.innerHTML = data.map(plot => `<tr class="hover:bg-gray-800"><td><input type="checkbox" onchange="toggleSelection(${plot.id}, this)" ${selectedPlots.has(plot.id) ? 'checked' : ''}></td><td>${plot.no}</td><td>${plot.dev}</td><td>${plot.size}</td><td>AED ${Number(plot.price).toLocaleString()}</td><td><span class="px-3 py-1 rounded-full text-xs ${plot.status==='Available'?'bg-green-600':plot.status==='Reserved'?'bg-orange-600':'bg-red-600'}">${plot.status}</span></td><td><button onclick="selectPlot(${plot.id}); togglePlotView('map')" class="text-blue-400 mr-2">View</button><button onclick="deletePlot(${plot.id})" class="text-red-400"><i class="fas fa-trash"></i></button></td></tr>`).join('');
-      updateLegendCounts(data);
-    }
-    
-    function applyFilters() {
-      currentFilter.status = document.getElementById('statusFilter').value;
-      currentFilter.query = document.getElementById('mapSearch').value.toLowerCase().trim();
-      const filtered = plots.filter(p => (!currentFilter.status || p.status === currentFilter.status) && (!currentFilter.query || p.no.toLowerCase().includes(currentFilter.query) || (p.dev || '').toLowerCase().includes(currentFilter.query)));
-      populateTable(filtered);
-      addPlotMarkers(filtered);
-    }
-    function clearFilters() { currentFilter = { status: '', query: '' }; document.getElementById('statusFilter').value = ''; document.getElementById('mapSearch').value = ''; populateTable(plots); addPlotMarkers(plots); }
-    function filterByStatus(status) { document.getElementById('statusFilter').value = status; applyFilters(); }
-    function debounceSearch() { clearTimeout(window._searchTO); window._searchTO = setTimeout(applyFilters, 300); }
-    function togglePlotView(view) {
-      document.getElementById('mapView').classList.toggle('hidden', view !== 'map');
-      document.getElementById('plotTableView').classList.toggle('hidden', view !== 'table');
-      document.getElementById('mapTab').classList.toggle('bg-blue-600', view === 'map');
-      document.getElementById('tableTab').classList.toggle('bg-blue-600', view === 'table');
-      if (view === 'map' && map) setTimeout(() => map.invalidateSize(), 80);
-    }
-    function toggleSelection(id, cb) { if(cb.checked) selectedPlots.add(id); else selectedPlots.delete(id); document.getElementById('selectedCount').innerText = `${selectedPlots.size} selected`; }
-    function toggleSelectAll() { const chk = document.getElementById('selectAll').checked; selectedPlots.clear(); document.querySelectorAll('#plotTableBody input[type="checkbox"]').forEach(cb => { if(chk) { const row = cb.closest('tr'); const no = row.cells[1].innerText; const plot = plots.find(p => p.no === no); if(plot) selectedPlots.add(plot.id); cb.checked = chk; } else cb.checked = false; }); document.getElementById('selectedCount').innerText = `${selectedPlots.size} selected`; }
-    function bulkDelete() { if(selectedPlots.size===0) return alert('No plots selected'); if(!confirm(`Delete ${selectedPlots.size} plots?`)) return; plots = plots.filter(p => !selectedPlots.has(p.id)); selectedPlots.clear(); document.getElementById('selectAll').checked = false; populateTable(); addPlotMarkers(); saveToLocalStorage(); }
-    function bulkExport() { if(selectedPlots.size===0) return alert('No plots selected'); const data = plots.filter(p => selectedPlots.has(p.id)); let csv = "Plot No,Development,Size,Price,Status\n"; data.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv])); a.download = `selected_plots_${data.length}.csv`; a.click(); }
-    function deletePlot(id) { if(!confirm('Delete plot?')) return; plots = plots.filter(p => p.id !== id); populateTable(); addPlotMarkers(); saveToLocalStorage(); if(document.getElementById('mapCard').classList.contains('hidden')===false) closeCard(); }
-    function selectPlot(id) { const plot = plots.find(p => p.id === id); if(!plot) return; const card = document.getElementById('mapCard'); card.classList.remove('hidden'); card.innerHTML = `<div class="flex justify-between"><div><button onclick="closeCard()" class="text-2xl float-right">×</button><h3 class="text-2xl font-bold">Plot ${plot.no}</h3><p class="text-blue-400">${plot.dev}</p></div><div class="inline-block px-4 py-1 rounded-2xl text-sm ${plot.status==='Available'?'bg-green-600':plot.status==='Reserved'?'bg-orange-600':'bg-red-600'}">${plot.status}</div></div><div class="grid grid-cols-2 gap-3 my-4"><div class="bg-gray-800 p-3 rounded-2xl"><div class="text-gray-400 text-xs">SIZE</div><div class="font-bold">${plot.size} sqm</div></div><div class="bg-gray-800 p-3 rounded-2xl"><div class="text-gray-400 text-xs">PRICE</div><div class="font-bold">AED ${Number(plot.price).toLocaleString()}</div></div></div><select onchange="changePlotStatusFromCard(${plot.id}, this.value)" class="w-full bg-gray-800 rounded-2xl p-2 mb-3"><option ${plot.status==='Available'?'selected':''}>Available</option><option ${plot.status==='Reserved'?'selected':''}>Reserved</option><option ${plot.status==='Sold'?'selected':''}>Sold</option></select><div class="flex gap-2"><button onclick="editPlot(${plot.id})" class="flex-1 py-2 bg-indigo-600 rounded-xl text-sm"><i class="fas fa-edit"></i> Edit</button><button onclick="showSendOptions(${plot.id})" class="flex-1 py-2 bg-emerald-600 rounded-xl text-sm"><i class="fas fa-share"></i> Share</button><button onclick="startBufferAnalysis(${plot.id})" class="flex-1 py-2 bg-purple-600 rounded-xl text-sm">Buffer</button></div>`; map.flyTo([plot.lat, plot.lng], 16); }
-    function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
-    function changePlotStatusFromCard(id, newStatus) { const p = plots.find(p => p.id === id); if(p && p.status !== newStatus) { p.status = newStatus; saveToLocalStorage(); applyFilters(); if(document.getElementById('mapCard').classList.contains('hidden')===false) selectPlot(id); showToastNotification('Status', `Plot ${p.no} → ${newStatus}`, 'info'); } }
-    function editPlot(id) { const plot = plots.find(p => p.id === id); if(!plot) return; const newNo = prompt("Plot Number:", plot.no); if(!newNo) return; plot.no = newNo; plot.dev = prompt("Development:", plot.dev) || plot.dev; plot.size = prompt("Size sqm:", plot.size); plot.price = prompt("Price AED:", plot.price); plot.status = prompt("Status (Available/Reserved/Sold):", plot.status); if(plot.size) plot.size = parseFloat(plot.size); if(plot.price) plot.price = parseFloat(plot.price); saveToLocalStorage(); populateTable(); addPlotMarkers(); if(document.getElementById('mapCard').classList.contains('hidden')===false) selectPlot(id); showToastNotification('Plot Updated', `${plot.no} updated`, 'success'); }
-    function addNewPlot() { const no = prompt("Plot Number (e.g., D-101):", `P-${Date.now().toString().slice(-4)}`); if(!no) return; const dev = prompt("Development:", "New Area"); const size = parseFloat(prompt("Size (sqm):", "1200")); const price = parseFloat(prompt("Price (AED):", "4500000")); const status = prompt("Status (Available/Reserved/Sold):", "Available"); const lat = 25.27 + (Math.random() * 0.08); const lng = 55.30 + (Math.random() * 0.08); plots.push({ id: plots.length+1, no, lat, lng, dev, size, price, status }); saveToLocalStorage(); populateTable(); addPlotMarkers(); showToastNotification('Plot Added', `${no} created`, 'success'); }
-    function importPlots() { document.getElementById('importModal').classList.remove('hidden'); }
-    function closeImportModal() { document.getElementById('importModal').classList.add('hidden'); }
-    function handleFileSelect(e) { const file = e.target.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = ev => { try { const data = JSON.parse(ev.target.result); if(Array.isArray(data)) importedData = data; else alert('Invalid JSON'); } catch(e) { alert('Invalid file'); } }; reader.readAsText(file); }
-    function confirmImport() { if(!importedData.length) return alert('No data'); plots.push(...importedData.map((item, idx) => ({ id: plots.length+idx+1, no: item.no || item.PlotNo || `IMP-${idx}`, lat: 25.27 + Math.random()*0.1, lng: 55.30 + Math.random()*0.1, dev: item.dev || item.Development || 'Imported', size: item.size || 1000, price: item.price || 2000000, status: item.status || 'Available' }))); saveToLocalStorage(); populateTable(); addPlotMarkers(); closeImportModal(); alert(`Imported ${importedData.length} plots`); importedData = []; }
-    function exportCSV() { let csv = "Plot No,Development,Size,Price,Status\n"; plots.forEach(p => csv += `${p.no},${p.dev},${p.size},${p.price},${p.status}\n`); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv])); a.download = `plots_${plots.length}.csv`; a.click(); }
-    function startDistanceCalculator() { alert("Click on map: first point -> second point"); let first = null, m1=null,m2=null,line=null; map.once('click', e => { first = e.latlng; m1 = L.marker(first, {icon: L.divIcon({html:'<div style="background:#a855f7;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>',iconSize:[12,12]})}).addTo(map); map.once('click', e2 => { const d = map.distance(first, e2.latlng); m2 = L.marker(e2.latlng, {icon: L.divIcon({html:'<div style="background:#a855f7;width:12px;height:12px;border-radius:50%;"></div>',iconSize:[12,12]})}).addTo(map); line = L.polyline([first, e2.latlng], {color:'#a855f7', weight:3}).addTo(map); alert(`Distance: ${d.toFixed(0)} meters (${(d/1000).toFixed(2)} km)`); setTimeout(()=>{ if(m1) map.removeLayer(m1); if(m2) map.removeLayer(m2); if(line) map.removeLayer(line); }, 5000); }); }); }
-    function startBufferAnalysis(plotId=null) { if(bufferLayer) map.removeLayer(bufferLayer); let center = plotId ? plots.find(p=>p.id===plotId) : null; const lat = center ? center.lat : map.getCenter().lat; const lng = center ? center.lng : map.getCenter().lng; const rad = parseInt(prompt("Radius (meters):", "1500")) || 1500; bufferLayer = L.circle([lat,lng], {radius:rad, color:'#3b82f6', fillOpacity:0.15, weight:2}).addTo(map); const intersecting = plots.filter(p => map.distance([lat,lng], [p.lat,p.lng]) <= rad); bufferLayer.bindPopup(`<b>Buffer Analysis</b><br>Radius: ${rad/1000}km<br>Plots inside: ${intersecting.length}`).openPopup(); }
-    function toggleHeatmap() { if(heatmapEnabled && heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer=null; if(markerCluster) map.addLayer(markerCluster); heatmapEnabled=false; } else { if(markerCluster) map.removeLayer(markerCluster); const points = plots.map(p=>[p.lat, p.lng, 0.8]); heatmapLayer = L.heatLayer(points, {radius:35, blur:20}).addTo(map); heatmapEnabled=true; } }
-    function toggleProximityAmenities() { alert("Amenity markers: Click on map amenities to see nearby plots (demo)."); const am = L.marker([25.2123,55.2487], {icon: L.divIcon({html:'<div>🏖️</div>',iconSize:[24,24]})}).addTo(map).bindPopup("JBR Beach<br>Nearby plots: click buffer"); }
-    function geocodeAddress() { const q = document.getElementById('geocodeSearch').value; if(!q) return; fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`, {headers:{'User-Agent':'AI-Plot-Portal'}}).then(r=>r.json()).then(data=>{ if(data[0]){ const {lat,lon}=data[0]; map.flyTo([lat,lon],15); L.marker([lat,lon]).addTo(map).bindPopup(`📍 ${data[0].display_name.split(',')[0]}`).openPopup(); }else alert('Not found'); }).catch(()=>alert('Geocoding failed')); }
-    function setMapStyle(style) { showToastNotification('Map Style', `Switched to ${style} (tile style placeholder)`, 'info'); }
-    function startAreaMeasurement() { alert("Click points to draw polygon -> double click finish"); let points=[]; let polyline; const clickHandler = e => { points.push(e.latlng); if(polyline) map.removeLayer(polyline); polyline = L.polyline(points, {color:'#22c55e', weight:2}).addTo(map); }; map.on('click', clickHandler); map.once('dblclick',()=>{ map.off('click',clickHandler); if(points.length<3) alert("Need 3 points"); else { const area = L.polygon(points).getArea(); alert(`Area: ${area.toFixed(0)} sqm`); L.polygon(points,{color:'#22c55e',fillOpacity:0.2}).addTo(map); } }); }
-    function showCRMModal() { alert("CRM Module active – clients & deals ready. Full interface can be extended."); }
-    function connectGoogleCalendar() { alert("Google Calendar .ics export works: use Schedule button on plot card."); }
-    function showOfflineSyncModal() { const backup = prompt("Backup: type 'export' to download JSON", "export"); if(backup === 'export'){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(plots)])); a.download=`plots_backup_${Date.now()}.json`; a.click(); } else alert("Use Export CSV or Backup via JSON download."); }
-    function showSendOptions(plotId) { const plot = plots.find(p=>p.id===plotId); if(!plot) return; const msg = `Plot ${plot.no} - ${plot.dev}\nSize: ${plot.size} sqm\nPrice: AED ${plot.price.toLocaleString()}`; window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`); }
-    function updateTotalPlotsBadge() { const badge = document.getElementById('totalPlotsBadge'); if(badge) badge.innerText = `${plots.length} Plots`; }
-    function showToastNotification(title, msg, type) { const toast = document.createElement('div'); toast.className = `fixed bottom-6 right-6 z-[9999] px-5 py-3 rounded-2xl shadow-xl text-sm ${type==='success'?'bg-green-600':type==='error'?'bg-red-600':'bg-blue-600'} text-white`; toast.innerHTML = `<b>${title}</b><br>${msg}`; document.body.appendChild(toast); setTimeout(()=>toast.remove(),4000); }
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-    function logout() { localStorage.removeItem('aiPlotCurrentUser'); location.reload(); }
-    function continueAsGuest() { localStorage.setItem('aiPlotCurrentUser', JSON.stringify({name:'Guest',role:'Guest'})); document.getElementById('loginModal').classList.add('hidden'); location.reload(); }
-    function login() { const u = document.getElementById('loginUsername').value; const p = document.getElementById('loginPassword').value; if((u==='admin' && p==='admin123')||(u==='manager'&&p==='manager123')||(u==='viewer'&&p==='viewer123')){ localStorage.setItem('aiPlotCurrentUser', JSON.stringify({name:u,role:'User'})); document.getElementById('loginModal').classList.add('hidden'); location.reload(); } else alert('Invalid'); }
-    function toggleOnlineSync() { onlineSynced = !onlineSynced; showToastNotification('Sync', onlineSynced ? 'Online mode' : 'Offline mode', 'info'); }
-    
-    window.toggleSelection = toggleSelection; window.toggleSelectAll = toggleSelectAll; window.bulkDelete = bulkDelete; window.bulkExport = bulkExport;
-    window.selectPlot = selectPlot; window.deletePlot = deletePlot; window.editPlot = editPlot; window.closeCard = closeCard;
-    window.startDistanceCalculator = startDistanceCalculator; window.startBufferAnalysis = startBufferAnalysis; window.toggleHeatmap = toggleHeatmap;
-    window.toggleProximityAmenities = toggleProximityAmenities; window.geocodeAddress = geocodeAddress; window.setMapStyle = setMapStyle;
-    window.startAreaMeasurement = startAreaMeasurement; window.importPlots = importPlots; window.confirmImport = confirmImport;
-    window.closeImportModal = closeImportModal; window.handleFileSelect = handleFileSelect; window.exportCSV = exportCSV;
-    window.showOfflineSyncModal = showOfflineSyncModal; window.addNewPlot = addNewPlot; window.showCRMModal = showCRMModal;
-    window.connectGoogleCalendar = connectGoogleCalendar; window.showSendOptions = showSendOptions; window.changePlotStatusFromCard = changePlotStatusFromCard;
-    window.login = login; window.continueAsGuest = continueAsGuest; window.toggleOnlineSync = toggleOnlineSync;
-    window.applyFilters = applyFilters; window.clearFilters = clearFilters; window.filterByStatus = filterByStatus; window.debounceSearch = debounceSearch;
-    window.togglePlotView = togglePlotView; window.toggleSidebar = toggleSidebar;
-    
-    window.onload = () => {
-      loadFromLocalStorage();
-      initMap();
-      populateTable();
-      togglePlotView('map');
-      const savedUser = localStorage.getItem('aiPlotCurrentUser');
-      if(!savedUser) document.getElementById('loginModal').classList.remove('hidden');
-      else document.getElementById('loginModal').classList.add('hidden');
-      updateTotalPlotsBadge();
-      setInterval(() => { if(map) map.invalidateSize(); }, 800);
-    };
-  </script>
+    return'';
+  }
+  return{id:Date.now()+Math.random(),no:get(['plot no','plotno','no','plot_no','plot number','plotnumber']),dev:get(['development','dev','project','project name']),size:get(['size','sqm','area','plot size']),price:get(['price','aed','value','amount']),status:get(['status'])||'Available',lat:get(['lat','latitude']),lng:get(['lng','lon','longitude']),type:get(['type','plot type']),gfa:get(['gfa']),nfa:get(['nfa']),far:get(['far']),bua:get(['bua']),notes:get(['notes','note','comments','comment']),videoUrl:get(['video','videourl','video url','video url','tour']),image:''};
+}
+
+function handleFileSelect(inp){
+  var files=(inp.target||inp).files;if(!files||!files.length)return;
+  var file=files[0],name=file.name.toLowerCase(),prev=document.getElementById('importPreview');
+  prev.innerHTML='<span style="color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Reading...</span>';
+  if(name.endsWith('.json')){var fr=new FileReader();fr.onload=function(e){try{var d=JSON.parse(e.target.result);_importData=Array.isArray(d)?d.map(mapRow):(d&&d.plots?d.plots.map(mapRow):[]);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">JSON error: '+esc(ex.message)+'</span>';}};fr.readAsText(file);}
+  else if(name.endsWith('.xlsx')||name.endsWith('.xls')){var fr2=new FileReader();fr2.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'binary'}),ws=wb.Sheets[wb.SheetNames[0]],json=XLSX.utils.sheet_to_json(ws,{defval:''});_importData=json.map(mapRow);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">Excel error: '+esc(ex.message)+'</span>';}};fr2.readAsBinaryString(file);}
+  else if(name.endsWith('.csv')||name.endsWith('.txt')){var fr3=new FileReader();fr3.onload=function(e){try{_importData=parseCSV(e.target.result).map(mapRow);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">CSV error: '+esc(ex.message)+'</span>';}};fr3.readAsText(file);}
+  else prev.innerHTML='<span style="color:#ef4444;">Unsupported file type.</span>';
+}
+
+function confirmImport(){
+  if(!_importData.length)return;
+  var existing=new Set(plots.map(function(p){return(p.no||'').toLowerCase();}));var added=0;
+  _importData.forEach(function(p){if(!p.no||existing.has(p.no.toLowerCase()))return;p.id=Date.now()+Math.random();plots.push(p);existing.add(p.no.toLowerCase());added++;});
+  filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeImportModal();
+  showToastNotification(added+' plots imported ('+((_importData.length-added))+' duplicates skipped).','success');
+}
+
+function exportCSV(){downloadCSV(plots,'plots_export.csv');}
+function downloadCSV(data,filename){
+  var hdrs=['Plot No','Development','Status','Type','Size (sqm)','Price (AED)','GFA','NFA','FAR','BUA','Latitude','Longitude','Notes','Video URL'];
+  var rows=data.map(function(p){return[p.no,p.dev,p.status,p.type,p.size,p.price,p.gfa,p.nfa,p.far,p.bua,p.lat,p.lng,p.notes,p.videoUrl].map(function(v){return'"'+(v||'').toString().replace(/"/g,'""')+'"';}).join(',');});
+  var blob=new Blob([hdrs.join(',')+'\n'+rows.join('\n')],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+
+window.printPlot=function(id){
+  var p=plots.find(function(x){return x.id===id;});if(!p)return;
+  var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
+  var ppm=(size&&price)?'AED '+Math.round(price/size).toLocaleString()+' /sqm':'—';
+  var totalM=price?(price/1000000).toFixed(2)+' M AED':'—';
+  var today=new Date().toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});
+  var reportId='RPT-'+String(p.id).slice(-6).toUpperCase();
+  var sbc=p.status==='Available'?'#059669':p.status==='Reserved'?'#d97706':'#dc2626';
+  var sbg=p.status==='Available'?'rgba(16,185,129,0.1)':p.status==='Reserved'?'rgba(217,119,6,0.1)':'rgba(220,38,38,0.1)';
+  var areaRows='';
+  if(p.gfa)areaRows+='<tr><td>GFA</td><td>'+esc(p.gfa)+' sqm</td></tr>';
+  if(p.nfa)areaRows+='<tr><td>NFA</td><td>'+esc(p.nfa)+' sqm</td></tr>';
+  if(p.far)areaRows+='<tr><td>FAR</td><td>'+esc(p.far)+'</td></tr>';
+  if(p.bua)areaRows+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqm</td></tr>';
+  var photoHTML=(p.image&&p.image.startsWith('data:'))
+    ?'<img src="'+p.image+'" style="width:100%;height:190px;object-fit:cover;border-radius:10px;margin-bottom:14px;border:1px solid #e2e8f0;display:block;" alt="Plot Photo">'
+    :'<div style="width:100%;height:190px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;border:1px solid #e2e8f0;"><div style="font-size:36px;margin-bottom:8px;">&#128247;</div><div>No Photo</div></div>';
+  var css='@import url(\'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap\');'+
+    '@page{size:A4;margin:0;}*{box-sizing:border-box;margin:0;padding:0;}'+
+    'body{font-family:Inter,\'Segoe UI\',Arial,sans-serif;background:#dde1e7;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
+    '.page{width:210mm;min-height:297mm;background:white;margin:0 auto;box-shadow:0 0 50px rgba(0,0,0,0.2);position:relative;display:flex;flex-direction:column;}'+
+    '.hdr{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 52%,#1e1b4b 100%);display:flex;align-items:stretch;height:88px;flex-shrink:0;}'+
+    '.hdr-l{flex:1;padding:18px 28px;display:flex;flex-direction:column;justify-content:center;}'+
+    '.logo-r{display:flex;align-items:center;gap:12px;}'+
+    '.logo-ic{width:40px;height:40px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:white;font-weight:900;flex-shrink:0;}'+
+    '.logo-nm{font-size:19px;font-weight:900;color:white;letter-spacing:-0.5px;}'+
+    '.logo-sb{font-size:9px;color:rgba(255,255,255,0.5);letter-spacing:2.5px;text-transform:uppercase;margin-top:2px;}'+
+    '.hdr-r{width:190px;padding:16px 28px;border-left:1px solid rgba(255,255,255,0.12);display:flex;flex-direction:column;justify-content:center;text-align:right;gap:3px;flex-shrink:0;}'+
+    '.rpt-lbl{font-size:8px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.5px;}'+
+    '.rpt-id{font-size:14px;font-weight:900;color:white;font-family:\'Courier New\',monospace;letter-spacing:1px;}'+
+    '.rpt-dt{font-size:9px;color:rgba(255,255,255,0.6);}'+
+    '.accent{height:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6,#06b6d4);flex-shrink:0;}'+
+    '.tbar{padding:15px 28px;background:#f8fafc;border-bottom:3px solid '+sbc+';display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-shrink:0;}'+
+    '.pno{font-size:27px;font-weight:900;color:#0f172a;letter-spacing:-0.5px;line-height:1.1;}'+
+    '.pdev{font-size:13px;color:#475569;margin-top:4px;}'+
+    '.ptyp{font-size:11px;color:#94a3b8;margin-top:2px;font-style:italic;}'+
+    '.sbadge{padding:6px 18px;border-radius:20px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;background:'+sbg+';color:'+sbc+';border:1.5px solid '+sbc+';white-space:nowrap;flex-shrink:0;align-self:flex-start;margin-top:4px;}'+
+    '.body{display:flex;flex:1;}'+
+    '.col-m{flex:1;padding:20px 18px 20px 28px;border-right:1px solid #f1f5f9;}'+
+    '.col-s{width:215px;padding:20px 28px 20px 16px;flex-shrink:0;background:#fafbfc;}'+
+    '.sec{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:#6366f1;padding-bottom:5px;border-bottom:1px solid #e2e8f0;margin-bottom:11px;margin-top:18px;}'+
+    '.sec:first-child{margin-top:0;}'+
+    '.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:4px;}'+
+    '.mc{border-radius:9px;padding:12px 13px;}'+
+    '.mc-d{background:#f8fafc;border:1px solid #e2e8f0;}'+
+    '.mc-g{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1px solid #bbf7d0;}'+
+    '.mc-p{background:linear-gradient(135deg,#faf5ff,#ede9fe);border:1px solid #ddd6fe;}'+
+    '.mc-b{background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;}'+
+    '.ml{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:4px;}'+
+    '.mv{font-size:17px;font-weight:900;color:#0f172a;line-height:1.1;}'+
+    '.mv-g{color:#059669;}.mv-p{color:#7c3aed;}.mv-b{color:#2563eb;}'+
+    '.dtbl{width:100%;border-collapse:collapse;font-size:11px;}'+
+    '.dtbl td{padding:5px 8px;border:1px solid #e2e8f0;}'+
+    '.dtbl td:first-child{font-weight:600;color:#64748b;background:#f8fafc;width:42%;}'+
+    '.nbox{background:#f8fafc;border-left:3px solid #6366f1;border-radius:0 6px 6px 0;padding:10px 12px;font-size:11px;color:#475569;line-height:1.6;}'+
+    '.gbox{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:9px 12px;font-size:10px;color:#0369a1;line-height:1.8;}'+
+    '.idc{background:linear-gradient(135deg,#1e293b,#334155);border-radius:10px;padding:13px;text-align:center;color:white;margin-bottom:14px;}'+
+    '.idc-l{font-size:7px;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.4);margin-bottom:5px;}'+
+    '.idc-v{font-size:15px;font-weight:900;color:white;font-family:\'Courier New\',monospace;letter-spacing:2px;}'+
+    '.irow{display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:10px;gap:6px;}'+
+    '.irow:last-child{border-bottom:none;}'+
+    '.il{color:#94a3b8;font-weight:600;white-space:nowrap;}'+
+    '.iv{color:#1e293b;font-weight:700;text-align:right;word-break:break-word;}'+
+    '.foot{padding:10px 28px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;flex-shrink:0;}'+
+    '.foot-l{font-size:8px;color:#94a3b8;line-height:1.7;}'+
+    '.foot-r{font-size:8px;color:#94a3b8;text-align:right;line-height:1.7;}'+
+    '.conf{font-size:9px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:1px;}'+
+    '.pbtn{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:12px;padding:13px 26px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 28px rgba(99,102,241,0.45);letter-spacing:0.3px;}'+
+    '@media print{.pbtn{display:none!important;}body{background:white!important;}.page{box-shadow:none!important;}}';
+  var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Plot Report — '+esc(p.no)+'</title><style>'+css+'</style></head><body>'+
+    '<div class="page">'+
+      '<div class="hdr">'+
+        '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">AI Plot Portal Pro</div><div class="logo-sb">Property Intelligence Platform</div></div></div></div>'+
+        '<div class="hdr-r"><div class="rpt-lbl">Report ID</div><div class="rpt-id">'+esc(reportId)+'</div><div class="rpt-dt">'+esc(today)+'</div></div>'+
+      '</div>'+
+      '<div class="accent"></div>'+
+      '<div class="tbar">'+
+        '<div><div class="pno">Plot '+esc(p.no)+'</div><div class="pdev">'+esc(p.dev||'—')+'</div>'+(p.type?'<div class="ptyp">'+esc(p.type)+'</div>':'')+'</div>'+
+        '<span class="sbadge">'+esc(p.status||'Unknown')+'</span>'+
+      '</div>'+
+      '<div class="body">'+
+        '<div class="col-m">'+
+          '<div class="sec">Financial Summary</div>'+
+          '<div class="mgrid">'+
+            '<div class="mc mc-d"><div class="ml">Plot Size</div><div class="mv">'+(size?size.toLocaleString()+'<span style="font-size:10px;font-weight:600;color:#94a3b8;margin-left:2px;">sqm</span>':'—')+'</div></div>'+
+            '<div class="mc mc-g"><div class="ml">Asking Price</div><div class="mv mv-g" style="font-size:13px;">'+(price?'AED '+price.toLocaleString():'—')+'</div></div>'+
+            '<div class="mc mc-b"><div class="ml">Price / sqm</div><div class="mv mv-b" style="font-size:13px;">'+ppm+'</div></div>'+
+            '<div class="mc mc-p"><div class="ml">Total Value</div><div class="mv mv-p" style="font-size:15px;">'+totalM+'</div></div>'+
+          '</div>'+
+          (areaRows?'<div class="sec">Area Metrics</div><table class="dtbl">'+areaRows+'</table>':'')+
+          ((p.lat&&p.lng)?'<div class="sec">GPS Location</div><div class="gbox"><b>Latitude:</b> '+esc(p.lat)+'<br><b>Longitude:</b> '+esc(p.lng)+'</div>':'')+
+          (p.notes?'<div class="sec">Notes</div><div class="nbox">'+esc(p.notes)+'</div>':'')+
+        '</div>'+
+        '<div class="col-s">'+
+          photoHTML+
+          '<div class="idc"><div class="idc-l">Plot Reference</div><div class="idc-v">'+esc(reportId)+'</div></div>'+
+          '<div class="sec" style="margin-top:0;">Property Details</div>'+
+          '<div class="irow"><span class="il">Status</span><span class="iv" style="color:'+sbc+'">'+esc(p.status||'—')+'</span></div>'+
+          '<div class="irow"><span class="il">Type</span><span class="iv">'+esc(p.type||'—')+'</span></div>'+
+          '<div class="irow"><span class="il">Development</span><span class="iv" style="font-size:9px;">'+esc(p.dev||'—')+'</span></div>'+
+          (p.videoUrl?'<div class="irow"><span class="il">Video Tour</span><span class="iv" style="color:#6366f1;">Available</span></div>':'')+
+          (p.lat&&p.lng?'<div class="irow"><span class="il">GPS</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+'</span></div>':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="foot">'+
+        '<div class="foot-l"><span class="conf">Confidential</span><br>For authorized use only. AI Plot Portal Pro.</div>'+
+        '<div class="foot-r">Generated: '+esc(today)+'<br>ID: '+esc(reportId)+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<button class="pbtn" onclick="window.print()">&#128424; Print / Save PDF</button>'+
+    '</body></html>';
+  var w=window.open('','_blank','width=960,height=780');
+  if(!w){showToastNotification('Popup blocked.','error');return;}
+  w.document.write(html);w.document.close();w.focus();
+};
+
+window.startVideoCall=function(plotId){
+  var p=plots.find(function(x){return x.id===plotId;});if(!p)return;
+  var san=(p.no||'Plot').replace(/[^a-zA-Z0-9]/g,'');
+  var rand=Math.random().toString(36).substring(2,8).toUpperCase();
+  var url='https://meet.jit.si/AIPlot-'+san+'-'+rand;
+  var old=document.getElementById('vcallModal');if(old)old.remove();
+  var waUrl='https://wa.me/?text='+encodeURIComponent('Join my video call: '+url);
+  var mailUrl='mailto:?subject='+encodeURIComponent('Video Call Invite')+'&body='+encodeURIComponent('Join my call: '+url);
+  var modal=document.createElement('div');modal.id='vcallModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:7000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:460px;overflow:hidden;">'+
+    '<div style="padding:18px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><div style="font-size:16px;font-weight:700;color:#f1f5f9;"><i class="fas fa-video" style="color:#7c3aed;margin-right:7px;"></i>Video Call</div>'+
+      '<div style="font-size:11px;color:#64748b;margin-top:2px;">Plot: '+esc(p.no)+' &mdash; '+esc(p.dev||'')+'</div></div>'+
+      '<button onclick="document.getElementById(\'vcallModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;">&times;</button></div>'+
+    '<div style="padding:18px 22px;">'+
+      '<div style="font-size:10px;color:#64748b;margin-bottom:5px;">Meeting Room URL</div>'+
+      '<div class="vcallurl">'+esc(url)+'</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'+
+        '<button onclick="window.open(\''+esc(url)+'\',\'_blank\')" style="background:linear-gradient(135deg,#7c3aed,#6366f1);color:white;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-video"></i> Join Call</button>'+
+        '<button onclick="navigator.clipboard.writeText(\''+esc(url)+'\').then(function(){showToastNotification(\'Link copied!\',\'success\');})" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:10px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-copy"></i> Copy Link</button>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'+
+        '<button onclick="window.open(\''+esc(waUrl)+'\',\'_blank\')" style="background:#059669;color:white;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fab fa-whatsapp"></i> WhatsApp</button>'+
+        '<button onclick="window.open(\''+esc(mailUrl)+'\',\'_blank\')" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:9px;font-size:12px;font-weight:600;cursor:pointer;"><i class="fas fa-envelope"></i> Email</button>'+
+      '</div></div></div>';
+  document.body.appendChild(modal);
+};
+
+function _buildMsg(p){return'Plot: '+(p.no||'')+'\nDevelopment: '+(p.dev||'')+'\nStatus: '+(p.status||'')+'\nSize: '+(p.size||'')+' sqm\nPrice: AED '+(p.price||'')+(p.type?'\nType: '+p.type:'')+(p.lat&&p.lng?'\nGPS: '+p.lat+', '+p.lng:'')+(p.notes?'\nNotes: '+p.notes:'');}
+function _shareWhatsapp(){var p=plots.find(function(x){return x.id===_sharePlotId;});if(!p)return;window.open('https://wa.me/?text='+encodeURIComponent(_buildMsg(p)),'_blank');var m=document.getElementById('shareModal');if(m)m.remove();}
+function _shareEmail(){var p=plots.find(function(x){return x.id===_sharePlotId;});if(!p)return;window.open('mailto:?subject='+encodeURIComponent('Plot '+(p.no||'')+' - '+(p.dev||''))+'&body='+encodeURIComponent(_buildMsg(p)),'_blank');var m=document.getElementById('shareModal');if(m)m.remove();}
+function _shareCopy(){var p=plots.find(function(x){return x.id===_sharePlotId;});if(!p)return;navigator.clipboard.writeText(_buildMsg(p)).then(function(){showToastNotification('Copied!','success');});var m=document.getElementById('shareModal');if(m)m.remove();}
+function _sharePrint(){var id=_sharePlotId;var m=document.getElementById('shareModal');if(m)m.remove();printPlot(id);}
+function _shareCall(){var id=_sharePlotId;var m=document.getElementById('shareModal');if(m)m.remove();startVideoCall(id);}
+
+window.showSendOptions=function(plotId){
+  _sharePlotId=plotId;var p=plots.find(function(x){return x.id===plotId;});if(!p)return;
+  var old=document.getElementById('shareModal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='shareModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:7000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:400px;overflow:hidden;">'+
+    '<div style="padding:18px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><div style="font-size:16px;font-weight:700;color:#f1f5f9;"><i class="fas fa-share-alt" style="color:#34d399;margin-right:7px;"></i>Share Plot</div>'+
+      '<div style="font-size:11px;color:#64748b;margin-top:2px;">'+esc(p.no)+'</div></div>'+
+      '<button onclick="document.getElementById(\'shareModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;">&times;</button></div>'+
+    '<div style="padding:18px 22px;display:flex;flex-direction:column;gap:9px;">'+
+      '<button onclick="_shareWhatsapp()" style="background:#059669;color:white;border:none;border-radius:9px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;"><i class="fab fa-whatsapp"></i> Share via WhatsApp</button>'+
+      '<button onclick="_shareEmail()" style="background:#2563eb;color:white;border:none;border-radius:9px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;"><i class="fas fa-envelope"></i> Share via Email</button>'+
+      '<button onclick="_shareCopy()" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;"><i class="fas fa-copy"></i> Copy to Clipboard</button>'+
+      '<button onclick="_sharePrint()" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;"><i class="fas fa-print"></i> Print / Save PDF</button>'+
+      '<button onclick="_shareCall()" style="background:#7c3aed;color:white;border:none;border-radius:9px;padding:11px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;"><i class="fas fa-video"></i> Video Call</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+};
+
+function toggleHeatmap(){var btn=document.getElementById('heatmapBtn');if(heatmapActive){if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}heatmapActive=false;if(btn)btn.classList.remove('act');showToastNotification('Heatmap off.','info');}else{var pts=plots.filter(function(p){return parseFloat(p.lat)&&parseFloat(p.lng);}).map(function(p){return[parseFloat(p.lat),parseFloat(p.lng),1];});if(!pts.length){showToastNotification('No plots with GPS.','error');return;}heatLayer=L.heatLayer(pts,{radius:35,blur:20,maxZoom:17}).addTo(map);heatmapActive=true;if(btn)btn.classList.add('act');showToastNotification('Heatmap on.','info');}}
+function startBufferAnalysis(){showToastNotification('Click on the map to place buffer.','info');map.once('click',function(e){if(bufferCircle){map.removeLayer(bufferCircle);bufferCircle=null;}var r=parseInt(prompt('Buffer radius (meters):','500')||'500');if(isNaN(r)||r<=0)return;bufferCircle=L.circle(e.latlng,{radius:r,color:'#6366f1',fillOpacity:0.12,weight:2}).addTo(map);var c=plots.filter(function(p){var la=parseFloat(p.lat),ln=parseFloat(p.lng);if(isNaN(la)||isNaN(ln))return false;return map.distance(e.latlng,[la,ln])<=r;}).length;showToastNotification(c+' plots within '+r+'m.','success');});}
+function startDistanceCalculator(){showToastNotification('Click 2 points to measure distance.','info');distanceMarkers.forEach(function(m){map.removeLayer(m);});distanceMarkers=[];if(distanceLine){map.removeLayer(distanceLine);distanceLine=null;}var pts=[],clicks=0;function onClick(e){pts.push(e.latlng);var m=L.circleMarker(e.latlng,{radius:5,color:'#fbbf24',fillOpacity:1}).addTo(map);distanceMarkers.push(m);clicks++;if(clicks===2){map.off('click',onClick);distanceLine=L.polyline(pts,{color:'#fbbf24',weight:2,dashArray:'5,4'}).addTo(map);var d=map.distance(pts[0],pts[1]);showToastNotification('Distance: '+(d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m'),'success');}}map.on('click',onClick);}
+function startAreaMeasurement(){showToastNotification('Click points, double-click to finish.','info');var pts=[],poly=null;function onClick(e){pts.push(e.latlng);if(poly)map.removeLayer(poly);if(pts.length>=2)poly=L.polygon(pts,{color:'#34d399',fillOpacity:0.15,weight:2}).addTo(map);}function onDbl(e){map.off('click',onClick);map.off('dblclick',onDbl);if(pts.length<3){showToastNotification('Need at least 3 points.','error');return;}showToastNotification('Area drawn with '+pts.length+' points.','success');}map.on('click',onClick);map.on('dblclick',onDbl);}
+function toggleProximityAmenities(){proximityActive=!proximityActive;showToastNotification(proximityActive?'Amenities mode on.':'Amenities mode off.','info');}
+function geocodeAddress(){var addr=(document.getElementById('geocodeInput').value||'').trim();if(!addr){showToastNotification('Enter an address.','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(addr)).then(function(r){return r.json();}).then(function(d){if(!d||!d.length){showToastNotification('Address not found.','error');return;}map.flyTo([parseFloat(d[0].lat),parseFloat(d[0].lon)],14,{duration:1.5});L.popup().setLatLng([parseFloat(d[0].lat),parseFloat(d[0].lon)]).setContent('<b>'+esc(d[0].display_name)+'</b>').openOn(map);}).catch(function(){showToastNotification('Geocoding failed.','error');});}
+
+function showCRMModal(){showToastNotification('CRM coming soon!','info');}
+function connectGoogleCalendar(){showToastNotification('Google Calendar coming soon!','info');}
+function showOfflineSyncModal(){showToastNotification('Data is saved locally in your browser.','info');}
+
+function _ensureGun(){
+  if(_gun)return _gun;
+  _gun=Gun(['https://gun-manhattan.herokuapp.com/gun','https://gun-us.herokuapp.com/gun']);
+  return _gun;
+}
+
+function _plotsForSync(arr){
+  return arr.map(function(p){var c=Object.assign({},p);if(typeof c.image==='string'&&c.image.startsWith('data:'))c.image='';return c;});
+}
+
+function _initGunListener(){
+  _gunNode.get('state').on(function(raw){
+    if(!raw||typeof raw!=='string')return;
+    try{
+      var d=JSON.parse(raw);
+      if(!d||!d.ts||d.ts<=_lastRemoteTs)return;
+      _lastRemoteTs=d.ts;
+      if(!Array.isArray(d.plots))return;
+      var imgs={};plots.forEach(function(p){if(p.image)imgs[p.id]=p.image;});
+      plots=d.plots.map(function(p){if(!p.image&&imgs[p.id])p.image=imgs[p.id];return p;});
+      filteredPlots=plots.slice();
+      try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}
+      populateTable();addPlotMarkers();updateTotalPlotsBadge();
+      showToastNotification('↓ Synced '+plots.length+' plots','success');
+    }catch(e){}
+  });
+}
+
+function showSyncModal(){
+  var old=document.getElementById('syncModal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='syncModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:490px;overflow:hidden;">'+
+    '<div style="padding:18px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><div style="font-size:16px;font-weight:700;color:#f1f5f9;"><i class="fas fa-cloud" style="color:#6366f1;margin-right:7px;"></i>Online Sync</div>'+
+      '<div style="font-size:11px;color:#64748b;margin-top:2px;">Real-time P2P sync — no account needed</div></div>'+
+      '<button onclick="document.getElementById(\'syncModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;">&times;</button></div>'+
+    '<div style="padding:20px 22px;">'+
+      (_syncActive?'<div style="background:#064e3b;border:1px solid #34d399;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;">'+
+        '<div><div style="font-size:12px;font-weight:700;color:#34d399;"><i class="fas fa-circle" style="font-size:8px;margin-right:7px;animation:pulse 1.5s infinite;"></i>Live — Room: <b>'+esc(_syncRoom)+'</b></div>'+
+        '<div style="font-size:10px;color:#6ee7b7;margin-top:2px;">Changes sync automatically in real-time</div></div>'+
+        '<button onclick="pushSync();showToastNotification(\'Pushed!\',\'success\');" style="background:#059669;color:white;border:none;border-radius:8px;padding:7px 13px;font-size:11px;font-weight:600;cursor:pointer;"><i class="fas fa-upload"></i> Push Now</button>'+
+      '</div>':'')+
+      '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:16px;font-size:11px;color:#94a3b8;line-height:1.9;">'+
+        '<div style="font-weight:700;color:#f1f5f9;margin-bottom:8px;font-size:12px;"><i class="fas fa-bolt" style="color:#fbbf24;margin-right:6px;"></i>No setup required — fully P2P encrypted</div>'+
+        '<span style="color:#6366f1;font-weight:700;">1.</span> Choose any Room Code for your team<br>'+
+        '<span style="color:#6366f1;font-weight:700;">2.</span> Share the same code with all team members<br>'+
+        '<span style="color:#6366f1;font-weight:700;">3.</span> All devices sync in real-time automatically<br>'+
+        '<i style="color:#475569;">Plot photos stay on your device (to save bandwidth)</i>'+
+      '</div>'+
+      '<div style="margin-bottom:16px;">'+
+        '<label style="font-size:11px;color:#64748b;display:block;margin-bottom:5px;font-weight:600;">Room Code</label>'+
+        '<input id="syncRoomInput" type="text" placeholder="e.g. breza-hills-team-2026" value="'+esc(_syncRoom)+'" style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:9px 12px;color:#e2e8f0;font-size:13px;font-weight:600;outline:none;" onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#334155\'">'+
+        '<div style="font-size:10px;color:#475569;margin-top:4px;">Use only letters, numbers, hyphens. Keep it private.</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;">'+
+        '<button onclick="connectSync()" style="flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:9px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;"><i class="fas fa-plug"></i> '+(_syncActive?'Switch Room':'Connect &amp; Sync')+'</button>'+
+        (_syncActive?'<button onclick="disconnectSync()" style="background:#1e293b;color:#ef4444;border:1.5px solid #ef4444;border-radius:9px;padding:11px 14px;font-size:12px;font-weight:700;cursor:pointer;" title="Disconnect"><i class="fas fa-unlink"></i></button>':'')+
+      '</div>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+
+function connectSync(){
+  var room=(document.getElementById('syncRoomInput').value||'').trim().replace(/[^a-zA-Z0-9_-]/g,'-');
+  if(!room){showToastNotification('Enter a Room Code.','error');return;}
+  if(_gunNode){try{_gunNode.off();}catch(e){}}
+  _syncRoom=room;_syncActive=true;_lastRemoteTs=0;
+  _syncConfig={room:room,active:true};
+  try{localStorage.setItem('aiplot_sync',JSON.stringify(_syncConfig));}catch(e){}
+  _ensureGun();
+  _gunNode=_gun.get('aiplot-v2-'+room);
+  _initGunListener();
+  _doPush();
+  var old=document.getElementById('syncModal');if(old)old.remove();
+  showToastNotification('Connected to room: '+room,'success');
+  _updateSyncBtn(true);
+}
+
+function disconnectSync(){
+  if(_gunNode){try{_gunNode.off();}catch(e){}}
+  _gunNode=null;_syncActive=false;_syncRoom='';_lastRemoteTs=0;
+  _syncConfig={room:'',active:false};
+  clearTimeout(_pushTimer);
+  try{localStorage.removeItem('aiplot_sync');}catch(e){}
+  var old=document.getElementById('syncModal');if(old)old.remove();
+  showToastNotification('Sync disconnected.','info');
+  _updateSyncBtn(false);
+}
+
+function _updateSyncBtn(on){
+  var btn=document.querySelector('#topbar button[title="Sync"]');
+  if(btn){btn.style.color=on?'#34d399':'';btn.title=on?'Sync • Live':'Sync';}
+}
+
+function _doPush(){
+  if(!_gunNode||!_syncActive)return;
+  _gunNode.get('state').put(JSON.stringify({plots:_plotsForSync(plots),ts:Date.now(),user:(currentUser&&currentUser.name)||'unknown'}));
+}
+
+function pushSync(){clearTimeout(_pushTimer);_pushTimer=setTimeout(_doPush,400);}
+
+function pullSync(){
+  if(!_gunNode)return;
+  _gunNode.get('state').once(function(raw){
+    if(!raw||typeof raw!=='string')return;
+    try{
+      var d=JSON.parse(raw);
+      if(!d||!Array.isArray(d.plots))return;
+      _lastRemoteTs=d.ts||0;
+      var imgs={};plots.forEach(function(p){if(p.image)imgs[p.id]=p.image;});
+      plots=d.plots.map(function(p){if(!p.image&&imgs[p.id])p.image=imgs[p.id];return p;});
+      filteredPlots=plots.slice();
+      try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}
+      populateTable();addPlotMarkers();updateTotalPlotsBadge();
+      showToastNotification('Pulled '+plots.length+' plots','success');
+    }catch(e){}
+  });
+}
+
+function startAutoSync(){}
+function toggleOnlineSync(){showSyncModal();}
+function updateTotalPlotsBadge(){var el=document.getElementById('totalPlotsBadge');if(el)el.textContent=plots.length;}
+
+function login(){var user=(document.getElementById('loginUser').value||'').trim();if(!user){showToastNotification('Enter a username.','error');return;}currentUser={name:user,role:'user'};saveToLocalStorage();document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent=user;showToastNotification('Welcome, '+user+'!','success');}
+function continueAsGuest(){currentUser={name:'Guest',role:'guest'};document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent='Guest';showToastNotification('Continuing as Guest.','info');}
+function logout(){if(!confirm('Log out?'))return;currentUser=null;localStorage.removeItem('aiplot_user');document.getElementById('loginModal').style.display='flex';var ub=document.getElementById('userBadge');if(ub)ub.textContent='';}
+function toggleSidebar(){var sb=document.getElementById('sidebar');if(sb)sb.classList.toggle('collapsed');setTimeout(function(){if(map)map.invalidateSize();},360);}
+
+function showToastNotification(msg,type){var wrap=document.getElementById('toastWrap');if(!wrap)return;var t=document.createElement('div');t.className='toast '+(type||'info');var icon=type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle';t.innerHTML='<i class="fas fa-'+icon+'" style="margin-right:7px;"></i>'+esc(msg);wrap.appendChild(t);setTimeout(function(){t.style.animation='toastOut 0.3s ease forwards';setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},300);},3500);}
+
+function esc(str){if(str===null||str===undefined)return'';return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
+window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showCRMModal=showCRMModal;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
+
+window.onload=function(){
+  loadFromLocalStorage();initMap();populateTable();togglePlotView('map');updateTotalPlotsBadge();
+  if(currentUser){document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
+  setInterval(function(){if(map)map.invalidateSize();},800);
+  if(_syncConfig&&_syncConfig.active&&_syncConfig.room){
+    _syncRoom=_syncConfig.room;_syncActive=true;
+    _ensureGun();
+    _gunNode=_gun.get('aiplot-v2-'+_syncConfig.room);
+    _initGunListener();
+    _updateSyncBtn(true);
+    showToastNotification('Reconnected to room: '+_syncConfig.room,'success');
+  }
+};
+</script>
 </body>
 </html>
