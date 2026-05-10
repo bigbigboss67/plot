@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working Interactive Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            text-align: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        #map {
+            height: 80vh;
+            width: 100%;
+            border: 2px solid #ccc;
+        }
+        .instructions {
+            text-align: center;
+            padding: 10px;
+            background-color: #e8f4f8;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 Interactive Map - Working!</h1>
+    <p class="instructions">Drag to move • Scroll to zoom • Click markers for info</p>
+    
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <script>
+        // Initialize the map centered on London
+        const map = L.map('map').setView([51.505, -0.09], 13);
+
+        // Add OpenStreetMap tiles (free, no API key needed)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Add a marker in London
+        const londonMarker = L.marker([51.505, -0.09]).addTo(map);
+        londonMarker.bindPopup('<b>London, UK</b><br>Welcome to the map!<br>Click and drag to explore.').openPopup();
+
+        // Add another marker in Paris
+        const parisMarker = L.marker([48.8566, 2.3522]).addTo(map);
+        parisMarker.bindPopup('<b>Paris, France</b><br>The City of Light!');
+
+        // Add a circle around London
+        L.circle([51.505, -0.09], {
+            color: 'blue',
+            fillColor: '#30f',
+            fillOpacity: 0.2,
+            radius: 5000
+        }).addTo(map).bindPopup('5km radius around London');
+
+        // Add a polygon (example area)
+        const polygon = L.polygon([
+            [51.51, -0.12],
+            [51.52, -0.08],
+            [51.49, -0.07]
+        ], {
+            color: 'green',
+            fillColor: '#0f0',
+            fillOpacity: 0.3
+        }).addTo(map).bindPopup('Example area');
+
+        // Add click event to show coordinates
+        map.on('click', function(e) {
+            const popup = L.popup()
+                .setLatLng(e.latlng)
+                .setContent(`You clicked at:<br>Latitude: ${e.latlng.lat.toFixed(4)}<br>Longitude: ${e.latlng.lng.toFixed(4)}`)
+                .openOn(map);
+        });
+
+        // Add a scale control
+        L.control.scale().addTo(map);
+
+        console.log('✅ Map loaded successfully! All features working.');
+    </script>
+</body>
+</html>
