@@ -217,10 +217,14 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
   <div class="mbox">
     <div class="mhdr"><h2>Import Plots</h2><button class="mclose" onclick="closeImportModal()">&times;</button></div>
     <div class="mbody">
-      <div class="dropz" id="dropZone" onclick="document.getElementById('importFileInput').click()" ondragover="event.preventDefault();this.classList.add('dragov')" ondragleave="this.classList.remove('dragov')" ondrop="event.preventDefault();this.classList.remove('dragov');handleFileSelect({target:{files:event.dataTransfer.files}})">
-        <i class="fas fa-file-import"></i>
-        <div style="font-size:14px;font-weight:600;margin-bottom:3px;">Drop file here or click to browse</div>
-        <div style="font-size:11px;">Supports JSON, CSV, TXT, XLSX, XLS</div>
+      <div class="dropz" id="dropZone"
+        ondragover="event.preventDefault();this.classList.add('dragov')"
+        ondragleave="this.classList.remove('dragov')"
+        ondrop="event.preventDefault();this.classList.remove('dragov');handleFileSelect({target:{files:event.dataTransfer.files}})">
+        <i class="fas fa-cloud-upload-alt" style="font-size:28px;margin-bottom:8px;color:#6366f1;"></i>
+        <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Drop file here or</div>
+        <button type="button" onclick="document.getElementById('importFileInput').click()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:6px;">Browse File</button>
+        <div style="font-size:10px;color:#475569;">JSON &bull; CSV &bull; XLSX &bull; XLS &bull; TXT</div>
       </div>
       <input type="file" id="importFileInput" accept=".json,.csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileSelect(this)">
       <div id="importPreview" style="margin-top:12px;font-size:12px;"></div>
@@ -527,22 +531,77 @@ function mapRow(row){
   return{id:Date.now()+Math.random(),no:get(['plot no','plotno','no','plot_no','plot number','plotnumber']),dev:get(['development','dev','project','project name']),size:get(['size','sqm','area','plot size']),price:get(['price','aed','value','amount']),status:get(['status'])||'Available',lat:get(['lat','latitude']),lng:get(['lng','lon','longitude']),type:get(['type','plot type']),gfa:get(['gfa']),nfa:get(['nfa']),far:get(['far']),bua:get(['bua']),notes:get(['notes','note','comments','comment']),videoUrl:get(['video','videourl','video url','video url','tour']),image:''};
 }
 
+function _showImportPreview(){
+  var prev=document.getElementById('importPreview');
+  if(!_importData.length){prev.innerHTML='<span style="color:#ef4444;">No valid rows found in file.</span>';return;}
+  var noNo=_importData.filter(function(p){return!p.no;}).length;
+  var html='<div style="margin-top:4px;">';
+  html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+  html+='<span style="color:#34d399;font-weight:600;"><i class="fas fa-check-circle"></i> '+_importData.length+' records detected</span>';
+  html+='<label style="font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="replaceChk" style="cursor:pointer;"> Replace duplicates</label>';
+  html+='</div>';
+  if(noNo>0)html+='<div style="color:#fbbf24;font-size:11px;margin-bottom:7px;"><i class="fas fa-exclamation-triangle"></i> '+noNo+' row(s) missing plot number — will be auto-numbered</div>';
+  // Preview table - first 3 rows
+  var cols=['no','dev','status','type','size','price'];
+  var labels=['Plot No','Development','Status','Type','Size','Price'];
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:10px;">';
+  html+='<thead><tr>'+labels.map(function(l){return'<th style="padding:4px 6px;background:#0f172a;color:#64748b;font-weight:700;text-align:left;border:1px solid #334155;">'+l+'</th>';}).join('')+'</tr></thead><tbody>';
+  _importData.slice(0,3).forEach(function(p){
+    html+='<tr>'+cols.map(function(c){return'<td style="padding:4px 6px;border:1px solid #334155;color:'+(p[c]?'#e2e8f0':'#475569')+'">'+(p[c]||'—')+'</td>';}).join('')+'</tr>';
+  });
+  if(_importData.length>3)html+='<tr><td colspan="6" style="padding:4px 6px;color:#475569;font-style:italic;border:1px solid #334155;">…and '+(_importData.length-3)+' more rows</td></tr>';
+  html+='</tbody></table></div></div>';
+  prev.innerHTML=html;
+  document.getElementById('confirmImportBtn').style.display='';
+}
+
 function handleFileSelect(inp){
   var files=(inp.target||inp).files;if(!files||!files.length)return;
-  var file=files[0],name=file.name.toLowerCase(),prev=document.getElementById('importPreview');
-  prev.innerHTML='<span style="color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Reading...</span>';
-  if(name.endsWith('.json')){var fr=new FileReader();fr.onload=function(e){try{var d=JSON.parse(e.target.result);_importData=Array.isArray(d)?d.map(mapRow):(d&&d.plots?d.plots.map(mapRow):[]);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">JSON error: '+esc(ex.message)+'</span>';}};fr.readAsText(file);}
-  else if(name.endsWith('.xlsx')||name.endsWith('.xls')){var fr2=new FileReader();fr2.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'binary'}),ws=wb.Sheets[wb.SheetNames[0]],json=XLSX.utils.sheet_to_json(ws,{defval:''});_importData=json.map(mapRow);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">Excel error: '+esc(ex.message)+'</span>';}};fr2.readAsBinaryString(file);}
-  else if(name.endsWith('.csv')||name.endsWith('.txt')){var fr3=new FileReader();fr3.onload=function(e){try{_importData=parseCSV(e.target.result).map(mapRow);prev.innerHTML='<span style="color:#34d399;"><i class="fas fa-check-circle"></i> '+_importData.length+' records found — ready to import</span>';document.getElementById('confirmImportBtn').style.display='';}catch(ex){prev.innerHTML='<span style="color:#ef4444;">CSV error: '+esc(ex.message)+'</span>';}};fr3.readAsText(file);}
-  else prev.innerHTML='<span style="color:#ef4444;">Unsupported file type.</span>';
+  var file=files[0],ext=file.name.toLowerCase(),prev=document.getElementById('importPreview');
+  prev.innerHTML='<span style="color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Reading '+esc(file.name)+'…</span>';
+  document.getElementById('confirmImportBtn').style.display='none';
+  function onRows(rows){
+    _importData=rows.map(function(r,i){var m=mapRow(r);if(!m.no)m.no='IMP-'+(i+1);return m;});
+    _showImportPreview();
+  }
+  if(ext.endsWith('.json')){
+    var fr=new FileReader();
+    fr.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
+    fr.onload=function(e){try{var d=JSON.parse(e.target.result);var arr=Array.isArray(d)?d:(d&&d.plots?d.plots:[d]);onRows(arr);}catch(ex){prev.innerHTML='<span style="color:#ef4444;">JSON parse error: '+esc(ex.message)+'</span>';}};
+    fr.readAsText(file);
+  } else if(ext.endsWith('.xlsx')||ext.endsWith('.xls')){
+    var fr2=new FileReader();
+    fr2.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
+    fr2.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:'binary'}),ws=wb.Sheets[wb.SheetNames[0]];var json=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});onRows(json);}catch(ex){prev.innerHTML='<span style="color:#ef4444;">Excel error: '+esc(ex.message)+'</span>';}};
+    fr2.readAsBinaryString(file);
+  } else if(ext.endsWith('.csv')||ext.endsWith('.txt')){
+    var fr3=new FileReader();
+    fr3.onerror=function(){prev.innerHTML='<span style="color:#ef4444;">Could not read file.</span>';};
+    fr3.onload=function(e){try{onRows(parseCSV(e.target.result));}catch(ex){prev.innerHTML='<span style="color:#ef4444;">CSV error: '+esc(ex.message)+'</span>';}};
+    fr3.readAsText(file);
+  } else {
+    prev.innerHTML='<span style="color:#ef4444;"><i class="fas fa-times-circle"></i> Unsupported file type. Use JSON, CSV, XLSX or TXT.</span>';
+  }
 }
 
 function confirmImport(){
   if(!_importData.length)return;
-  var existing=new Set(plots.map(function(p){return(p.no||'').toLowerCase();}));var added=0;
-  _importData.forEach(function(p){if(!p.no||existing.has(p.no.toLowerCase()))return;p.id=Date.now()+Math.random();plots.push(p);existing.add(p.no.toLowerCase());added++;});
+  var replace=document.getElementById('replaceChk')&&document.getElementById('replaceChk').checked;
+  var existing=new Set(plots.map(function(p){return(p.no||'').toLowerCase();}));
+  var added=0,replaced=0;
+  _importData.forEach(function(p){
+    p.id=Date.now()+Math.random();
+    if(existing.has((p.no||'').toLowerCase())){
+      if(replace){var idx=plots.findIndex(function(x){return(x.no||'').toLowerCase()===(p.no||'').toLowerCase();});if(idx>-1){plots[idx]=p;replaced++;}}
+    } else {
+      plots.push(p);existing.add((p.no||'').toLowerCase());added++;
+    }
+  });
   filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeImportModal();
-  showToastNotification(added+' plots imported ('+((_importData.length-added))+' duplicates skipped).','success');
+  var msg=added+' plots imported';
+  if(replaced)msg+=', '+replaced+' updated';
+  if(_importData.length-added-replaced>0)msg+=', '+(_importData.length-added-replaced)+' skipped (duplicates)';
+  showToastNotification(msg,'success');
 }
 
 function exportCSV(){downloadCSV(plots,'plots_export.csv');}
