@@ -553,7 +553,6 @@
         videoHTML += `</div>`;
       }
       const panoramaHTML = plot.panorama ? `<div class="mt-4"><div class="flex justify-between text-xs text-gray-400 mb-1"><span>360° PANORAMA</span><button onclick="viewPanorama('${plot.panorama}'); closeCard()" class="px-3 py-1 bg-purple-600 rounded-xl text-xs">View</button></div><div class="w-full h-28 bg-gray-800 rounded-2xl overflow-hidden border border-purple-500 cursor-pointer" onclick="viewPanorama('${plot.panorama}'); closeCard()"><img src="${plot.panorama}" class="w-full h-full object-cover"></div></div>` : '';
-      // Enhanced tabbed plot card
       const pricePerSqm = plot.size ? (Number(plot.price) / Number(plot.size)).toFixed(0) : 'N/A';
       const plotDeals = deals.filter(d => d.plotId === plot.id);
       const linkedClient = clients.find(c => c.linkedPlots && c.linkedPlots.includes(plot.id));
@@ -608,14 +607,16 @@
         <div id="tab-crm" class="plot-card-tab-content hidden">
           <div class="mb-4"><div class="text-xs text-gray-400 mb-2">LINKED CLIENT</div>${linkedClient ? `<div onclick="viewClient(${linkedClient.id}); closeCard()" class="cursor-pointer bg-gray-800 p-4 rounded-2xl flex justify-between"><div><div class="font-bold">${linkedClient.name}</div><div class="text-xs text-gray-400">${linkedClient.type}</div></div><i class="fas fa-arrow-right text-indigo-400"></i></div>` : `<button onclick="linkPlotToClientFromCard(${plot.id}); closeCard()" class="w-full py-4 border border-dashed border-gray-600 hover:border-indigo-500 rounded-2xl text-sm flex justify-center gap-2"><i class="fas fa-link"></i> Link Client</button>`}</div>
           <div class="mb-4"><div class="text-xs text-gray-400 mb-2">DEALS (${plotDeals.length})</div>${plotDeals.length ? plotDeals.map(d => `<div class="bg-gray-800 p-3 rounded-xl mb-2 text-sm flex justify-between"><div>${clients.find(c=>c.id===d.clientId)?.name || 'Client'}<div class="text-xs text-gray-400">${d.stage}</div></div><div class="font-bold text-emerald-400">AED ${(parseInt(d.value)/1e6).toFixed(1)}M</div></div>`).join('') : '<div class="text-xs text-center py-4 border border-dashed border-gray-700 rounded-2xl text-gray-500">No deals yet</div>'}</div>
-          <div class="grid grid-cols-3 gap-3 text-sm">
+          <div class="grid grid-cols-2 gap-3 text-sm">
             <button onclick="linkToDeal(${plot.id}); closeCard()" class="py-4 bg-blue-600 rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-handshake"></i> Link Deal</button>
             <button onclick="showScheduleModal(${plot.id}); closeCard()" class="py-4 bg-white text-black rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-calendar"></i> Schedule</button>
-            <button onclick="printPlot(${plot.id}); closeCard()" class="py-4 bg-gray-700 hover:bg-gray-600 rounded-2xl flex items-center justify-center gap-2"><i class="fas fa-print"></i> Print</button>
           </div>
         </div>
+        <div class="mt-4 pt-4 border-t border-gray-800">
+          <button onclick="printPlot(${plot.id})" class="w-full py-3 bg-gray-700 hover:bg-gray-600 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"><i class="fas fa-print mr-1"></i> Print Plot Report</button>
+        </div>
       `;
-      
+
       setTimeout(() => {
         const c = document.getElementById('priceTrendChart');
         if (c && window.Chart) {
@@ -627,6 +628,121 @@
     }
 
     function closeCard() { document.getElementById('mapCard').classList.add('hidden'); }
+
+    function printPlot(id) {
+      const plot = plots.find(p => p.id === id);
+      if (!plot) return;
+      const statusColor = plot.status === 'Available' ? '#16a34a' : plot.status === 'Reserved' ? '#ea580c' : '#dc2626';
+      const pricePerSqm = plot.size ? Math.round(Number(plot.price) / Number(plot.size)) : 'N/A';
+      const win = window.open('', '_blank');
+      win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plot ${plot.no} — Report</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #111; padding: 48px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #e5e7eb; padding-bottom: 24px; margin-bottom: 28px; }
+    .logo { font-size: 13px; color: #6b7280; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .logo span { color: #2563eb; }
+    .plot-no { font-size: 36px; font-weight: 800; color: #111; line-height: 1; }
+    .dev { font-size: 15px; color: #2563eb; margin-top: 4px; font-weight: 500; }
+    .badge { display: inline-block; padding: 6px 20px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 700; background: ${statusColor}; margin-top: 10px; letter-spacing: 0.03em; }
+    .section-title { font-size: 10px; font-weight: 700; color: #6b7280; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 14px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+    .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 20px; }
+    .card label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px; }
+    .card p { font-size: 18px; font-weight: 700; color: #111; }
+    .card .sub { font-size: 12px; color: #6b7280; font-weight: 400; margin-top: 2px; }
+    .divider { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+    .owner-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .owner-field { background: #eff6ff; border-radius: 10px; padding: 12px 16px; flex: 1; min-width: 140px; }
+    .owner-field label { font-size: 10px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 3px; }
+    .owner-field p { font-size: 15px; font-weight: 700; color: #1e40af; }
+    .coords { display: flex; gap: 10px; }
+    .coord-box { background: #f1f5f9; border-radius: 8px; padding: 8px 14px; flex: 1; }
+    .coord-box label { font-size: 10px; color: #64748b; text-transform: uppercase; font-weight: 600; display: block; }
+    .coord-box span { font-size: 13px; font-weight: 700; font-family: monospace; color: #0f172a; }
+    .plot-img { width: 100%; max-height: 280px; object-fit: cover; border-radius: 14px; border: 1px solid #e5e7eb; margin-bottom: 24px; }
+    .footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; }
+    @media print {
+      body { padding: 24px; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">AI Plot Portal <span>Pro</span></div>
+      <div class="plot-no">Plot ${plot.no}</div>
+      <div class="dev">${plot.dev || ''}</div>
+      <span class="badge">${plot.status}</span>
+    </div>
+    <button class="no-print" onclick="window.print()" style="background:#2563eb;color:#fff;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;">
+      <i class="fas fa-print" style="margin-right:6px;"></i>Print
+    </button>
+  </div>
+
+  <div class="section-title">Key Metrics</div>
+  <div class="grid-3">
+    <div class="card">
+      <label>Plot Size</label>
+      <p>${Number(plot.size).toLocaleString()} sqm</p>
+    </div>
+    <div class="card">
+      <label>Total Price</label>
+      <p>AED ${Number(plot.price).toLocaleString()}</p>
+      <div class="sub">${(Number(plot.price)/1e6).toFixed(2)}M</div>
+    </div>
+    <div class="card">
+      <label>Price / sqm</label>
+      <p>AED ${typeof pricePerSqm === 'number' ? pricePerSqm.toLocaleString() : pricePerSqm}</p>
+    </div>
+  </div>
+
+  ${plot.type || plot.gfa || plot.nfa || plot.far || plot.bua ? `
+  <div class="section-title">Plot Details</div>
+  <div class="grid-2" style="margin-bottom:28px;">
+    ${plot.type ? `<div class="card"><label>Type</label><p>${plot.type}</p></div>` : ''}
+    ${plot.gfa ? `<div class="card"><label>GFA</label><p>${Number(plot.gfa).toLocaleString()} sqm</p></div>` : ''}
+    ${plot.nfa ? `<div class="card"><label>NFA</label><p>${Number(plot.nfa).toLocaleString()} sqm</p></div>` : ''}
+    ${plot.far ? `<div class="card"><label>FAR</label><p>${plot.far}</p></div>` : ''}
+    ${plot.bua ? `<div class="card"><label>BUA</label><p>${Number(plot.bua).toLocaleString()} sqm</p></div>` : ''}
+  </div>` : ''}
+
+  ${plot.owner || plot.phone || plot.email ? `
+  <hr class="divider">
+  <div class="section-title">Owner / Customer</div>
+  <div class="owner-row">
+    ${plot.owner ? `<div class="owner-field"><label>Name</label><p>${plot.owner}</p></div>` : ''}
+    ${plot.phone ? `<div class="owner-field"><label>Phone</label><p>${plot.phone}</p></div>` : ''}
+    ${plot.email ? `<div class="owner-field"><label>Email</label><p>${plot.email}</p></div>` : ''}
+  </div>` : ''}
+
+  <hr class="divider">
+  <div class="section-title">Coordinates</div>
+  <div class="coords" style="margin-bottom:28px;">
+    <div class="coord-box"><label>Latitude</label><span>${plot.lat}</span></div>
+    <div class="coord-box"><label>Longitude</label><span>${plot.lng}</span></div>
+  </div>
+
+  ${plot.image ? `<img src="${plot.image}" class="plot-img" alt="Plot Photo">` : ''}
+
+  <div class="footer">
+    <span>AI Plot Portal Pro &mdash; Confidential</span>
+    <span>Printed: ${new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })} &nbsp;|&nbsp; ${new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' })}</span>
+  </div>
+</body>
+</html>`);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 400);
+    }
+
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id); saveToLocalStorage(); addPlotMarkers(); populateTable();
@@ -638,12 +754,11 @@
       const oldStatus = plot.status;
       plot.status = newStatus;
       saveToLocalStorage();
-      applyFilters(); // updates table + map markers based on current filter
+      applyFilters();
       if (currentFilter.status && newStatus !== currentFilter.status) {
         closeCard();
         showToastNotification('Status Updated', `Plot ${plot.no} changed to ${newStatus} and filtered out of current view`, 'info');
       } else {
-        // refresh the open card
         setTimeout(() => selectPlot(id), 100);
       }
     }
@@ -700,161 +815,6 @@
     }
 
     function printPDF() { window.print(); }
-
-    function printPlot(id) {
-      const plot = plots.find(p => p.id === id);
-      if (!plot) return;
-      const printWin = window.open('', '_blank');
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Plot ${plot.no} - ${plot.dev}</title>
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 12mm;
-            }
-            body {
-              font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
-              padding: 15mm;
-              max-width: 190mm;
-              margin: 0 auto;
-              color: #1f2937;
-              line-height: 1.6;
-              background: #ffffff;
-              font-size: 11pt;
-            }
-            h1 {
-              color: #1e3a8a;
-              border-bottom: 2.5px solid #1e40af;
-              padding-bottom: 8px;
-              margin-bottom: 18px;
-              font-size: 22pt;
-              font-weight: 700;
-            }
-            h3 {
-              color: #1e3a8a;
-              margin: 0 0 10px 0;
-              font-size: 13pt;
-              font-weight: 600;
-            }
-            .section {
-              margin: 14px 0;
-              padding: 12px 14px;
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 6px;
-              border-left: 5px solid #1e40af;
-              page-break-inside: avoid;
-            }
-            .label {
-              font-weight: 600;
-              color: #475569;
-              display: inline-block;
-              width: 135px;
-              font-size: 10pt;
-            }
-            .value {
-              font-weight: 600;
-              color: #0f172a;
-              font-size: 11pt;
-            }
-            .metrics {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 8px;
-              margin-top: 8px;
-            }
-            .metric {
-              background: #ffffff;
-              padding: 8px 10px;
-              border-radius: 5px;
-              border: 1px solid #cbd5e1;
-              text-align: center;
-              flex: 1 1 140px;
-              min-width: 130px;
-              page-break-inside: avoid;
-            }
-            .metric-label {
-              font-size: 9pt;
-              color: #64748b;
-              margin-bottom: 2px;
-            }
-            .metric-value {
-              font-size: 13pt;
-              font-weight: 700;
-              color: #0f172a;
-            }
-            .section p {
-              margin: 4px 0;
-            }
-            .footer {
-              margin-top: 25px;
-              font-size: 9pt;
-              color: #64748b;
-              text-align: center;
-              border-top: 1px solid #e2e8f0;
-              padding-top: 8px;
-            }
-            @media print {
-              body { padding: 8mm; font-size: 10pt; }
-              h1 { font-size: 18pt; }
-              .section { background: #f8fafc !important; border: 1px solid #e2e8f0 !important; }
-              .no-print { display: none !important; }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>Plot Report: ${plot.no}</h1>
-          <div class="section">
-            <p><span class="label">Development:</span> <span class="value">${plot.dev}</span></p>
-            <p><span class="label">Status:</span> <span class="value">${plot.status}</span></p>
-            <p><span class="label">Type:</span> <span class="value">${plot.type || 'Residential'}</span></p>
-          </div>
-          
-          <div class="section">
-            <h3 style="margin-top:0; color:#1e40af;">Key Metrics</h3>
-            <div class="metrics">
-              <div class="metric"><div class="metric-label">Size</div><div class="metric-value">${plot.size} sqm</div></div>
-              <div class="metric"><div class="metric-label">Price</div><div class="metric-value">AED ${(Number(plot.price)/1000000).toFixed(1)}M</div></div>
-              <div class="metric"><div class="metric-label">Price/sqm</div><div class="metric-value">AED ${Math.round(Number(plot.price)/Number(plot.size))}</div></div>
-            </div>
-          </div>
-
-          ${(plot.gfa || plot.nfa || plot.far || plot.bua) ? `
-          <div class="section">
-            <h3 style="margin-top:0; color:#1e40af;">Area Metrics</h3>
-            <div class="metrics">
-              ${plot.gfa ? `<div class="metric"><div class="metric-label">GFA</div><div class="metric-value">${plot.gfa} sqm</div></div>` : ''}
-              ${plot.nfa ? `<div class="metric"><div class="metric-label">NFA</div><div class="metric-value">${plot.nfa} sqm</div></div>` : ''}
-              ${plot.far ? `<div class="metric"><div class="metric-label">FAR</div><div class="metric-value">${plot.far}</div></div>` : ''}
-              ${plot.bua ? `<div class="metric"><div class="metric-label">BUA</div><div class="metric-value">${plot.bua} sqm</div></div>` : ''}
-            </div>
-          </div>` : ''}
-
-          ${(plot.owner || plot.phone || plot.email) ? `
-          <div class="section">
-            <h3 style="margin-top:0; color:#1e40af;">Owner / Customer (Internal)</h3>
-            ${plot.owner ? `<p><span class="label">Name:</span> <span class="value">${plot.owner}</span></p>` : ''}
-            ${plot.phone ? `<p><span class="label">Phone:</span> <span class="value">${plot.phone}</span></p>` : ''}
-            ${plot.email ? `<p><span class="label">Email:</span> <span class="value">${plot.email}</span></p>` : ''}
-          </div>` : ''}
-
-          <div class="section">
-            <h3 style="margin-top:0; color:#1e40af;">Location</h3>
-            <p><span class="label">Coordinates:</span> <span class="value">${plot.lat.toFixed(4)}, ${plot.lng.toFixed(4)}</span></p>
-            <p style="font-size:12px; color:#64748b;">https://www.google.com/maps?q=${plot.lat},${plot.lng}</p>
-          </div>
-
-          <div class="footer">Generated by AI Plot Portal • ${new Date().toLocaleDateString()} • Confidential</div>
-          <script>window.onload = () => { window.print(); setTimeout(() => window.close(), 1000); };</script>
-        </body>
-        </html>
-      `;
-      printWin.document.write(html);
-      printWin.document.close();
-    }
 
     function addNewPlot() {
       document.body.insertAdjacentHTML('beforeend', `
@@ -1247,7 +1207,6 @@
       const mapContainer = document.getElementById('map');
       mapContainer.style.cursor = 'crosshair';
       map.on('click', addAreaPoint);
-      // Add floating finish button
       const finishBtn = document.createElement('button');
       finishBtn.id = 'finishAreaBtn';
       finishBtn.className = 'absolute bottom-5 left-1/2 -translate-x-1/2 px-6 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium z-[1001] flex items-center gap-2 shadow-xl';
@@ -1293,7 +1252,6 @@
         area -= points[j].lat * points[i].lng;
       }
       area = Math.abs(area) / 2;
-      // Approximate conversion to sqm for Dubai area (lat ~25°)
       const lat = points[0].lat;
       const mPerDegLat = 110600;
       const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180);
@@ -1313,7 +1271,6 @@
       map.off('click', addAreaPoint);
     }
 
-    // ==================== ADVANCED GIS ANALYSIS ====================
     let bufferLayer = null;
     let analysisMarkers = [];
     let customZoneLayer = null;
@@ -1322,35 +1279,23 @@
       if (bufferLayer) map.removeLayer(bufferLayer);
       analysisMarkers.forEach(m => map.removeLayer(m));
       analysisMarkers = [];
-      
-      let centerLat, centerLng, radius = 2000; // default 2km
+      let centerLat, centerLng, radius = 2000;
       let plot = null;
-      
       if (plotId) {
         plot = plots.find(p => p.id === plotId);
         centerLat = plot.lat;
         centerLng = plot.lng;
-        // Auto radius based on plot size
         radius = Math.max(500, Math.min(5000, parseInt(plot.size) / 2));
       } else {
-        // Use map center or prompt
         const center = map.getCenter();
         centerLat = center.lat;
         centerLng = center.lng;
         const userRadius = prompt("Enter buffer radius in meters (default 2000):", "2000");
         radius = parseInt(userRadius) || 2000;
       }
-      
       bufferLayer = L.circle([centerLat, centerLng], {
-        radius: radius,
-        color: '#3b82f6',
-        fillColor: '#3b82f6',
-        fillOpacity: 0.15,
-        weight: 3,
-        dashArray: '5, 5'
+        radius: radius, color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 3, dashArray: '5, 5'
       }).addTo(map);
-      
-      // Find intersecting plots
       let intersecting = [];
       plots.forEach(p => {
         const dist = calculateDistance(centerLat, centerLng, p.lat, p.lng);
@@ -1359,683 +1304,10 @@
           const marker = L.marker([p.lat, p.lng], {
             icon: L.divIcon({
               html: `<div style="background:#ef4444;color:white;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:bold;">${p.no}</div>`,
-              className: 'analysis-marker',
-              iconSize: [40, 20]
+              className: 'analysis-marker', iconSize: [40, 20]
             })
           }).addTo(map).bindPopup(`<b>${p.no}</b><br>Distance: ${dist.toFixed(0)}m<br>Status: ${p.status}`);
           analysisMarkers.push(marker);
         }
       });
-      
-      const popupContent = `
-        <div style="min-width:220px">
-          <h4 class="font-bold text-blue-400">Buffer Analysis</h4>
-          <p>Radius: <b>${(radius/1000).toFixed(1)} km</b></p>
-          <p>Plots in buffer: <b>${intersecting.length}</b></p>
-          <div class="mt-2 text-xs">
-            ${intersecting.length > 0 ? intersecting.map(p => `• ${p.no} (${(calculateDistance(centerLat, centerLng, p.lat, p.lng)/1000).toFixed(1)}km)`).join('<br>') : 'No other plots in range'}
-          </div>
-          <button onclick="clearAnalysis()" class="mt-3 px-3 py-1 bg-red-600 text-xs rounded">Clear Analysis</button>
-        </div>
-      `;
-      bufferLayer.bindPopup(popupContent).openPopup();
-      
-      showToastNotification('GIS Analysis', `Buffer created: ${intersecting.length} plots within ${(radius/1000).toFixed(1)}km`, 'info');
-    }
-
-    function startSpatialQuery() {
-      const queryType = prompt("Spatial Query Type:\n1. Within distance of selected plot\n2. Custom point + radius\nEnter 1 or 2:", "1");
-      
-      if (queryType === "1") {
-        // Select plot first
-        const plotNo = prompt("Enter Plot Number (e.g. A-128):");
-        const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
-        if (!plot) return alert("Plot not found");
-        const radius = parseInt(prompt("Radius in meters:", "1500")) || 1500;
-        startBufferAnalysis(plot.id); // reuse
-      } else if (queryType === "2") {
-        alert("Click on map to set query center...");
-        map.once('click', function(e) {
-          const radius = parseInt(prompt("Radius in meters:", "1500")) || 1500;
-          if (bufferLayer) map.removeLayer(bufferLayer);
-          bufferLayer = L.circle([e.latlng.lat, e.latlng.lng], {
-            radius: radius, color: '#8b5cf6', fillColor: '#8b5cf6', fillOpacity: 0.2, weight: 2
-          }).addTo(map);
-          
-          let count = 0, totalValue = 0;
-          plots.forEach(p => {
-            if (calculateDistance(e.latlng.lat, e.latlng.lng, p.lat, p.lng) <= radius) {
-              count++;
-              totalValue += parseInt(p.price);
-            }
-          });
-          
-          bufferLayer.bindPopup(`
-            <div>
-              <b>Custom Spatial Query</b><br>
-              Radius: ${(radius/1000).toFixed(1)}km<br>
-              Plots found: <b>${count}</b><br>
-              Total Value: <b>AED ${(totalValue/1000000).toFixed(1)}M</b><br>
-              <button onclick="clearAnalysis()" class="mt-2 px-3 py-1 bg-red-600 text-xs rounded">Clear</button>
-            </div>
-          `).openPopup();
-        });
-      }
-    }
-
-    function analyzeCustomZone() {
-      if (customZoneLayer) map.removeLayer(customZoneLayer);
-      alert("Draw custom zone: Click points on map. Double-click to finish & analyze.");
-      
-      let zonePoints = [];
-      let zonePolyline = null;
-      
-      const clickHandler = function(e) {
-        zonePoints.push(e.latlng);
-        if (zonePolyline) map.removeLayer(zonePolyline);
-        zonePolyline = L.polyline(zonePoints, {color: '#22c55e', weight: 3, dashArray: '8,4'}).addTo(map);
-      };
-      
-      map.on('click', clickHandler);
-      
-      map.once('dblclick', function() {
-        map.off('click', clickHandler);
-        if (zonePoints.length < 3) {
-          alert("Need at least 3 points");
-          if (zonePolyline) map.removeLayer(zonePolyline);
-          return;
-        }
-        
-        customZoneLayer = L.polygon(zonePoints, {color: '#22c55e', weight: 3, fillColor: '#22c55e', fillOpacity: 0.2}).addTo(map);
-        if (zonePolyline) map.removeLayer(zonePolyline);
-        
-        // Point in polygon check (simple ray casting)
-        let inZone = [], totalPrice = 0, avgSize = 0;
-        plots.forEach(p => {
-          if (isPointInPolygon(p.lat, p.lng, zonePoints)) {
-            inZone.push(p);
-            totalPrice += parseInt(p.price);
-            avgSize += parseInt(p.size);
-          }
-        });
-        avgSize = inZone.length > 0 ? (avgSize / inZone.length).toFixed(0) : 0;
-        
-        const popup = L.popup({closeOnClick: false}).setLatLng(zonePoints[0]).setContent(`
-          <div style="min-width:240px">
-            <h4 class="font-bold text-green-400 mb-2">Custom Zone Analysis</h4>
-            <div class="grid grid-cols-2 gap-2 text-sm">
-              <div>Plots in Zone: <b class="text-lg">${inZone.length}</b></div>
-              <div>Total Value: <b>AED ${(totalPrice/1e6).toFixed(1)}M</b></div>
-              <div>Avg Size: <b>${avgSize} sqm</b></div>
-              <div>Avg Price: <b>AED ${inZone.length ? (totalPrice/inZone.length/1e6).toFixed(1) : 0}M</b></div>
-            </div>
-            <div class="mt-3 text-xs">${inZone.map(p => `• ${p.no} (${p.status})`).join('<br>')}</div>
-            <button onclick="clearZoneAnalysis()" class="mt-3 w-full py-1.5 bg-red-600 rounded-xl text-sm">Clear Zone</button>
-          </div>
-        `).openOn(map);
-        
-        showToastNotification('Zone Analysis', `${inZone.length} plots in custom zone • Total AED ${(totalPrice/1e6).toFixed(1)}M`, 'success');
-      });
-    }
-
-    function isPointInPolygon(lat, lng, poly) {
-      let inside = false;
-      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-        const xi = poly[i].lat, yi = poly[i].lng;
-        const xj = poly[j].lat, yj = poly[j].lng;
-        const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      return inside;
-    }
-
-    function clearAnalysis() {
-      if (bufferLayer) { map.removeLayer(bufferLayer); bufferLayer = null; }
-      analysisMarkers.forEach(m => map.removeLayer(m));
-      analysisMarkers = [];
-      showToastNotification('GIS', 'Analysis cleared', 'info');
-    }
-
-    function clearZoneAnalysis() {
-      if (customZoneLayer) { map.removeLayer(customZoneLayer); customZoneLayer = null; }
-      map.closePopup();
-    }
-
-    function toggleProximityAmenities() {
-      // Mock amenities layers
-      if (window.amenityLayers && window.amenityLayers.length > 0) {
-        window.amenityLayers.forEach(l => map.removeLayer(l));
-        window.amenityLayers = [];
-        showToastNotification('Amenities', 'Amenity layers hidden', 'info');
-        return;
-      }
-      
-      window.amenityLayers = [];
-      const amenities = [
-        { name: "Dubai Mall Metro", lat: 25.1972, lng: 55.2796, type: "metro", color: "#06b6d4" },
-        { name: "Emirates School", lat: 25.2654, lng: 55.3012, type: "school", color: "#eab308" },
-        { name: "Burj Al Arab View", lat: 25.1413, lng: 55.1855, type: "landmark", color: "#ec4899" },
-        { name: "Jumeirah Beach", lat: 25.2123, lng: 55.2487, type: "beach", color: "#14b8a6" }
-      ];
-      
-      amenities.forEach(a => {
-        const icon = a.type === 'metro' ? '🚇' : a.type === 'school' ? '🏫' : a.type === 'landmark' ? '🏛️' : '🏖️';
-        const marker = L.marker([a.lat, a.lng], {
-          icon: L.divIcon({ html: `<div style="font-size:18px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${icon}</div>`, iconSize: [24,24], className: '' })
-        }).addTo(map).bindPopup(`<b>${a.name}</b><br><span class="text-xs">Type: ${a.type}</span><br><button onclick="findPlotsNearAmenity(${a.lat},${a.lng},1500)" class="mt-1 px-2 py-0.5 bg-blue-600 text-xs rounded">Find Plots Nearby</button>`);
-        window.amenityLayers.push(marker);
-      });
-      
-      showToastNotification('Proximity Analysis', 'Amenity layers activated • Click markers for nearby plots', 'info');
-    }
-
-    function findPlotsNearAmenity(lat, lng, radius = 1500) {
-      let nearby = [];
-      plots.forEach(p => {
-        const d = calculateDistance(lat, lng, p.lat, p.lng);
-        if (d <= radius) nearby.push({plot: p, dist: d});
-      });
-      nearby.sort((a,b) => a.dist - b.dist);
-      
-      const content = nearby.length > 0 ? 
-        nearby.slice(0,5).map(n => `• ${n.plot.no} (${n.dist.toFixed(0)}m) - ${n.plot.status}`).join('<br>') : 
-        'No plots within range';
-      
-      L.popup().setLatLng([lat, lng]).setContent(`
-        <div><b>Nearby Plots</b> (${nearby.length} total)<br><span class="text-xs">${content}</span><br>
-        <button onclick="clearAnalysis()" class="mt-2 text-xs px-3 py-1 bg-red-600 rounded">Close</button></div>
-      `).openOn(map);
-    }
-
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371e3;
-      const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
-      const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
-      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    }
-
-    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
-    document.addEventListener('click', function(e) {
-      const sidebar = document.getElementById('sidebar'), hamburger = document.querySelector('.hamburger');
-      if (window.innerWidth < 768 && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !hamburger.contains(e.target)) sidebar.classList.remove('open');
-    });
-
-    let customValidationRules = { minPrice: 500000, maxPrice: 50000000, minSize: 200, maxSize: 10000, plotNumberPattern: "^[A-Z]-\\d{3,4}$" };
-    function loadCustomRules() { const s = localStorage.getItem('aiPlotValidationRules'); if (s) customValidationRules = JSON.parse(s); }
-    function showValidationRulesModal() {
-      loadCustomRules();
-      document.body.insertAdjacentHTML('beforeend', `
-        <div id="validationRulesModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[5000]">
-          <div class="bg-gray-900 rounded-3xl w-[480px] border border-gray-700 shadow-2xl">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
-              <div><h3 class="text-2xl font-semibold">Custom Validation Rules</h3><p class="text-sm text-gray-400">Set your market-specific rules</p></div>
-              <button onclick="closeValidationRulesModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-            </div>
-            <div class="p-8 space-y-6">
-              <div><label class="block text-xs text-gray-400 mb-2">Minimum Price (AED)</label><input type="number" id="ruleMinPrice" value="${customValidationRules.minPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-              <div><label class="block text-xs text-gray-400 mb-2">Maximum Price (AED)</label><input type="number" id="ruleMaxPrice" value="${customValidationRules.maxPrice}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-              <div class="grid grid-cols-2 gap-4">
-                <div><label class="block text-xs text-gray-400 mb-2">Minimum Size (sqm)</label><input type="number" id="ruleMinSize" value="${customValidationRules.minSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-2">Maximum Size (sqm)</label><input type="number" id="ruleMaxSize" value="${customValidationRules.maxSize}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-              </div>
-              <div><label class="block text-xs text-gray-400 mb-2">Plot Number Pattern (Regex)</label><input type="text" id="rulePlotPattern" value="${customValidationRules.plotNumberPattern}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><p class="text-xs text-gray-500 mt-1">Example: ^[A-Z]-\\d{3,4}$</p></div>
-            </div>
-            <div class="px-8 py-5 border-t border-gray-700 flex gap-3">
-              <button onclick="closeValidationRulesModal()" class="flex-1 py-3 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm">Cancel</button>
-              <button onclick="saveValidationRules()" class="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-2xl text-sm font-medium">Save Rules</button>
-            </div>
-          </div>
-        </div>`);
-    }
-    function closeValidationRulesModal() { const m = document.getElementById('validationRulesModal'); if (m) m.remove(); }
-    function saveValidationRules() {
-      customValidationRules = { minPrice: parseInt(document.getElementById('ruleMinPrice').value)||500000, maxPrice: parseInt(document.getElementById('ruleMaxPrice').value)||50000000, minSize: parseInt(document.getElementById('ruleMinSize').value)||200, maxSize: parseInt(document.getElementById('ruleMaxSize').value)||10000, plotNumberPattern: document.getElementById('rulePlotPattern').value||"^[A-Z]-\\d{3,4}$" };
-      localStorage.setItem('aiPlotValidationRules', JSON.stringify(customValidationRules)); closeValidationRulesModal();
-      alert("✅ Custom validation rules saved successfully!");
-    }
-
-    let heatmapLayer = null, heatmapEnabled = false;
-    function toggleHeatmap() {
-      if (heatmapEnabled) {
-        if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; }
-        if (markerCluster) markerCluster.addTo(map); heatmapEnabled = false;
-        showToastNotification('Heatmap', 'Heatmap disabled - showing markers', 'info');
-      } else {
-        if (markerCluster) markerCluster.remove();
-        const heatData = plots.map(p => [p.lat, p.lng, p.status==='Available'?0.8:p.status==='Reserved'?0.6:0.4]);
-        heatmapLayer = L.heatLayer(heatData, { radius: 35, blur: 25, maxZoom: 17, gradient: { 0.4:'#3b82f6', 0.6:'#22c55e', 0.8:'#f59e0b', 1.0:'#ef4444' } }).addTo(map);
-        heatmapEnabled = true; showToastNotification('Heatmap', 'Heatmap enabled - showing plot density', 'info');
-      }
-    }
-
-    function editPlot(id) {
-      const plot = plots.find(p => p.id === id); if (!plot) return;
-      document.body.insertAdjacentHTML('beforeend', `
-        <div id="editPlotModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[3000]">
-          <div class="bg-gray-900 rounded-3xl w-[620px] border border-gray-700 shadow-2xl max-h-[90vh] overflow-auto">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-900 z-10">
-              <div><h3 class="text-2xl font-semibold">Edit Plot</h3><p class="text-sm text-gray-400">Plot ${plot.no}</p></div>
-              <button onclick="closeEditPlotModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-            </div>
-            <div class="p-8 space-y-6">
-              <div class="grid grid-cols-2 gap-5">
-                <div><label class="block text-xs text-gray-400 mb-1.5">Plot Number</label><input type="text" id="editPlotNo" value="${plot.no}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-1.5">Development</label><input type="text" id="editDev" value="${plot.dev}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-              </div>
-              <div><label class="block text-xs text-gray-400 mb-1.5">Plot Type</label><select id="editType" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="Residential" ${plot.type==='Residential'?'selected':''}>Residential</option><option value="Commercial" ${plot.type==='Commercial'?'selected':''}>Commercial</option><option value="Industrial" ${plot.type==='Industrial'?'selected':''}>Industrial</option><option value="School" ${plot.type==='School'?'selected':''}>School / Educational</option><option value="Camp" ${plot.type==='Camp'?'selected':''}>Camp / Labor Accommodation</option><option value="Other" ${plot.type==='Other'?'selected':''}>Other</option></select></div>
-              <div class="border border-gray-700 rounded-2xl p-5"><div class="text-xs text-gray-400 mb-3 font-semibold">AREA INFORMATION</div><div class="grid grid-cols-2 gap-5">
-                <div><label class="block text-xs text-gray-400 mb-1.5">GFA (sqm)</label><input type="number" id="editGFA" value="${plot.gfa||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-1.5">NFA (sqm)</label><input type="number" id="editNFA" value="${plot.nfa||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-1.5">FAR</label><input type="number" step="0.1" id="editFAR" value="${plot.far||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-1.5">BUA (sqm)</label><input type="number" id="editBUA" value="${plot.bua||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-              </div></div>
-              <div class="grid grid-cols-2 gap-5">
-                <div><label class="block text-xs text-gray-400 mb-1.5">Price (AED)</label><input type="number" id="editPrice" value="${plot.price}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div><label class="block text-xs text-gray-400 mb-1.5">Status</label><select id="editStatus" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"><option value="Available" ${plot.status==='Available'?'selected':''}>Available</option><option value="Reserved" ${plot.status==='Reserved'?'selected':''}>Reserved</option><option value="Sold" ${plot.status==='Sold'?'selected':''}>Sold</option></select></div>
-              </div>
-              <div class="border border-gray-700 rounded-2xl p-5"><div class="text-xs text-gray-400 mb-3 font-semibold">OWNER / CUSTOMER INFORMATION</div><div class="grid grid-cols-1 gap-4">
-                <div><label class="block text-xs text-gray-400 mb-1.5">Owner Name</label><input type="text" id="editOwner" value="${plot.owner||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div><label class="block text-xs text-gray-400 mb-1.5">Phone Number</label><input type="text" id="editPhone" value="${plot.phone||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                  <div><label class="block text-xs text-gray-400 mb-1.5">Email Address</label><input type="email" id="editEmail" value="${plot.email||''}" class="w-full bg-gray-800 rounded-2xl px-5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></div>
-                </div>
-              </div></div>
-            </div>
-            <div class="px-8 py-5 border-t border-gray-700 flex gap-3 bg-gray-950 sticky bottom-0">
-              <button onclick="closeEditPlotModal()" class="flex-1 py-4 rounded-2xl border border-gray-600 hover:bg-gray-800 text-sm font-medium">Cancel</button>
-              <button onclick="saveEditPlot(${plot.id})" class="flex-1 py-4 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm font-medium">Save Changes</button>
-            </div>
-          </div>
-        </div>`);
-    }
-    function closeEditPlotModal() { const m = document.getElementById('editPlotModal'); if (m) m.remove(); }
-    function saveEditPlot(id) {
-      const plot = plots.find(p => p.id === id); if (!plot) return;
-      plot.no = document.getElementById('editPlotNo').value.trim();
-      plot.dev = document.getElementById('editDev').value.trim();
-      plot.type = document.getElementById('editType').value;
-      plot.gfa = document.getElementById('editGFA').value;
-      plot.nfa = document.getElementById('editNFA').value;
-      plot.far = document.getElementById('editFAR').value;
-      plot.bua = document.getElementById('editBUA').value;
-      plot.price = document.getElementById('editPrice').value;
-      plot.status = document.getElementById('editStatus').value;
-      plot.owner = document.getElementById('editOwner').value.trim();
-      plot.phone = document.getElementById('editPhone').value.trim();
-      plot.email = document.getElementById('editEmail').value.trim();
-      addPlotMarkers(); populateTable(); saveToLocalStorage(); closeEditPlotModal();
-      setTimeout(() => selectPlot(id), 100);
-      alert(`✅ Plot ${plot.no} updated successfully!`);
-    }
-
-    let currentUser = null;
-    function login() {
-      const username = document.getElementById('loginUsername').value.trim();
-      const password = document.getElementById('loginPassword').value.trim();
-      const accounts = { 'admin': { password: 'admin123', name: 'Admin User', role: 'Administrator', avatar: 'AD', color: 'bg-blue-600' }, 'manager': { password: 'manager123', name: 'Manager User', role: 'Manager', avatar: 'MG', color: 'bg-green-600' }, 'viewer': { password: 'viewer123', name: 'Viewer User', role: 'Viewer', avatar: 'VW', color: 'bg-orange-600' } };
-      if (accounts[username] && accounts[username].password === password) {
-        currentUser = { username, name: accounts[username].name, role: accounts[username].role, avatar: accounts[username].avatar, color: accounts[username].color };
-        localStorage.setItem('aiPlotCurrentUser', JSON.stringify(currentUser));
-        document.getElementById('loginModal').classList.add('hidden'); updateUserUI();
-        setTimeout(() => alert(`✅ Welcome back, ${currentUser.name}!`), 500);
-      } else { alert('❌ Invalid username or password'); }
-    }
-    function logout() {
-      if (confirm('Are you sure you want to logout?')) {
-        currentUser = null; localStorage.removeItem('aiPlotCurrentUser');
-        document.getElementById('loginModal').classList.remove('hidden');
-        document.getElementById('userName').textContent = 'Not Logged In';
-        document.getElementById('userRole').textContent = '';
-        document.getElementById('userAvatar').innerHTML = '<i class="fas fa-user"></i>';
-        document.getElementById('userAvatar').className = 'w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-sm font-bold';
-      }
-    }
-    function updateUserUI() {
-      if (!currentUser) return;
-      document.getElementById('userName').textContent = currentUser.name;
-      document.getElementById('userRole').textContent = currentUser.role;
-      document.getElementById('userAvatar').innerHTML = currentUser.avatar;
-      document.getElementById('userAvatar').className = `w-10 h-10 ${currentUser.color} rounded-full flex items-center justify-center text-sm font-bold`;
-      if (currentUser.role === 'Viewer') document.querySelectorAll('button[onclick*="editPlot"], button[onclick*="deletePlot"], button[onclick*="bulkDelete"]').forEach(btn => btn.style.display = 'none');
-    }
-    function checkAuth() {
-      const savedUser = localStorage.getItem('aiPlotCurrentUser');
-      currentUser = savedUser ? JSON.parse(savedUser) : { username: 'guest', name: 'Guest User', role: 'Guest', avatar: 'GU', color: 'bg-gray-600' };
-      document.getElementById('loginModal').classList.add('hidden'); updateUserUI();
-    }
-    function continueAsGuest() {
-      currentUser = { username: 'guest', name: 'Guest User', role: 'Guest', avatar: 'GU', color: 'bg-gray-600' };
-      document.getElementById('loginModal').classList.add('hidden'); updateUserUI();
-      setTimeout(() => alert('✅ Welcome, Guest! You have full access to all features.'), 500);
-    }
-
-    let notifications = [], notificationPanelOpen = false;
-    function addNotification(title, message, type = 'info') {
-      notifications.unshift({ id: Date.now(), title, message, type, time: new Date(), read: false });
-      updateNotificationBadge(); showToastNotification(title, message, type);
-      if (Notification.permission === 'granted') new Notification(title, { body: message });
-      if (notificationPanelOpen) renderNotificationPanel();
-    }
-    function updateNotificationBadge() {
-      const unread = notifications.filter(n => !n.read).length, badge = document.getElementById('notificationBadge');
-      if (unread > 0) { badge.textContent = unread > 9 ? '9+' : unread; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); }
-    }
-    function showToastNotification(title, message, type) {
-      const colors = { info: 'bg-blue-600', success: 'bg-green-600', warning: 'bg-orange-600', error: 'bg-red-600' };
-      const toast = document.createElement('div');
-      toast.className = `fixed bottom-6 right-6 ${colors[type]||'bg-blue-600'} text-white px-6 py-4 rounded-2xl shadow-2xl z-[9999] flex items-start gap-4 max-w-sm`;
-      toast.innerHTML = `<div class="flex-1"><div class="font-semibold">${title}</div><div class="text-sm opacity-90 mt-1">${message}</div></div><button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white">×</button>`;
-      document.body.appendChild(toast); setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
-    }
-    function toggleNotifications() {
-      const existing = document.getElementById('notificationPanel');
-      if (existing) { existing.remove(); notificationPanelOpen = false; return; }
-      notificationPanelOpen = true; renderNotificationPanel();
-    }
-    function renderNotificationPanel() {
-      const existing = document.getElementById('notificationPanel'); if (existing) existing.remove();
-      const panel = document.createElement('div');
-      panel.id = 'notificationPanel'; panel.className = 'fixed top-16 right-4 w-96 bg-gray-900 border border-gray-700 rounded-3xl shadow-2xl z-[9999] overflow-hidden';
-      let html = `<div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center"><div class="font-semibold">Notifications</div><div class="flex gap-2"><button onclick="markAllAsRead()" class="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded-xl">Mark all read</button><button onclick="document.getElementById('notificationPanel').remove();notificationPanelOpen=false;" class="text-xl text-gray-400 hover:text-white">×</button></div></div><div class="max-h-[400px] overflow-y-auto">`;
-      if (notifications.length === 0) { html += `<div class="px-6 py-12 text-center text-gray-400"><i class="fas fa-bell text-4xl mb-4 opacity-50"></i><div>No notifications yet</div></div>`; }
-      else { notifications.forEach((n, i) => { const colors = {success:'bg-green-600',warning:'bg-orange-600',error:'bg-red-600',info:'bg-blue-600'}; const icons = {success:'fa-check',warning:'fa-exclamation',error:'fa-times',info:'fa-info'}; html += `<div onclick="markAsRead(${n.id},${i})" class="px-6 py-4 border-b border-gray-800 hover:bg-gray-800 cursor-pointer ${n.read?'opacity-60':''}"><div class="flex items-start gap-3"><div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${colors[n.type]||'bg-blue-600'}"><i class="fas ${icons[n.type]||'fa-info'} text-white text-sm"></i></div><div class="flex-1 min-w-0"><div class="font-semibold text-sm">${n.title}</div><div class="text-xs text-gray-400 mt-1">${n.message}</div><div class="text-[10px] text-gray-500 mt-1">${getTimeAgo(n.time)}</div></div></div></div>`; }); }
-      html += `</div>`;
-      if (notifications.length > 0) html += `<div class="px-6 py-3 border-t border-gray-700 text-center"><button onclick="clearAllNotifications()" class="text-xs text-gray-400 hover:text-white">Clear all notifications</button></div>`;
-      panel.innerHTML = html; document.body.appendChild(panel);
-    }
-    function getTimeAgo(date) { const s = Math.floor((new Date()-date)/1000); if (s<60) return 'Just now'; if (s<3600) return Math.floor(s/60)+'m ago'; if (s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
-    function markAsRead(id, index) { notifications[index].read = true; updateNotificationBadge(); renderNotificationPanel(); }
-    function markAllAsRead() { notifications.forEach(n => n.read = true); updateNotificationBadge(); renderNotificationPanel(); }
-    function clearAllNotifications() { notifications = []; updateNotificationBadge(); document.getElementById('notificationPanel').remove(); notificationPanelOpen = false; }
-    function startNotificationSimulation() {
-      setInterval(() => { if (Math.random() > 0.7 && currentUser) addNotification('New Plot Added', `Plot D-${Math.floor(1000+Math.random()*9000)} was added to the system`, 'success'); }, 45000);
-      setInterval(() => {
-        if (Math.random() > 0.8 && plots.length > 0 && currentUser) {
-          const p = plots[Math.floor(Math.random()*plots.length)], newStatus = ['Available','Reserved','Sold'][Math.floor(Math.random()*3)];
-          if (p.status !== newStatus) { addNotification('Status Updated', `Plot ${p.no} changed to ${newStatus}`, 'info'); p.status = newStatus; addPlotMarkers(); populateTable(); }
-        }
-      }, 60000);
-      setTimeout(() => { if (currentUser && notifications.length === 0) addNotification('Welcome Back!', `You have ${plots.length} plots in your portfolio`, 'info'); }, 3000);
-    }
-
-    function showOfflineSyncModal() {
-      document.body.insertAdjacentHTML('beforeend', `
-        <div id="offlineModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center" onclick="closeOfflineModal()">
-          <div onclick="event.stopImmediatePropagation()" class="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-md mx-4 shadow-2xl">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between items-center">
-              <div><h3 class="text-2xl font-bold flex items-center gap-3"><i class="fas fa-sync-alt text-amber-400"></i> Offline Sync & Backup</h3><p class="text-sm text-gray-400 mt-1">Works completely offline. Backup or restore your plots.</p></div>
-              <button onclick="closeOfflineModal()" class="text-3xl text-gray-400 hover:text-white">×</button>
-            </div>
-            <div class="p-8 space-y-6">
-              <div><div class="font-semibold mb-3 text-amber-400">EXPORT BACKUP</div><button onclick="exportOfflineBackup();closeOfflineModal()" class="w-full py-4 bg-amber-600 hover:bg-amber-700 rounded-2xl flex items-center justify-center gap-3 text-sm font-medium"><i class="fas fa-download"></i> Download Full Backup (JSON)</button><div class="text-xs text-gray-500 mt-2">Save this file to your computer or cloud drive for offline use or transfer to another device.</div></div>
-              <div><div class="font-semibold mb-3 text-amber-400">RESTORE FROM BACKUP</div><button onclick="importOfflineBackup();closeOfflineModal()" class="w-full py-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-2xl flex items-center justify-center gap-3 text-sm font-medium"><i class="fas fa-upload"></i> Upload & Restore Backup</button><div class="text-xs text-gray-500 mt-2">Import a previous backup file. Existing plots will be merged (duplicates skipped).</div></div>
-            </div>
-            <div class="px-8 py-5 border-t border-gray-700 bg-gray-950 rounded-b-3xl text-center text-xs text-gray-500">Your data is always saved locally. This tool lets you transfer between browsers/devices.</div>
-          </div>
-        </div>`);
-    }
-    function closeOfflineModal() { const m = document.getElementById('offlineModal'); if (m) m.remove(); }
-    function exportOfflineBackup() {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(plots,null,2)],{type:'application/json'}));
-      a.download = `ai-plot-portal-backup-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(a.href);
-      showToastNotification('Backup Exported', '✅ Offline backup downloaded! Keep this file safe.', 'success');
-    }
-    function importOfflineBackup() {
-      const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
-      input.onchange = function(e) {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(ev) {
-          try {
-            const imported = JSON.parse(ev.target.result); let added = 0, skipped = 0;
-            imported.forEach(p => { if (plots.some(x => x.no === p.no)) { skipped++; return; } plots.push({...p, id: Date.now()+Math.random()}); added++; });
-            saveToLocalStorage(); addPlotMarkers(); populateTable();
-            showToastNotification('Import Successful', `✅ Restored! Added ${added} plots (skipped ${skipped} duplicates)`, 'success');
-          } catch { showToastNotification('Import Failed', '❌ Invalid backup file', 'error'); }
-        };
-        reader.readAsText(file);
-      };
-      input.click();
-    }
-
-    // ==================== REAL ESTATE CRM ====================
-    function showCRMModal() {
-      let html = `
-        <div id="crmModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[6000]">
-          <div class="bg-gray-900 rounded-3xl w-[95%] max-w-6xl border border-gray-700 shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div class="px-8 py-5 border-b border-gray-700 flex justify-between items-center bg-gray-950">
-              <div class="flex items-center gap-4">
-                <i class="fas fa-users-cog text-indigo-400 text-3xl"></i>
-                <div>
-                  <h3 class="text-3xl font-bold">Real Estate CRM</h3>
-                  <p class="text-sm text-gray-400">Client & Deal Pipeline Management</p>
-                </div>
-              </div>
-              <div class="flex gap-3">
-                <button onclick="addNewClient()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-2xl text-sm flex items-center gap-2"><i class="fas fa-user-plus"></i> New Client</button>
-                <button onclick="addNewDeal()" class="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-2xl text-sm flex items-center gap-2"><i class="fas fa-handshake"></i> New Deal</button>
-                <button onclick="closeCRMModal()" class="text-3xl text-gray-400 hover:text-white px-3">×</button>
-              </div>
-            </div>
-            
-            <div class="flex-1 overflow-auto p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <!-- Clients Section -->
-              <div>
-                <div class="flex justify-between items-center mb-4">
-                  <h4 class="font-semibold flex items-center gap-2"><i class="fas fa-user-tie text-indigo-400"></i> Clients (${clients.length})</h4>
-                  <input type="text" id="clientSearch" placeholder="Search clients..." oninput="filterClients()" class="bg-gray-800 text-sm px-4 py-2 rounded-2xl w-64 border border-gray-700">
-                </div>
-                <div id="clientsList" class="space-y-3 max-h-[420px] overflow-auto pr-2"></div>
-              </div>
-              
-              <!-- Deals / Pipeline -->
-              <div>
-                <h4 class="font-semibold flex items-center gap-2 mb-4"><i class="fas fa-chart-line text-blue-400"></i> Deal Pipeline</h4>
-                <div class="grid grid-cols-3 gap-3">
-                  ${['Lead','Negotiation','Under Contract','Closed'].map(stage => {
-                    const stageDeals = deals.filter(d => d.stage === stage || (stage==='Lead' && d.stage==='Lead'));
-                    return `<div class="bg-gray-950 border border-gray-700 rounded-2xl p-4">
-                      <div class="text-xs uppercase tracking-widest text-gray-400 mb-2">${stage} <span class="text-indigo-400">(${stageDeals.length})</span></div>
-                      ${stageDeals.length > 0 ? stageDeals.map(d => {
-                        const plot = plots.find(p => p.id === d.plotId);
-                        const client = clients.find(c => c.id === d.clientId);
-                        return `<div onclick="viewDeal(${d.id})" class="cursor-pointer bg-gray-800 hover:bg-gray-700 p-3 rounded-xl mb-2 text-sm">
-                          <div class="font-bold">${plot ? plot.no : 'N/A'} • ${client ? client.name.split(' ')[0] : ''}</div>
-                          <div class="text-xs text-gray-400">AED ${(parseInt(d.value)/1e6).toFixed(1)}M • ${d.closeDate}</div>
-                          <div class="text-[10px] mt-1 px-2 py-0.5 inline-block rounded ${d.stage==='Closed'?'bg-green-600':d.stage==='Under Contract'?'bg-orange-600':'bg-blue-600'}">${d.stage}</div>
-                        </div>`;
-                      }).join('') : `<div class="text-xs text-gray-500 py-4 text-center">No deals</div>`}
-                    </div>`;
-                  }).join('')}
-                </div>
-                
-                <div class="mt-6 bg-gray-950 border border-gray-700 rounded-2xl p-5">
-                  <div class="text-xs text-gray-400 mb-3">PIPELINE VALUE</div>
-                  <div class="text-4xl font-bold text-emerald-400">AED ${(deals.reduce((sum,d) => sum + parseInt(d.value),0)/1e6).toFixed(1)}M</div>
-                  <div class="text-xs text-gray-500 mt-1">${deals.length} active deals • ${deals.filter(d=>d.stage==='Closed').length} closed</div>
-                  
-                  <div class="mt-4 h-2 bg-gray-800 rounded-full overflow-hidden">
-                    <div class="h-2 bg-gradient-to-r from-emerald-500 to-blue-500" style="width: ${Math.min(100, (deals.filter(d=>d.stage==='Closed').length / Math.max(1,deals.length)) * 100)}%"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div class="px-8 py-4 border-t border-gray-700 bg-gray-950 flex justify-between text-xs text-gray-500">
-              <div>CRM synced with plots • Click client to link plots • Drag deals between stages (demo)</div>
-              <button onclick="exportCRMData()" class="text-indigo-400 hover:text-white flex items-center gap-1"><i class="fas fa-download fa-xs"></i> Export CRM</button>
-            </div>
-          </div>
-        </div>
-      `;
-      document.body.insertAdjacentHTML('beforeend', html);
-      renderClientsList();
-    }
-    
-    function closeCRMModal() {
-      const m = document.getElementById('crmModal'); if (m) m.remove();
-    }
-    
-    function renderClientsList(filteredClients = null) {
-      const container = document.getElementById('clientsList');
-      if (!container) return;
-      const list = filteredClients || clients;
-      container.innerHTML = list.map(c => {
-        const linked = plots.filter(p => c.linkedPlots && c.linkedPlots.includes(p.id));
-        return `<div class="bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-2xl p-4 cursor-pointer transition-all" onclick="viewClient(${c.id})">
-          <div class="flex justify-between items-start">
-            <div>
-              <div class="font-semibold">${c.name}</div>
-              <div class="text-xs text-gray-400">${c.type} • ${c.email}</div>
-            </div>
-            <div class="text-right">
-              <div class="text-xs px-2 py-0.5 bg-indigo-900 text-indigo-300 rounded">${c.linkedPlots ? c.linkedPlots.length : 0} plots</div>
-            </div>
-          </div>
-          <div class="mt-3 flex flex-wrap gap-1">
-            ${linked.length > 0 ? linked.map(p => `<span onclick="event.stopImmediatePropagation(); selectPlot(${p.id}); closeCRMModal();" class="text-[10px] bg-blue-900 text-blue-300 px-2 py-0.5 rounded cursor-pointer">${p.no}</span>`).join('') : '<span class="text-[10px] text-gray-500">No linked plots</span>'}
-          </div>
-          <div class="text-xs text-gray-500 mt-2">${c.phone}</div>
-        </div>`;
-      }).join('') || '<div class="text-center py-8 text-gray-500">No clients found</div>';
-    }
-    
-    function filterClients() {
-      const q = document.getElementById('clientSearch').value.toLowerCase().trim();
-      const filtered = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.type.toLowerCase().includes(q));
-      renderClientsList(filtered);
-    }
-    
-    function viewClient(clientId) {
-      const client = clients.find(c => c.id === clientId);
-      if (!client) return;
-      const linkedPlots = plots.filter(p => client.linkedPlots && client.linkedPlots.includes(p.id));
-      const clientDeals = deals.filter(d => d.clientId === clientId);
-      
-      document.body.insertAdjacentHTML('beforeend', `
-        <div id="clientDetailModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-[7000]">
-          <div class="bg-gray-900 rounded-3xl w-[520px] border border-gray-700 shadow-2xl">
-            <div class="px-8 py-6 border-b border-gray-700 flex justify-between">
-              <div><h3 class="text-2xl font-bold">${client.name}</h3><p class="text-sm text-gray-400">${client.type} • ${client.email}</p></div>
-              <button onclick="closeClientModal()" class="text-3xl">×</button>
-            </div>
-            <div class="p-8 space-y-6">
-              <div class="flex gap-4">
-                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-emerald-400">${linkedPlots.length}</div><div class="text-xs">LINKED PLOTS</div></div>
-                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-blue-400">${clientDeals.length}</div><div class="text-xs">DEALS</div></div>
-                <div class="flex-1 bg-gray-800 rounded-2xl p-4 text-center"><div class="text-3xl font-bold text-purple-400">${clientDeals.reduce((s,d)=>s+parseInt(d.value),0)/1e6 || 0}</div><div class="text-xs">AED M</div></div>
-              </div>
-              
-              <div>
-                <div class="text-xs uppercase text-gray-400 mb-2">CONTACT</div>
-                <div class="text-sm">${client.phone} • ${client.email}</div>
-              </div>
-              
-              ${linkedPlots.length > 0 ? `<div>
-                <div class="text-xs uppercase text-gray-400 mb-2">LINKED PLOTS</div>
-                <div class="space-y-2">${linkedPlots.map(p => `<div onclick="selectPlot(${p.id}); closeClientModal(); closeCRMModal();" class="cursor-pointer flex justify-between bg-gray-800 hover:bg-gray-700 p-3 rounded-xl"><div><span class="font-bold">${p.no}</span> <span class="text-xs text-gray-400">${p.dev}</span></div><div class="text-emerald-400">AED ${(parseInt(p.price)/1e6).toFixed(1)}M</div></div>`).join('')}</div>
-              </div>` : ''}
-              
-              <div>
-                <div class="text-xs uppercase text-gray-400 mb-2">QUICK ACTIONS</div>
-                <div class="flex gap-3">
-                  <button onclick="linkPlotToClient(${clientId}); closeClientModal()" class="flex-1 py-3 bg-indigo-600 rounded-2xl text-sm">Link Plot to Client</button>
-                  <button onclick="createDealForClient(${clientId}); closeClientModal()" class="flex-1 py-3 bg-blue-600 rounded-2xl text-sm">Create Deal</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      `);
-    }
-    
-    function closeClientModal() {
-      const m = document.getElementById('clientDetailModal'); if (m) m.remove();
-      // Refresh CRM if open
-      const crm = document.getElementById('crmModal');
-      if (crm) { crm.remove(); showCRMModal(); }
-    }
-    
-    function linkPlotToClient(clientId) {
-      const plotNo = prompt("Enter Plot Number to link (e.g. A-128):");
-      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
-      if (!plot) return alert("Plot not found");
-      const client = clients.find(c => c.id === clientId);
-      if (!client.linkedPlots) client.linkedPlots = [];
-      if (!client.linkedPlots.includes(plot.id)) {
-        client.linkedPlots.push(plot.id);
-        showToastNotification('CRM', `${plot.no} linked to ${client.name}`, 'success');
-        closeClientModal();
-      }
-    }
-    
-    function createDealForClient(clientId) {
-      const plotNo = prompt("Plot Number for deal:");
-      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
-      if (!plot) return alert("Plot not found");
-      const value = prompt("Deal Value (AED):", plot.price);
-      const stage = prompt("Stage (Lead/Negotiation/Under Contract/Closed):", "Negotiation");
-      deals.push({
-        id: Date.now(),
-        plotId: plot.id,
-        clientId: clientId,
-        stage: stage,
-        value: value,
-        closeDate: new Date(Date.now() + 30*864e5).toISOString().split('T')[0],
-        notes: "Created via CRM"
-      });
-      showToastNotification('Deal Created', `New deal for ${plot.no} • ${stage}`, 'success');
-      closeClientModal();
-    }
-    
-    function viewDeal(dealId) {
-      const deal = deals.find(d => d.id === dealId);
-      if (!deal) return;
-      const plot = plots.find(p => p.id === deal.plotId);
-      const client = clients.find(c => c.id === deal.clientId);
-      alert(`Deal #${deal.id}\nPlot: ${plot ? plot.no : 'N/A'} (${plot ? plot.dev : ''})\nClient: ${client ? client.name : 'N/A'}\nStage: ${deal.stage}\nValue: AED ${Number(deal.value).toLocaleString()}\nClose: ${deal.closeDate}\nNotes: ${deal.notes || 'None'}`);
-    }
-    
-    function addNewClient() {
-      const name = prompt("Client Name:");
-      if (!name) return;
-      const email = prompt("Email:", name.toLowerCase().replace(' ','.') + "@invest.ae");
-      const phone = prompt("Phone:", "+971 5" + Math.floor(10000000 + Math.random()*90000000));
-      const type = prompt("Type (Investor/Developer/End User):", "Investor");
-      clients.push({ id: Date.now(), name, email, phone, type, linkedPlots: [] });
-      showToastNotification('CRM', `Client ${name} added`, 'success');
-      const crm = document.getElementById('crmModal'); if (crm) crm.remove();
-      showCRMModal();
-    }
-    
-    function addNewDeal() {
-      const plotNo = prompt("Plot Number:");
-      const plot = plots.find(p => p.no.toUpperCase() === plotNo.toUpperCase());
-      if (!plot) return alert("Plot not found");
-      const clientName = prompt("Client Name or ID:");
-      let client = clients.find(c => c.name.toLowerCase().includes(clientName.toLowerCase()) || c.id == clientName);
-      if (!client) {
-        client = { id: Date.now(), name: clientName, email: clientName.toLowerCase().replace(' ','.')+'@client.ae', phone: '+971 50 000 0000', type: 'Investor', linkedPlots: [plot.id] };
-        clients.push(client);
-      }
-      const value = prompt("Deal Value:", plot.price);
-      const stage = prompt("Stage:", "Negotiation");
-      deals.push({ id: Date.now(), plotId: plot.id, clientId: client.id, stage, value, closeDate: new Date(Date.now()+45*864e5).toISOString().split('T')[0], notes: "" });
-      showToastNotification('Deal', `New deal created for ${plot.no}`, 'success');
-      const crm = document.getElementById('crmModal'); if (crm) crm.remove();
-      showCRMModal();
-    }
-    
-    window.onload = () => {
-      loadFromLocalStorage();
-      setTimeout(() => { initMap(); }, 300);
-      populateTable(); togglePlotView('map'); checkAuth();
-      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-      startNotificationSimulation();
-      setTimeout(() => { if (currentUser && notifications.length === 0) addNotification('System Online', 'All systems operational', 'success'); }, 2000);
-      window.addEventListener('resize', () => { if (map) map.invalidateSize(); });
-    };
-  </script>
-</body>
-</html>
+      const popupContent = `<div style="min-width:220px"><h4 class="font-bold text-blue-400">
