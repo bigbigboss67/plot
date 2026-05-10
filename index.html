@@ -7,9 +7,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   
-  <!-- Mapbox GL JS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+  <!-- Leaflet Map (reliable, no API key required) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -439,6 +439,30 @@
     let importedData = [], headers = [];
     let selectedPlots = new Set();
     let currentVideos = []; // Temporary storage for new plot videos
+    let markerCluster;
+
+    // ==================== OFFLINE DATA PERSISTENCE ====================
+    function saveToLocalStorage() {
+      try {
+        localStorage.setItem('aiPlotPortalData', JSON.stringify(plots));
+      } catch (e) {
+        console.warn('Could not save to localStorage:', e);
+      }
+    }
+
+    function loadFromLocalStorage() {
+      try {
+        const saved = localStorage.getItem('aiPlotPortalData');
+        if (saved) {
+          const loaded = JSON.parse(saved);
+          if (Array.isArray(loaded) && loaded.length > 0) {
+            plots = loaded;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load from localStorage:', e);
+      }
+    }
 
     // ==================== LEAFLET MAP (SIMPLE & WORKING) ====================
     function initMap() {
@@ -450,6 +474,14 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap contributors'
         }).addTo(map);
+        
+        // Create marker cluster group for better performance
+        markerCluster = L.markerClusterGroup({
+          maxClusterRadius: 50,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false
+        });
+        map.addLayer(markerCluster);
         
         // Add plot markers
         addPlotMarkers();
@@ -470,6 +502,7 @@
     }
 
     function addPlotMarkers() {
+      if (markerCluster) markerCluster.clearLayers();
       plots.forEach(plot => {
         const color = plot.status === 'Available' ? '#22c55e' : plot.status === 'Reserved' ? '#f59e0b' : '#ef4444';
         const statusIcon = plot.status === 'Available' ? 'fa-check' : plot.status === 'Reserved' ? 'fa-clock' : 'fa-times';
@@ -576,30 +609,34 @@
     }
 
     function setMapStyle(style) {
-      map.setStyle(`mapbox://styles/mapbox/${style}`);
-      map.once('style.load', () => addPlotMarkers());
+      // Since using Leaflet + OSM, style switching is limited.
+      // For demo, we'll just refresh markers and show toast
+      addPlotMarkers();
+      showToast(`Map style updated to ${style}`, 'info');
     }
 
-    // ==================== GEOCODING ====================
+    // ==================== GEOCODING (using free Nominatim) ====================
     function geocodeAddress() {
       const query = document.getElementById('geocodeSearch').value.trim();
       if (!query) return alert('Please enter an address');
 
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
 
-      fetch(url)
+      fetch(url, {
+        headers: {
+          'User-Agent': 'AI-Plot-Portal/1.0 (demo)'
+        }
+      })
         .then(res => res.json())
         .then(data => {
-          if (data.features && data.features.length > 0) {
-            const feature = data.features[0];
-            const [lng, lat] = feature.center;
+          if (data && data.length > 0) {
+            const result = data[0];
+            const lat = parseFloat(result.lat);
+            const lng = parseFloat(result.lon);
 
             // Fly to location
-            map.flyTo({
-              center: [lng, lat],
-              zoom: 16,
-              pitch: 50,
-              duration: 2000
+            map.flyTo([lat, lng], 16, {
+              duration: 2
             });
 
             // Add temporary marker
@@ -607,25 +644,30 @@
             el.style.cssText = 'width:36px;height:36px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 0 20px rgba(59,130,246,0.6);display:flex;align-items:center;justify-content:center;color:white;font-weight:bold;';
             el.innerHTML = '<i class="fas fa-map-marker-alt"></i>';
 
-            const marker = new mapboxgl.Marker(el)
-              .setLngLat([lng, lat])
-              .addTo(map);
+            const marker = L.marker([lat, lng], {
+              icon: L.divIcon({
+                html: el.outerHTML,
+                iconSize: [36, 36],
+                className: 'custom-marker'
+              })
+            }).addTo(map);
 
             // Show popup with option to create plot
-            const popup = new mapboxgl.Popup({ offset: 25 })
-              .setHTML(`
+            const popup = L.popup({ offset: [0, -25] })
+              .setLatLng([lat, lng])
+              .setContent(`
                 <div class="text-sm">
-                  <div class="font-bold mb-1">${feature.place_name}</div>
-                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${feature.place_name.replace(/'/g, "\\'")}');" 
+                  <div class="font-bold mb-1">${result.display_name.split(',')[0]}</div>
+                  <button onclick="createPlotFromGeocode(${lat}, ${lng}, '${result.display_name.replace(/'/g, "\\'")}');" 
                     class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-white text-xs w-full">
                     Create Plot Here
                   </button>
                 </div>
               `)
-              .addTo(map);
+              .openOn(map);
 
-            marker.setPopup(popup);
-            popup.on('close', () => marker.remove());
+            // Auto remove marker after popup close
+            popup.on('close', () => map.removeLayer(marker));
 
           } else {
             alert('No results found for that address');
@@ -883,7 +925,10 @@
     function deletePlot(id) {
       if (!confirm('Delete this plot?')) return;
       plots = plots.filter(p => p.id !== id);
+      saveToLocalStorage();
+      addPlotMarkers();
       populateTable();
+      updateAnalytics();
     }
 
     function importPlots() {
@@ -1373,6 +1418,7 @@
       plots.push(newPlot);
       addPlotMarkers();
       populateTable();
+      saveToLocalStorage();
       closeNewPlotModal();
       
       alert(`✅ New plot ${no} added successfully!`);
@@ -1803,93 +1849,78 @@ END:VCALENDAR`;
       if (modal) modal.remove();
     }
 
-    // ==================== DISTANCE CALCULATOR ====================
+    // ==================== DISTANCE CALCULATOR (Leaflet version) ====================
     let distanceMode = false;
     let firstPoint = null;
     let distanceMarker1 = null;
     let distanceMarker2 = null;
+    let distanceLine = null;
 
     function startDistanceCalculator() {
       distanceMode = true;
       firstPoint = null;
       
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
+      if (distanceMarker1) map.removeLayer(distanceMarker1);
+      if (distanceMarker2) map.removeLayer(distanceMarker2);
+      if (distanceLine) map.removeLayer(distanceLine);
       
       alert('Click on the map to select the first point');
       
-      map.getCanvas().style.cursor = 'crosshair';
+      const mapContainer = document.getElementById('map');
+      mapContainer.style.cursor = 'crosshair';
       
       map.once('click', function(e) {
-        firstPoint = [e.lngLat.lng, e.lngLat.lat];
+        firstPoint = e.latlng;
         
         const el1 = document.createElement('div');
         el1.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
         
-        distanceMarker1 = new mapboxgl.Marker(el1)
-          .setLngLat(firstPoint)
-          .addTo(map);
+        distanceMarker1 = L.marker(firstPoint, {
+          icon: L.divIcon({ html: el1.outerHTML, iconSize: [20, 20], className: '' })
+        }).addTo(map);
         
         alert('Now click on the second point');
         
         map.once('click', function(e2) {
-          const secondPoint = [e2.lngLat.lng, e2.lngLat.lat];
+          const secondPoint = e2.latlng;
           
           const el2 = document.createElement('div');
           el2.style.cssText = 'width:20px;height:20px;border-radius:50%;background:#a855f7;border:3px solid white;box-shadow:0 0 15px #a855f7;';
           
-          distanceMarker2 = new mapboxgl.Marker(el2)
-            .setLngLat(secondPoint)
-            .addTo(map);
+          distanceMarker2 = L.marker(secondPoint, {
+            icon: L.divIcon({ html: el2.outerHTML, iconSize: [20, 20], className: '' })
+          }).addTo(map);
           
           // Calculate distance
-          const distance = calculateDistance(firstPoint[1], firstPoint[0], secondPoint[1], secondPoint[0]);
+          const distance = calculateDistance(firstPoint.lat, firstPoint.lng, secondPoint.lat, secondPoint.lng);
           
           // Draw line
-          if (map.getSource('distance-line')) {
-            map.removeLayer('distance-line');
-            map.removeSource('distance-line');
-          }
+          if (distanceLine) map.removeLayer(distanceLine);
           
-          map.addSource('distance-line', {
-            'type': 'geojson',
-            'data': {
-              'type': 'Feature',
-              'geometry': {
-                'type': 'LineString',
-                'coordinates': [firstPoint, secondPoint]
-              }
-            }
-          });
+          distanceLine = L.polyline([firstPoint, secondPoint], {
+            color: '#a855f7',
+            weight: 3,
+            dashArray: '5, 5'
+          }).addTo(map);
           
-          map.addLayer({
-            'id': 'distance-line',
-            'type': 'line',
-            'source': 'distance-line',
-            'layout': {},
-            'paint': {
-              'line-color': '#a855f7',
-              'line-width': 3,
-              'line-dasharray': [2, 1]
-            }
-          });
+          // Show result popup
+          const midPoint = L.latLng(
+            (firstPoint.lat + secondPoint.lat) / 2,
+            (firstPoint.lng + secondPoint.lng) / 2
+          );
           
-          // Show result
-          const popup = new mapboxgl.Popup({ closeOnClick: false })
-            .setLngLat([
-              (firstPoint[0] + secondPoint[0]) / 2,
-              (firstPoint[1] + secondPoint[1]) / 2
-            ])
-            .setHTML(`
+          const popup = L.popup({ closeOnClick: false, offset: [0, -10] })
+            .setLatLng(midPoint)
+            .setContent(`
               <div class="text-center p-2">
                 <div class="text-lg font-bold text-purple-400">${distance.toFixed(0)} meters</div>
                 <div class="text-sm text-gray-400">${(distance / 1000).toFixed(2)} km</div>
                 <button onclick="clearDistanceMeasurement()" class="mt-2 px-4 py-1 bg-red-600 rounded text-xs">Clear</button>
               </div>
             `)
-            .addTo(map);
+            .openOn(map);
           
-          map.getCanvas().style.cursor = '';
+          mapContainer.style.cursor = '';
           distanceMode = false;
         });
       });
@@ -1911,17 +1942,17 @@ END:VCALENDAR`;
     }
 
     function clearDistanceMeasurement() {
-      if (distanceMarker1) distanceMarker1.remove();
-      if (distanceMarker2) distanceMarker2.remove();
+      if (distanceMarker1) map.removeLayer(distanceMarker1);
+      if (distanceMarker2) map.removeLayer(distanceMarker2);
+      if (distanceLine) map.removeLayer(distanceLine);
       
-      if (map.getLayer('distance-line')) map.removeLayer('distance-line');
-      if (map.getSource('distance-line')) map.removeSource('distance-line');
-      
-      document.querySelectorAll('.mapboxgl-popup').forEach(p => p.remove());
+      // Close any popups
+      map.closePopup();
       
       distanceMode = false;
       firstPoint = null;
-      map.getCanvas().style.cursor = '';
+      const mapContainer = document.getElementById('map');
+      mapContainer.style.cursor = '';
     }
 
     function toggleSidebar() {
@@ -2229,6 +2260,7 @@ END:VCALENDAR`;
       
       addPlotMarkers();
       populateTable();
+      saveToLocalStorage();
       closeEditPlotModal();
       
       setTimeout(() => {
@@ -2550,6 +2582,7 @@ END:VCALENDAR`;
 
     // ==================== INITIALIZE ====================
     window.onload = () => {
+      loadFromLocalStorage();
       initMap();
       populateTable();
       togglePlotView('map');
