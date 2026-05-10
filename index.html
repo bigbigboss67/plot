@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Plot Portal Pro v3.4</title>
+<title>AI Plot Portal Pro v3.6</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -232,9 +232,9 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
         <i class="fas fa-cloud-upload-alt" style="font-size:28px;margin-bottom:8px;color:#6366f1;"></i>
         <div style="font-size:14px;font-weight:600;margin-bottom:4px;">Drop file here or</div>
         <button type="button" onclick="document.getElementById('importFileInput').click()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:6px;">Browse File</button>
-        <div style="font-size:10px;color:#475569;">JSON &bull; CSV &bull; XLSX &bull; XLS &bull; TXT</div>
+        <div style="font-size:10px;color:#475569;">JSON &bull; CSV &bull; XLSX &bull; XLS &bull; PDF &bull; TXT</div>
       </div>
-      <input type="file" id="importFileInput" accept=".json,.csv,.txt,.xlsx,.xls" style="display:none;" onchange="handleFileSelect(this)">
+      <input type="file" id="importFileInput" accept=".json,.csv,.txt,.xlsx,.xls,.pdf" style="display:none;" onchange="handleFileSelect(this)">
       <div id="importPreview" style="margin-top:12px;font-size:12px;"></div>
     </div>
     <div class="mfoot">
@@ -264,6 +264,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
       <a onclick="exportCSV()"><i class="fas fa-file-export"></i> Export CSV</a>
       <a onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</a>
       <a onclick="showOfflineSyncModal()"><i class="fas fa-sync"></i> Offline Sync</a>
+      <a onclick="resolveMapsUrls()" style="color:#34d399;"><i class="fas fa-globe"></i> Resolve GPS URLs</a>
       <a onclick="showOwnerCodeSetup()" style="color:#c4b5fd;"><i class="fas fa-lock"></i> Set Owner Code</a>
       <div class="sbsec" style="margin-top:6px;">Account</div>
       <a onclick="toggleOnlineSync()"><i class="fas fa-cloud"></i> Online Sync</a>
@@ -273,7 +274,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
   <div id="main">
     <div id="topbar">
       <button class="ibtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v3.4</span></span>
+      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v3.6</span></span>
       <div class="tbsrch"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search plots..." oninput="debounceSearch()"></div>
       <div class="tbacts">
         <button class="ibtn" onclick="toggleOnlineSync()" title="Sync"><i class="fas fa-cloud"></i></button>
@@ -322,7 +323,8 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
           <div style="background:rgba(15,23,42,0.92);border:1px solid #334155;border-radius:16px;padding:28px 36px;text-align:center;pointer-events:all;max-width:340px;box-shadow:0 16px 48px rgba(0,0,0,0.6);">
             <div style="font-size:36px;margin-bottom:10px;">📍</div>
             <div style="font-size:15px;font-weight:800;color:#f1f5f9;margin-bottom:6px;">No GPS Coordinates</div>
-            <div id="mapNoGpsMsg" style="font-size:12px;color:#64748b;margin-bottom:16px;line-height:1.6;">Your plots don't have Latitude/Longitude data.<br>Add coordinates to see them on the map.</div>
+            <div id="mapNoGpsMsg" style="font-size:12px;color:#64748b;margin-bottom:14px;line-height:1.6;">Your plots don't have Latitude/Longitude.<br>Add coordinates to see them on the map.</div>
+            <button id="resolveGpsBtn" onclick="resolveMapsUrls()" style="display:none;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;border-radius:9px;padding:9px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;width:100%;"><i class="fas fa-globe"></i> Auto-Resolve GPS from Map URLs</button>
             <button onclick="startSetOnMapMode()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:9px;padding:9px 20px;font-size:12px;font-weight:700;cursor:pointer;margin-bottom:8px;width:100%;"><i class="fas fa-map-marker-alt"></i> Click Map to Place a Plot</button>
             <button onclick="togglePlotView('table')" style="background:#334155;color:#94a3b8;border:none;border-radius:9px;padding:8px 20px;font-size:12px;font-weight:600;cursor:pointer;width:100%;"><i class="fas fa-table"></i> Switch to Table View</button>
           </div>
@@ -399,19 +401,184 @@ function unlockOwner(pid){
 }
 function lockOwner(){_ownerUnlocked=false;showToastNotification('🔒 Owner info locked','info');}
 
-/* ── Google Maps URL parser ── */
+/* ── Google Maps URL parser (full URLs) ── */
 function extractLatLngFromUrl(url){
   if(!url||typeof url!=='string')return null;
-  /* Format: @lat,lng,zoom */
-  var m=url.match(/@(-?\d{1,3}\.?\d*),(-?\d{1,3}\.?\d*)/);
+  var m=url.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
   if(m)return{lat:m[1],lng:m[2]};
-  /* Format: ?q=lat,lng or ll=lat,lng */
-  m=url.match(/[?&](?:q|ll)=(-?\d{1,3}\.?\d*),(-?\d{1,3}\.?\d*)/);
+  m=url.match(/[?&](?:q|ll)=(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
   if(m)return{lat:m[1],lng:m[2]};
-  /* Format: /place/lat,lng */
-  m=url.match(/\/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
-  if(m&&parseFloat(m[1])>=-90&&parseFloat(m[1])<=90)return{lat:m[1],lng:m[2]};
+  m=url.match(/place\/(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
+  if(m&&Math.abs(parseFloat(m[1]))<=90)return{lat:m[1],lng:m[2]};
+  /* Decimal coords anywhere in URL */
+  m=url.match(/(-?\d{1,3}\.\d{4,}),(-?\d{1,3}\.\d{4,})/);
+  if(m&&Math.abs(parseFloat(m[1]))<=90&&Math.abs(parseFloat(m[2]))<=180)return{lat:m[1],lng:m[2]};
   return null;
+}
+
+/* ── Async: resolve short Google Maps URL → GPS via CORS proxy ── */
+var _resolving=false;
+function resolveGoogleMapsUrl(url){
+  return new Promise(function(resolve){
+    /* Try direct first */
+    var direct=extractLatLngFromUrl(url);
+    if(direct){resolve(direct);return;}
+    /* Via allorigins proxy — follows redirects, returns final URL in status.url */
+    var proxy='https://api.allorigins.win/get?url='+encodeURIComponent(url);
+    fetch(proxy,{signal:AbortSignal.timeout?AbortSignal.timeout(10000):undefined})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        /* Try status.url (redirected URL) */
+        var finalUrl=(data.status&&data.status.url)||'';
+        var gps=extractLatLngFromUrl(finalUrl);
+        if(gps){resolve(gps);return;}
+        /* Try scanning page content */
+        var html=data.contents||'';
+        var m=html.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/);
+        if(!m)m=html.match(/\\"lat\\":(-?\d{1,3}\.\d+).*?\\"lng\\":(-?\d{1,3}\.\d+)/);
+        if(!m)m=html.match(/(-?\d{2,3}\.\d{5,}),(-?\d{2,3}\.\d{5,})/);
+        if(m&&Math.abs(parseFloat(m[1]))<=90){resolve({lat:m[1],lng:m[2]});return;}
+        resolve(null);
+      })
+      .catch(function(){resolve(null);});
+  });
+}
+
+/* Resolve a single plot's locationUrl and pin it on the map */
+function resolveAndPinPlot(pid){
+  var p=plots.find(function(x){return x.id===pid;});
+  if(!p||!p.locationUrl){showToastNotification('No map URL for this plot','error');return;}
+  var btn=document.getElementById('resolvePinBtn_'+pid);
+  if(btn){btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Resolving…';btn.disabled=true;}
+  showToastNotification('🌐 Resolving GPS for '+p.no+'…','info');
+  resolveGoogleMapsUrl(p.locationUrl).then(function(gps){
+    if(gps){
+      p.lat=String(gps.lat);p.lng=String(gps.lng);
+      saveToLocalStorage();addPlotMarkers();populateTable();
+      showToastNotification('📍 '+p.no+' pinned at '+gps.lat+', '+gps.lng,'success');
+      /* Fly to the plot and refresh the card */
+      if(map)map.flyTo([parseFloat(gps.lat),parseFloat(gps.lng)],15,{duration:1.2});
+      selectPlot(pid);
+    }else{
+      showToastNotification('Could not extract GPS — the URL may be a short link that requires internet. Try "Resolve GPS URLs" from sidebar.','error');
+      if(btn){btn.innerHTML='<i class="fas fa-globe"></i> Retry';btn.disabled=false;}
+    }
+  });
+}
+
+function resolveMapsUrls(){
+  if(_resolving){showToastNotification('Already resolving, please wait…','info');return;}
+  var toResolve=plots.filter(function(p){return p.locationUrl&&(isNaN(parseNum(p.lat))||!parseNum(p.lat));});
+  if(!toResolve.length){showToastNotification('No plots with map URLs to resolve','info');return;}
+  _resolving=true;
+  /* Hide overlay while working */
+  var overlay=document.getElementById('mapNoGps');if(overlay)overlay.style.display='none';
+  showToastNotification('🌐 Resolving GPS for '+toResolve.length+' plots…','info');
+  var idx=0,resolved=0,failed=0;
+  function next(){
+    if(idx>=toResolve.length){
+      _resolving=false;
+      saveToLocalStorage();addPlotMarkers();populateTable();
+      var msg=resolved+' resolved';if(failed)msg+=' / '+failed+' failed (short URLs may need internet)';
+      showToastNotification('📍 '+msg,'success');
+      return;
+    }
+    var p=toResolve[idx++];
+    showToastNotification('Resolving '+p.no+'… ('+idx+'/'+toResolve.length+')','info');
+    resolveGoogleMapsUrl(p.locationUrl).then(function(gps){
+      if(gps){p.lat=String(gps.lat);p.lng=String(gps.lng);resolved++;}
+      else failed++;
+      setTimeout(next,600);/* polite delay */
+    });
+  }
+  next();
+}
+
+/* ── PDF.js loader + table extractor ── */
+function _loadPdfJs(cb){
+  if(window.pdfjsLib){cb(null);return;}
+  var s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload=function(){
+    try{pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}catch(e){}
+    cb(null);
+  };
+  s.onerror=function(){cb(new Error('Failed to load PDF.js'));};
+  document.head.appendChild(s);
+}
+
+function parsePDFFile(file,prev,onRows){
+  _loadPdfJs(function(err){
+    if(err){prev.innerHTML='<div style="color:#ef4444;padding:12px;">Could not load PDF reader. Check internet connection.</div>';return;}
+    file.arrayBuffer().then(function(buf){
+      pdfjsLib.getDocument({data:buf}).promise.then(function(pdf){
+        prev.innerHTML='<div style="text-align:center;padding:12px;color:#64748b;"><i class="fas fa-spinner fa-spin"></i> Extracting table from '+pdf.numPages+' page(s)…</div>';
+        var allItems=[];
+        var pageOffY=0;
+        /* Process pages sequentially */
+        var pg=1;
+        function processPage(){
+          if(pg>pdf.numPages){buildRows();return;}
+          pdf.getPage(pg).then(function(page){
+            var vp=page.getViewport({scale:1});
+            page.getTextContent().then(function(tc){
+              tc.items.forEach(function(it){
+                if(!it.str||!it.str.trim())return;
+                allItems.push({
+                  x:Math.round(it.transform[4]),
+                  /* PDF Y is from bottom; convert to top-relative per page then add offset */
+                  y:Math.round(pageOffY+(vp.height-it.transform[5])),
+                  text:it.str
+                });
+              });
+              pageOffY+=vp.height+60;
+              pg++;processPage();
+            });
+          });
+        }
+        function buildRows(){
+          if(!allItems.length){prev.innerHTML='<div style="color:#ef4444;padding:12px;">No text found. PDF may be image-based (scanned). Export as Excel/CSV instead.</div>';return;}
+          /* Group by rounded Y (row = same vertical band) */
+          var TOL=6;
+          function ry(y){return Math.round(y/TOL)*TOL;}
+          var rowMap={};
+          allItems.forEach(function(it){var k=ry(it.y);if(!rowMap[k])rowMap[k]=[];rowMap[k].push(it);});
+          var sortedY=Object.keys(rowMap).map(Number).sort(function(a,b){return a-b;});
+          /* Build text lines (sorted left-to-right within each row) */
+          var lines=sortedY.map(function(y){
+            return rowMap[y].sort(function(a,b){return a.x-b.x;});
+          }).filter(function(l){return l.length>0;});
+          /* Find header row = first row with most distinct columns in upper portion */
+          var maxC=0,hdrIdx=0;
+          lines.forEach(function(l,i){if(i<Math.ceil(lines.length*0.35)&&l.length>maxC){maxC=l.length;hdrIdx=i;}});
+          var hdrItems=lines[hdrIdx];
+          var headers=hdrItems.map(function(it){return it.text.trim();}).filter(Boolean);
+          var hdrXs=hdrItems.map(function(it){return it.x;});
+          /* For each data row, assign text items to nearest header column */
+          function assignCol(items){
+            var row=new Array(headers.length).fill('');
+            items.forEach(function(it){
+              var best=0,bestD=Infinity;
+              hdrXs.forEach(function(cx,ci){var d=Math.abs(it.x-cx);if(d<bestD){bestD=d;best=ci;}});
+              row[best]=(row[best]?row[best]+' ':'')+it.text.trim();
+            });
+            return row;
+          }
+          var result=[];
+          for(var i=hdrIdx+1;i<lines.length;i++){
+            var row=assignCol(lines[i]);
+            if(!row.some(function(v){return v.trim();}))continue;
+            var obj={};
+            headers.forEach(function(h,ci){obj[h]=(row[ci]||'').trim();});
+            result.push(obj);
+          }
+          if(!result.length){prev.innerHTML='<div style="color:#ef4444;padding:12px;">Could not extract table rows from PDF. Try exporting as Excel or CSV.</div>';return;}
+          onRows(result);
+        }
+        processPage();
+      }).catch(function(e){prev.innerHTML='<div style="color:#ef4444;padding:12px;">PDF parse error: '+esc(e.message)+'</div>';});
+    });
+  });
 }
 
 function initMap(){
@@ -523,16 +690,18 @@ function _updateNoGpsOverlay(){
   if(!overlay)return;
   var total=filteredPlots.length;
   var withGps=filteredPlots.filter(function(p){var la=parseNum(p.lat),ln=parseNum(p.lng);return!isNaN(la)&&!isNaN(ln)&&la!==0&&ln!==0;}).length;
-  var noGps=total-withGps;
+  var withUrl=plots.filter(function(p){return p.locationUrl&&(isNaN(parseNum(p.lat))||!parseNum(p.lat));}).length;
+  var resolveBtn=document.getElementById('resolveGpsBtn');
   var msg=document.getElementById('mapNoGpsMsg');
-  if(total===0){
-    overlay.style.display='none';return;
-  }
+  if(total===0){overlay.style.display='none';return;}
   if(withGps===0){
     overlay.style.display='flex';
-    if(msg)msg.innerHTML=(total===1?'This plot has':'All '+total+' plots have')+' no Latitude/Longitude.<br>Use <b>Place on Map</b> to set locations or add GPS data via Import.';
-  }else if(noGps>0){
-    overlay.style.display='none';/* Some have GPS — show warning only in legend */
+    if(resolveBtn)resolveBtn.style.display=withUrl>0?'block':'none';
+    if(resolveBtn&&withUrl>0)resolveBtn.innerHTML='<i class="fas fa-globe"></i> Auto-Resolve GPS from '+withUrl+' Map URL'+(withUrl>1?'s':'');
+    if(msg){
+      if(withUrl>0)msg.innerHTML='<span style="color:#34d399;font-weight:700;">'+withUrl+' plots have Google Maps URLs!</span><br>Click below to automatically extract GPS coordinates.';
+      else msg.innerHTML=(total===1?'This plot has':'All '+total+' plots have')+' no coordinates.<br>Use <b>Place on Map</b> or add GPS data via Import.';
+    }
   }else{
     overlay.style.display='none';
   }
@@ -704,7 +873,11 @@ function selectPlot(id){
   /* ── Location URL ── */
   var locHtml='';
   if(p.locationUrl){
-    locHtml='<a href="'+esc(p.locationUrl)+'" target="_blank" style="display:flex;align-items:center;gap:6px;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:7px 10px;margin-bottom:9px;color:#38bdf8;font-size:11px;text-decoration:none;"><i class="fas fa-map-marked-alt" style="font-size:13px;"></i><span>Open in Google Maps</span><i class="fas fa-external-link-alt" style="margin-left:auto;font-size:10px;"></i></a>';
+    locHtml='<a href="'+esc(p.locationUrl)+'" target="_blank" style="display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,#0c2340,#0f3460);border:1px solid #1e40af;border-radius:9px;padding:9px 12px;margin-bottom:9px;color:#38bdf8;font-size:12px;text-decoration:none;font-weight:600;">'+
+      '<span style="background:#1d4ed8;border-radius:6px;padding:5px 7px;font-size:14px;flex-shrink:0;">🗺️</span>'+
+      '<span>Open in Google Maps</span>'+
+      '<span style="margin-left:auto;font-size:10px;color:#3b82f6;"><i class="fas fa-external-link-alt"></i></span>'+
+    '</a>';
   }
 
   /* ── Notes/comments ── */
@@ -739,8 +912,24 @@ function selectPlot(id){
     }
   }
 
-  /* ── No GPS warning ── */
-  var noGpsHtml=!hasGps?'<div style="background:#1e1b4b;border:1px solid #3730a3;border-radius:8px;padding:8px 11px;margin-bottom:9px;font-size:11px;color:#a5b4fc;"><i class="fas fa-map-marker-alt" style="margin-right:5px;"></i><b>No GPS</b> — won\'t show on map. <button onclick="startSetOnMapModeForPlot('+pid+')" style="background:#6366f1;color:white;border:none;border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px;">📍 Place on Map</button></div>':'';
+  /* ── No GPS warning + auto-resolve button ── */
+  var noGpsHtml='';
+  if(!hasGps){
+    if(p.locationUrl){
+      /* Has a map URL — show auto-resolve button prominently */
+      noGpsHtml='<div style="background:linear-gradient(135deg,#052e16,#064e3b);border:1px solid #065f46;border-radius:10px;padding:11px 13px;margin-bottom:9px;">'+
+        '<div style="font-size:10px;font-weight:800;color:#34d399;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;"><i class="fas fa-map-marked-alt"></i> Google Maps URL Detected</div>'+
+        '<div style="font-size:11px;color:#6ee7b7;margin-bottom:9px;">This plot has a location link but no GPS pin yet. Click below to extract coordinates and drop a pin on the map automatically.</div>'+
+        '<button id="resolvePinBtn_'+pid+'" onclick="resolveAndPinPlot('+pid+')" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);color:white;border:none;border-radius:8px;padding:10px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.3px;"><i class="fas fa-globe"></i> 📍 Auto-Pin on Map</button>'+
+        '<div style="text-align:center;margin-top:7px;"><button onclick="startSetOnMapModeForPlot('+pid+')" style="background:transparent;border:none;color:#4ade80;font-size:10px;cursor:pointer;text-decoration:underline;">or click manually on the map instead</button></div>'+
+        '</div>';
+    }else{
+      noGpsHtml='<div style="background:#1e1b4b;border:1px solid #3730a3;border-radius:8px;padding:8px 11px;margin-bottom:9px;font-size:11px;color:#a5b4fc;">'+
+        '<i class="fas fa-map-marker-alt" style="margin-right:5px;"></i><b>No GPS</b> — won\'t show on map. '+
+        '<button onclick="startSetOnMapModeForPlot('+pid+')" style="background:#6366f1;color:white;border:none;border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px;">📍 Place on Map</button>'+
+        '</div>';
+    }
+  }
 
   var html='<div style="padding:14px;">'+
     /* Header */
@@ -1074,8 +1263,11 @@ function handleFileSelect(inp){
       }catch(ex){prev.innerHTML='<div style="color:#ef4444;padding:12px;">CSV error: '+esc(ex.message)+'</div>';}
     };
     fr3.readAsText(file,'UTF-8');
+  }else if(ext.endsWith('.pdf')){
+    prev.innerHTML='<div style="text-align:center;padding:20px;color:#64748b;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:8px;"></i><br>Loading PDF reader…</div>';
+    parsePDFFile(file,prev,onRows);
   }else{
-    prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Unsupported format. Use CSV, XLSX, JSON or TXT.</div>';
+    prev.innerHTML='<div style="color:#ef4444;padding:12px;"><i class="fas fa-times-circle"></i> Unsupported format. Use CSV, XLSX, JSON, PDF or TXT.</div>';
   }
 }
 
@@ -1132,14 +1324,22 @@ function confirmImport(){
   var total=added+replaced;
   var parts=[];if(added)parts.push(added+' added');if(replaced)parts.push(replaced+' updated');if(skipped)parts.push(skipped+' skipped (duplicate)');
   var msg=parts.join(', ')||'Nothing imported';
+  var withUrl=_importData.filter(function(p){return p.locationUrl&&!p.lat;}).length;
   if(withGps.length>0&&map){
     if(currentView!=='map')togglePlotView('map');
     setTimeout(function(){map.flyTo([parseFloat(withGps[0].lat),parseFloat(withGps[0].lng)],13,{duration:1.5});},300);
     showToastNotification('✓ '+msg+' — '+withGps.length+' on map','success');
   }else{
-    togglePlotView('table');
-    if(total>0)showToastNotification('✓ '+msg+' (no GPS — table view)','info');
-    else showToastNotification(msg+(skipped?' — tick "Replace existing" to overwrite':''),'error');
+    if(withUrl>0){
+      togglePlotView('map');
+      setTimeout(function(){
+        showToastNotification('✓ '+msg+' — '+withUrl+' Google Maps URLs found. Click "Auto-Resolve GPS" on the map overlay to extract coordinates.','info');
+      },400);
+    }else{
+      togglePlotView('table');
+      if(total>0)showToastNotification('✓ '+msg+' (no GPS — table view)','info');
+      else showToastNotification(msg+(skipped?' — tick "Replace existing" to overwrite':''),'error');
+    }
   }
   if(_syncActive)pushSync();
 }
@@ -1476,7 +1676,7 @@ function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(is
 
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
 window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
-window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;
+window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;
 window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showCRMModal=showCRMModal;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 window.onload=function(){
