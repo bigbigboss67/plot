@@ -2028,9 +2028,53 @@ window.printPlot=function(id){
   if(p.nfa)areaRows+='<tr><td>NFA</td><td>'+esc(p.nfa)+' sqm</td></tr>';
   if(p.far)areaRows+='<tr><td>FAR</td><td>'+esc(p.far)+'</td></tr>';
   if(p.bua)areaRows+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqm</td></tr>';
-  var photoHTML=(p.image&&p.image.startsWith('data:'))
-    ?'<img src="'+p.image+'" style="width:100%;height:190px;object-fit:cover;border-radius:10px;margin-bottom:14px;border:1px solid #e2e8f0;display:block;" alt="Plot Photo">'
-    :'<div style="width:100%;height:190px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;border:1px solid #e2e8f0;"><div style="font-size:36px;margin-bottom:8px;">&#128247;</div><div>No Photo</div></div>';
+
+  /* ── Decide what to show in the image area ── */
+  var hasImage=p.image&&p.image.startsWith('data:');
+  var pLat=parseFloat(p.lat),pLng=parseFloat(p.lng);
+  var hasGps=!isNaN(pLat)&&!isNaN(pLng)&&pLat!==0&&pLng!==0;
+  var isApprox=p._gpsMethod==='city'||p._gpsMethod==='default';
+  var mapInitScript='';
+
+  var photoHTML;
+  if(hasImage){
+    /* Use the uploaded photo */
+    photoHTML='<div style="position:relative;margin-bottom:14px;">'+
+      '<img src="'+p.image+'" style="width:100%;height:190px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;display:block;" alt="Plot Photo">'+
+      '<div style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:white;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px;">PLOT PHOTO</div>'+
+    '</div>';
+  } else if(hasGps){
+    /* No photo — show a live map at the GPS coordinates */
+    var latS=pLat.toFixed(6),lngS=pLng.toFixed(6);
+    var zoom=isApprox?12:16;
+    photoHTML='<div style="position:relative;margin-bottom:14px;">'+
+      '<div id="printMapDiv" style="width:100%;height:190px;border-radius:10px;border:1px solid #bae6fd;overflow:hidden;background:#e0f2fe;"></div>'+
+      '<div style="position:absolute;bottom:6px;left:6px;background:rgba(15,23,42,0.75);color:white;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px;">'+
+        (isApprox?'&#9888; APPROX. LOCATION':'&#128205; OSM LOCATION')+
+      '</div>'+
+      '<div style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.9);color:#0369a1;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;border:1px solid #bae6fd;">'+latS+', '+lngS+'</div>'+
+    '</div>';
+    /* Script to init Leaflet map in print window after DOM loads */
+    mapInitScript='<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'+
+      '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>'+
+      '<script>'+
+        'window.addEventListener("load",function(){'+
+          'var el=document.getElementById("printMapDiv");if(!el)return;'+
+          'var m=L.map("printMapDiv",{zoomControl:false,scrollWheelZoom:false,dragging:false,attributionControl:false}).setView(['+latS+','+lngS+'],'+zoom+');'+
+          'L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"© OpenStreetMap"}).addTo(m);'+
+          /* Pin marker */
+          'var ico=L.divIcon({className:"",html:"<div style=\\"width:22px;height:30px;background:#6366f1;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 3px 8px rgba(0,0,0,0.4);\\"></div>",iconSize:[22,30],iconAnchor:[11,30]});'+
+          'L.marker(['+latS+','+lngS+'],{icon:ico}).addTo(m);'+
+          'setTimeout(function(){m.invalidateSize();},150);'+
+        '});'+
+      '<\/script>';
+  } else {
+    /* No photo, no GPS */
+    photoHTML='<div style="width:100%;height:190px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;border:1px solid #e2e8f0;">'+
+      '<div style="font-size:36px;margin-bottom:8px;">&#128247;</div><div>No Photo / No GPS</div>'+
+    '</div>';
+  }
+
   var css='@import url(\'https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap\');'+
     '@page{size:A4;margin:0;}*{box-sizing:border-box;margin:0;padding:0;}'+
     'body{font-family:Inter,\'Segoe UI\',Arial,sans-serif;background:#dde1e7;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'+
@@ -2081,9 +2125,17 @@ window.printPlot=function(id){
     '.foot-l{font-size:8px;color:#94a3b8;line-height:1.7;}'+
     '.foot-r{font-size:8px;color:#94a3b8;text-align:right;line-height:1.7;}'+
     '.conf{font-size:9px;font-weight:800;color:#ef4444;text-transform:uppercase;letter-spacing:1px;}'+
-    '.pbtn{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:12px;padding:13px 26px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 28px rgba(99,102,241,0.45);letter-spacing:0.3px;}'+
-    '@media print{.pbtn{display:none!important;}body{background:white!important;}.page{box-shadow:none!important;}}';
-  var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Plot Report — '+esc(p.no)+'</title><style>'+css+'</style></head><body>'+
+    '.pbtn{position:fixed;bottom:24px;right:24px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:12px;padding:13px 26px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 8px 28px rgba(99,102,241,0.45);letter-spacing:0.3px;z-index:9999;}'+
+    /* Make the Leaflet map print correctly */
+    '.leaflet-container{background:#e0f2fe!important;}'+
+    '@media print{.pbtn{display:none!important;}body{background:white!important;}.page{box-shadow:none!important;}'+
+      '#printMapDiv{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'+
+      '.leaflet-tile{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'+
+    '}';
+
+  var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Plot Report — '+esc(p.no)+'</title>'+
+    mapInitScript+
+    '<style>'+css+'</style></head><body>'+
     '<div class="page">'+
       '<div class="hdr">'+
         '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">AI Plot Portal Pro</div><div class="logo-sb">Property Intelligence Platform</div></div></div></div>'+
@@ -2104,7 +2156,7 @@ window.printPlot=function(id){
             '<div class="mc mc-p"><div class="ml">Total Value</div><div class="mv mv-p" style="font-size:15px;">'+totalM+'</div></div>'+
           '</div>'+
           (areaRows?'<div class="sec">Area Metrics</div><table class="dtbl">'+areaRows+'</table>':'')+
-          ((p.lat&&p.lng)?'<div class="sec">GPS Location</div><div class="gbox"><b>Latitude:</b> '+esc(p.lat)+'<br><b>Longitude:</b> '+esc(p.lng)+'</div>':'')+
+          ((p.lat&&p.lng)?'<div class="sec">GPS Location</div><div class="gbox"><b>Latitude:</b> '+esc(p.lat)+'<br><b>Longitude:</b> '+esc(p.lng)+(p.locationUrl?'<br><b>Maps:</b> <a href="'+esc(p.locationUrl)+'" style="color:#0369a1;">Open in Google Maps</a>':'')+'</div>':'')+
           (p.notes?'<div class="sec">Notes</div><div class="nbox">'+esc(p.notes)+'</div>':'')+
         '</div>'+
         '<div class="col-s">'+
@@ -2115,7 +2167,8 @@ window.printPlot=function(id){
           '<div class="irow"><span class="il">Type</span><span class="iv">'+esc(p.type||'—')+'</span></div>'+
           '<div class="irow"><span class="il">Development</span><span class="iv" style="font-size:9px;">'+esc(p.dev||'—')+'</span></div>'+
           (p.videoUrl?'<div class="irow"><span class="il">Video Tour</span><span class="iv" style="color:#6366f1;">Available</span></div>':'')+
-          (p.lat&&p.lng?'<div class="irow"><span class="il">GPS</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+'</span></div>':'')+
+          (hasGps?'<div class="irow"><span class="il">GPS</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+(isApprox?'<br><span style="color:#d97706;">approx.</span>':'')+'</span></div>':'')+
+          (!hasImage&&hasGps?'<div style="font-size:8px;color:#64748b;margin-top:8px;padding:5px 0;border-top:1px solid #f1f5f9;">Map: OpenStreetMap &bull; '+(isApprox?'Approximate location':'Exact GPS location')+'</div>':'')+
         '</div>'+
       '</div>'+
       '<div class="foot">'+
@@ -2126,7 +2179,7 @@ window.printPlot=function(id){
     '<button class="pbtn" onclick="window.print()">&#128424; Print / Save PDF</button>'+
     '</body></html>';
   var w=window.open('','_blank','width=960,height=780');
-  if(!w){showToastNotification('Popup blocked.','error');return;}
+  if(!w){showToastNotification('Popup blocked — allow popups for this site and try again.','error');return;}
   w.document.write(html);w.document.close();w.focus();
 };
 
