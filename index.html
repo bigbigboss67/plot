@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Plot Portal Pro v4.0</title>
+<title>AI Plot Portal Pro v4.1</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -274,7 +274,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
   <div id="main">
     <div id="topbar">
       <button class="ibtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v4.0</span></span>
+      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v4.1</span></span>
       <div class="tbsrch"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search plots..." oninput="debounceSearch()"></div>
       <div class="tbacts">
         <button class="ibtn" onclick="toggleOnlineSync()" title="Sync"><i class="fas fa-cloud"></i></button>
@@ -367,7 +367,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map';
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true;
 var _gun=null,_gunNode=null,_syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
 var _syncConfig={room:'',active:false};
 /* Owner access code system */
@@ -764,6 +764,7 @@ function resolveMapsUrls(){
   function next(){
     if(idx>=toResolve.length){
       _resolving=false;
+      _autoFitMap=true;
       saveToLocalStorage();addPlotMarkers();populateTable();updateLegendCounts();
       var located=byUrl+byLookup+byGeo;
       var msg='📍 '+located+' of '+toResolve.length+' located';
@@ -1046,12 +1047,13 @@ window._popupOpen=function(pid){
 
 function addPlotMarkers(){
   if(!map||!markerCluster)return;
+  try{map.invalidateSize();}catch(e){}
   markerCluster.clearLayers();
   var noGps=0,added=0;
   filteredPlots.forEach(function(p){
     try{
       var lat=parseNum(p.lat),lng=parseNum(p.lng);
-      if(isNaN(lat)||isNaN(lng)||lat===0&&lng===0){noGps++;return;}
+      if(isNaN(lat)||isNaN(lng)||(lat===0&&lng===0)){noGps++;return;}
       if(lat<-90||lat>90||lng<-180||lng>180){noGps++;return;}
       var color=getStatusColor(p.status);
       var m=L.marker([lat,lng],{icon:makeIcon(color,p.no)});
@@ -1062,7 +1064,15 @@ function addPlotMarkers(){
       added++;
     }catch(e){console.warn('Marker error for plot '+p.no+':',e);}
   });
-  updateLegendCounts();/* overlay updated inside updateLegendCounts */
+  /* Auto-fit map to markers on first load / after import */
+  if(added>0&&_autoFitMap){
+    _autoFitMap=false;
+    try{
+      var bounds=markerCluster.getBounds();
+      if(bounds&&bounds.isValid())map.fitBounds(bounds,{padding:[40,40],maxZoom:14,animate:true});
+    }catch(e){}
+  }
+  updateLegendCounts();
   return {noGps:noGps,added:added};
 }
 
@@ -1724,6 +1734,7 @@ function confirmImport(){
     }else{plots.push(p);existingMap[key]=plots.length-1;added++;}
   });
   filteredPlots=plots.slice();
+  _autoFitMap=true;
   saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();
   closeImportModal();
   var withGps=_importData.filter(function(p){return!isNaN(parseFloat(p.lat))&&!isNaN(parseFloat(p.lng));});
@@ -2103,6 +2114,7 @@ window.onload=function(){
     }
   });
   if(_syncedGps){filteredPlots=plots.slice();try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}}
+  _autoFitMap=true;/* always fit to pins on fresh page load */
 
   initMap();populateTable();togglePlotView('map');updateTotalPlotsBadge();
   if(currentUser){document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
