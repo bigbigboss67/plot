@@ -535,8 +535,13 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 
 <script>
 var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true;
-var _gun=null,_gunNode=null,_syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
+/* ── Live Sync globals (MQTT over WebSocket) ── */
+var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
+var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
 var _syncConfig={room:'',active:false};
+var _syncStatus='off',_lastSyncTime=0;
+/* Stable session ID so we can ignore our own echoed messages */
+var _sessionId=(function(){var k='_aiplot_sid',s=localStorage.getItem(k);if(!s){s=Math.random().toString(36).slice(2,12);try{localStorage.setItem(k,s);}catch(e){}}return s;})();
 /* Owner access code system */
 var _ownerCode=null,_ownerUnlocked=false;
 
@@ -2432,221 +2437,224 @@ function showCRMModal(){showToastNotification('CRM coming soon!','info');}
 function connectGoogleCalendar(){showToastNotification('Google Calendar coming soon!','info');}
 function showOfflineSyncModal(){showToastNotification('Data is saved locally in your browser.','info');}
 
-/* Unique ID for this browser session — prevents receiving our own pushes back */
-var _sessionId=(function(){var s=localStorage.getItem('_aiplot_sid');if(!s){s=Math.random().toString(36).slice(2,12);try{localStorage.setItem('_aiplot_sid',s);}catch(e){}}return s;})();
-var _stateNode=null; /* reference to Gun child node so we can .off() it cleanly */
-var _syncStatus='off'; /* off | connecting | live | error */
-var _lastSyncTime=0;
-
-/* Active Gun relay peers — these are publicly running, not Heroku (dead since Nov 2022) */
-var _GUN_PEERS=[
-  'https://relay.peer.ooo/gun',
-  'https://gun-relay.coapp.io/gun',
-  'https://peer.wallie.io/gun'
+/* ══════════════════════════════════════════════
+   LIVE SYNC — MQTT over WebSocket
+   Replaces broken Gun.js P2P relays.
+   Uses HiveMQ public broker (free, no account).
+   Retained messages: new joiners instantly get
+   current room state without waiting for a push.
+   ══════════════════════════════════════════════ */
+var _MQTT_BROKERS=[
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://broker.emqx.io:8084/mqtt'
 ];
 
-function _ensureGun(){
-  if(_gun)return _gun;
-  _gun=Gun(_GUN_PEERS);
-  return _gun;
-}
-
 function _plotsForSync(arr){
-  /* Strip base64 images — too large to sync over P2P */
-  return arr.map(function(p){
-    var c=Object.assign({},p);
-    if(typeof c.image==='string'&&c.image.startsWith('data:'))c.image='';
-    return c;
-  });
+  return arr.map(function(p){var c=Object.assign({},p);if(typeof c.image==='string'&&c.image.startsWith('data:'))c.image='';return c;});
 }
 
 function _setSyncStatus(s){
   _syncStatus=s;
-  var btn=document.querySelector('#topbar button[title="Sync"],#topbar button[title="Sync • Live"]');
+  var btn=document.querySelector('#topbar button[title^="Sync"]');
   if(!btn)return;
   if(s==='live'){btn.style.color='#34d399';btn.title='Sync • Live';}
   else if(s==='connecting'){btn.style.color='#fbbf24';btn.title='Sync • Connecting…';}
-  else if(s==='error'){btn.style.color='#ef4444';btn.title='Sync • Error';}
+  else if(s==='error'){btn.style.color='#ef4444';btn.title='Sync • Error — click to retry';}
   else{btn.style.color='';btn.title='Sync';}
 }
 
 function _applyRemoteData(raw){
-  if(!raw||typeof raw!=='string')return;
-  var d;
-  try{d=JSON.parse(raw);}catch(e){return;}
+  if(!raw)return;
+  var str=typeof raw==='string'?raw:(raw instanceof Uint8Array||Array.isArray(raw))?new TextDecoder().decode(raw):String(raw);
+  var d;try{d=JSON.parse(str);}catch(e){return;}
   if(!d||!Array.isArray(d.plots))return;
-  /* Ignore our own pushes echoed back by the relay */
-  if(d.sid===_sessionId)return;
-  /* Ignore stale data that is older than what we already applied */
-  if(d.ts&&d.ts>0&&d.ts<=_lastRemoteTs)return;
+  if(d.sid===_sessionId)return; /* own echo — ignore */
+  if(d.ts&&d.ts>0&&d.ts<=_lastRemoteTs)return; /* stale */
   _lastRemoteTs=d.ts||Date.now();
   _lastSyncTime=Date.now();
-  /* Preserve local images (they are not synced) */
   var imgs={};plots.forEach(function(p){if(p.image)imgs[p.id]=p.image;});
   plots=d.plots.map(function(p){if(!p.image&&imgs[p.id])p.image=imgs[p.id];return p;});
   filteredPlots=plots.slice();
   try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}
   addPlotMarkers();populateTable();updateTotalPlotsBadge();updateLegendCounts();
   _setSyncStatus('live');
-  var who=d.user&&d.user!=='unknown'?(' from <b>'+esc(d.user)+'</b>'):'';
+  var who=d.user&&d.user!=='unknown'?' from <b>'+esc(d.user)+'</b>':'';
   showToastNotification('↓ Synced '+plots.length+' plots'+who,'success');
 }
 
-function _initGunListener(){
-  /* Detach any previous listener on the state key */
-  if(_stateNode){try{_stateNode.off();}catch(e){}}
-  _stateNode=_gunNode.get('state');
-  _stateNode.on(function(raw){
-    _applyRemoteData(raw);
+function _loadMqttJs(cb){
+  if(window.mqtt){cb();return;}
+  var done=false;
+  function load(src){
+    var s=document.createElement('script');s.src=src;
+    s.onload=function(){if(!done){done=true;cb();}};
+    s.onerror=function(){if(!done&&src.indexOf('unpkg')>-1)load('https://cdn.jsdelivr.net/npm/mqtt@5/dist/mqtt.min.js');};
+    document.head.appendChild(s);
+  }
+  load('https://unpkg.com/mqtt@5/dist/mqtt.min.js');
+}
+
+function _mqttConnect(brokerIdx,onReady){
+  if(brokerIdx>=_MQTT_BROKERS.length){
+    _setSyncStatus('error');
+    showToastNotification('Cannot reach sync broker. Check internet connection.','error');
+    return;
+  }
+  var url=_MQTT_BROKERS[brokerIdx];
+  var cid='aiplot_'+(_sessionId||'x').slice(0,8)+'_'+Math.random().toString(36).slice(2,6);
+  var client;
+  try{
+    client=mqtt.connect(url,{clientId:cid,keepalive:20,connectTimeout:10000,reconnectPeriod:0,clean:true});
+  }catch(e){_mqttConnect(brokerIdx+1,onReady);return;}
+  var timer=setTimeout(function(){
+    try{client.end(true);}catch(e){}
+    showToastNotification('Broker '+( brokerIdx+1)+' timed out, trying next…','info');
+    _mqttConnect(brokerIdx+1,onReady);
+  },10000);
+  client.on('connect',function(){
+    clearTimeout(timer);
+    _mqttClient=client;_mqttConnected=true;
+    /* Receive all incoming messages */
+    client.on('message',function(topic,msg){
+      if(topic!==_mqttTopic)return;
+      _applyRemoteData(msg);
+    });
+    client.on('error',function(){_mqttConnected=false;_setSyncStatus('error');});
+    client.on('close',function(){_mqttConnected=false;if(_syncActive)_setSyncStatus('error');});
+    onReady();
+  });
+  client.on('error',function(e){
+    clearTimeout(timer);
+    try{client.end(true);}catch(ex){}
+    _mqttConnect(brokerIdx+1,onReady);
   });
 }
 
-function showSyncModal(){
-  var old=document.getElementById('syncModal');if(old)old.remove();
-  var timeSince=_lastSyncTime?Math.round((Date.now()-_lastSyncTime)/1000)+'s ago':'never';
-  var statusBadge=_syncActive
-    ?'<div style="display:inline-flex;align-items:center;gap:6px;background:#064e3b;border:1px solid #34d399;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#34d399;"><span style="width:7px;height:7px;background:#34d399;border-radius:50%;display:inline-block;animation:pulse 1.2s infinite;"></span> LIVE &bull; <b>'+esc(_syncRoom)+'</b></div>'
-    :'<div style="display:inline-flex;align-items:center;gap:6px;background:#1e293b;border:1px solid #475569;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#64748b;"><span style="width:7px;height:7px;background:#475569;border-radius:50%;display:inline-block;"></span> Not Connected</div>';
-  var modal=document.createElement('div');modal.id='syncModal';
-  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:92%;max-width:500px;overflow:hidden;">'+
-    /* Header */
-    '<div style="padding:18px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;gap:10px;">'+
-      '<div><div style="font-size:16px;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:8px;"><i class="fas fa-cloud" style="color:#6366f1;"></i>Live Sync</div>'+
-      '<div style="font-size:11px;color:#64748b;margin-top:2px;">Real-time P2P — no account, no server setup</div></div>'+
-      '<button onclick="document.getElementById(\'syncModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;flex-shrink:0;">&times;</button>'+
-    '</div>'+
-    '<div style="padding:20px 22px;">'+
-      /* Status */
-      '<div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
-        statusBadge+
-        (_syncActive?'<span style="font-size:10px;color:#64748b;">Last sync: '+esc(timeSince)+'</span>':'')+
-      '</div>'+
-      /* Active room actions */
-      (_syncActive?
-        '<div style="background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">'+
-          '<div style="font-size:11px;color:#93c5fd;">'+
-            '<i class="fas fa-users" style="margin-right:5px;"></i>Share this room code with teammates:<br>'+
-            '<span style="font-family:monospace;font-size:13px;font-weight:700;color:#60a5fa;letter-spacing:0.5px;">'+esc(_syncRoom)+'</span>'+
-          '</div>'+
-          '<div style="display:flex;gap:6px;">'+
-            '<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+esc(_syncRoom)+'\').then(function(){showToastNotification(\'Room code copied!\',\'success\');});" style="background:#1e3a5f;color:#93c5fd;border:1px solid #1e4080;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;"><i class="fas fa-copy"></i> Copy</button>'+
-            '<button onclick="_doPush();showToastNotification(\'Pushed '+plots.length+' plots\',\'success\');" style="background:#059669;color:white;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;"><i class="fas fa-upload"></i> Push</button>'+
-            '<button onclick="pullSync();" style="background:#0369a1;color:white;border:none;border-radius:7px;padding:6px 10px;font-size:11px;font-weight:600;cursor:pointer;"><i class="fas fa-download"></i> Pull</button>'+
-          '</div>'+
-        '</div>'
-      :'')+
-      /* How it works */
-      '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:#64748b;line-height:1.9;">'+
-        '<div style="font-weight:700;color:#94a3b8;margin-bottom:6px;"><i class="fas fa-bolt" style="color:#fbbf24;margin-right:5px;"></i>How to sync between devices:</div>'+
-        '<span style="color:#6366f1;font-weight:700;">1.</span> Type any Room Code below (e.g. <i>my-team-2026</i>)<br>'+
-        '<span style="color:#6366f1;font-weight:700;">2.</span> Open the app on any other device, enter the <b>same code</b><br>'+
-        '<span style="color:#6366f1;font-weight:700;">3.</span> Click Connect — plots sync automatically in real-time<br>'+
-        '<span style="color:#475569;font-size:10px;">⚠ Plot photos are kept local only (too large to sync)</span>'+
-      '</div>'+
-      /* Room code input */
-      '<div style="margin-bottom:14px;">'+
-        '<label style="font-size:11px;color:#94a3b8;display:block;margin-bottom:5px;font-weight:600;">Room Code</label>'+
-        '<input id="syncRoomInput" type="text" placeholder="e.g. breza-hills-team-2026" value="'+esc(_syncRoom)+'" '+
-          'style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:14px;font-weight:700;outline:none;letter-spacing:0.3px;" '+
-          'onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#334155\'" '+
-          'onkeydown="if(event.key===\'Enter\')connectSync()">'+
-        '<div style="font-size:10px;color:#475569;margin-top:4px;">Letters, numbers, hyphens only. Keep it secret.</div>'+
-      '</div>'+
-      /* Action buttons */
-      '<div style="display:flex;gap:8px;">'+
-        '<button onclick="connectSync()" style="flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;"><i class="fas fa-plug"></i> '+(_syncActive?'Switch Room':'Connect &amp; Sync')+'</button>'+
-        (_syncActive?'<button onclick="disconnectSync()" style="background:#1e293b;color:#ef4444;border:1.5px solid #ef4444;border-radius:9px;padding:12px 16px;font-size:12px;font-weight:700;cursor:pointer;" title="Disconnect sync"><i class="fas fa-unlink"></i></button>':'')+
-      '</div>'+
-    '</div>'+
-  '</div>';
-  document.body.appendChild(modal);
-  /* Focus room input */
-  setTimeout(function(){var i=document.getElementById('syncRoomInput');if(i){i.focus();i.select();}},100);
-}
-
-function connectSync(){
-  var inp=document.getElementById('syncRoomInput');
-  var room=(inp?inp.value:'').trim().replace(/[^a-zA-Z0-9_-]/g,'-');
-  if(!room){showToastNotification('Enter a Room Code.','error');return;}
-  /* Tear down previous connection */
-  if(_stateNode){try{_stateNode.off();}catch(e){}_stateNode=null;}
-  if(_gunNode){try{_gunNode.off();}catch(e){}_gunNode=null;}
-  clearTimeout(_pushTimer);
-  _syncRoom=room;_syncActive=true;_lastRemoteTs=0;
-  _syncConfig={room:room,active:true};
-  try{localStorage.setItem('aiplot_sync',JSON.stringify(_syncConfig));}catch(e){}
+function _doMqttConnect(onReady){
+  /* Tear down any existing connection */
+  if(_mqttClient){try{_mqttClient.end(true);}catch(e){}_mqttClient=null;_mqttConnected=false;}
   _setSyncStatus('connecting');
-  _ensureGun();
-  _gunNode=_gun.get('aiplot-v2-'+room);
-  /* Listen first, then push our data */
-  _initGunListener();
-  /* Small delay so listener is registered before we push */
-  setTimeout(_doPush,300);
-  var old=document.getElementById('syncModal');if(old)old.remove();
-  showToastNotification('🔗 Joined room: <b>'+esc(room)+'</b> — syncing…','success');
-  _updateSyncBtn(true);
+  _loadMqttJs(function(){_mqttConnect(0,onReady);});
 }
 
-function disconnectSync(){
-  if(_stateNode){try{_stateNode.off();}catch(e){}_stateNode=null;}
-  if(_gunNode){try{_gunNode.off();}catch(e){}_gunNode=null;}
-  _syncActive=false;_syncRoom='';_lastRemoteTs=0;
-  _syncConfig={room:'',active:false};
-  clearTimeout(_pushTimer);
-  try{localStorage.removeItem('aiplot_sync');}catch(e){}
-  _setSyncStatus('off');
-  var old=document.getElementById('syncModal');if(old)old.remove();
-  showToastNotification('Sync disconnected.','info');
-}
-
-function _updateSyncBtn(on){
-  _setSyncStatus(on?'live':'off');
+function _mqttSubscribeAndPush(){
+  if(!_mqttClient||!_mqttTopic)return;
+  /* Subscribe with QoS 1 — broker sends retained message immediately on subscribe */
+  _mqttClient.subscribe(_mqttTopic,{qos:1},function(err){
+    if(err){_setSyncStatus('error');showToastNotification('Subscription failed','error');return;}
+    _setSyncStatus('live');
+    showToastNotification('✓ Joined room <b>'+esc(_syncRoom)+'</b> — syncing','success');
+    /* Push our current data so peers get it; retain=true so new joiners get it too */
+    setTimeout(_doPush,400);
+  });
 }
 
 function _doPush(){
-  if(!_gunNode||!_syncActive)return;
-  var payload=JSON.stringify({
-    plots:_plotsForSync(plots),
-    ts:Date.now(),
-    sid:_sessionId,          /* session ID so peers can ignore their own echo */
-    user:(currentUser&&currentUser.name)||'unknown',
-    n:plots.length
-  });
-  _setSyncStatus('connecting');
-  _gunNode.get('state').put(payload,function(ack){
-    if(ack&&ack.err){
-      console.warn('[Sync] Push error:',ack.err);
-      _setSyncStatus('error');
-      showToastNotification('Sync push failed — check internet','error');
-    }else{
-      _setSyncStatus('live');
-    }
+  if(!_mqttClient||!_mqttConnected||!_syncActive||!_mqttTopic)return;
+  var payload=JSON.stringify({plots:_plotsForSync(plots),ts:Date.now(),sid:_sessionId,user:(currentUser&&currentUser.name)||'unknown',n:plots.length});
+  _mqttClient.publish(_mqttTopic,payload,{qos:1,retain:true},function(err){
+    _setSyncStatus(err?'error':'live');
+    if(err)showToastNotification('Sync push failed','error');
   });
 }
 
 function pushSync(){clearTimeout(_pushTimer);_pushTimer=setTimeout(_doPush,600);}
 
 function pullSync(){
-  if(!_gunNode){showToastNotification('Not connected to a sync room','error');return;}
-  showToastNotification('Pulling from room…','info');
-  /* Temporarily clear _lastRemoteTs so we accept any data */
-  var savedTs=_lastRemoteTs;_lastRemoteTs=0;
-  _gunNode.get('state').once(function(raw){
-    if(!raw){
-      _lastRemoteTs=savedTs;
-      showToastNotification('No data in this room yet','info');
-      return;
-    }
-    _applyRemoteData(raw);
-    if(_lastRemoteTs===0){
-      _lastRemoteTs=savedTs;
-      showToastNotification('Room is empty or data could not be parsed','error');
-    }
+  if(!_mqttClient||!_mqttConnected){showToastNotification('Not connected to a sync room','error');return;}
+  /* Unsub then resub — broker immediately re-delivers the retained message */
+  _lastRemoteTs=0;
+  _mqttClient.unsubscribe(_mqttTopic,function(){
+    _mqttClient.subscribe(_mqttTopic,{qos:1},function(err){
+      if(!err)showToastNotification('Pulling latest from room…','info');
+    });
   });
 }
 
+function connectSync(){
+  var inp=document.getElementById('syncRoomInput');
+  var room=(inp?inp.value:'').trim().replace(/[^a-zA-Z0-9_-]/g,'-');
+  if(!room){showToastNotification('Enter a Room Code.','error');return;}
+  disconnectSync(true);/* silent teardown */
+  _syncRoom=room;_syncActive=true;_lastRemoteTs=0;
+  _mqttTopic='aiplot/v2/'+room;
+  _syncConfig={room:room,active:true};
+  try{localStorage.setItem('aiplot_sync',JSON.stringify(_syncConfig));}catch(e){}
+  var old=document.getElementById('syncModal');if(old)old.remove();
+  showToastNotification('Connecting to room <b>'+esc(room)+'</b>…','info');
+  _doMqttConnect(_mqttSubscribeAndPush);
+}
+
+function disconnectSync(silent){
+  clearTimeout(_pushTimer);
+  if(_mqttClient){
+    try{if(_mqttTopic)_mqttClient.unsubscribe(_mqttTopic);}catch(e){}
+    try{_mqttClient.end(true);}catch(e){}
+    _mqttClient=null;
+  }
+  _mqttConnected=false;_syncActive=false;_syncRoom='';_lastRemoteTs=0;_mqttTopic='';
+  _syncConfig={room:'',active:false};
+  try{localStorage.removeItem('aiplot_sync');}catch(e){}
+  _setSyncStatus('off');
+  if(!silent){var old=document.getElementById('syncModal');if(old)old.remove();showToastNotification('Sync disconnected.','info');}
+}
+
+function showSyncModal(){
+  var old=document.getElementById('syncModal');if(old)old.remove();
+  var ago=_lastSyncTime?Math.round((Date.now()-_lastSyncTime)/1000)+'s ago':'—';
+  var statusBadge=_syncActive
+    ?'<span style="display:inline-flex;align-items:center;gap:6px;background:#064e3b;border:1px solid #34d399;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#34d399;"><span style="width:7px;height:7px;background:#34d399;border-radius:50%;display:inline-block;animation:pulse 1.2s infinite;"></span>LIVE &mdash; '+esc(_syncRoom)+'</span>'
+    :'<span style="display:inline-flex;align-items:center;gap:6px;background:#1e293b;border:1px solid #475569;border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;color:#64748b;"><span style="width:7px;height:7px;background:#475569;border-radius:50%;display:inline-block;"></span>Not connected</span>';
+  var modal=document.createElement('div');modal.id='syncModal';
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:93%;max-width:500px;overflow:hidden;">'+
+    '<div style="padding:17px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;gap:10px;">'+
+      '<div><div style="font-size:15px;font-weight:700;color:#f1f5f9;"><i class="fas fa-bolt" style="color:#6366f1;margin-right:7px;"></i>Live Room Sync</div>'+
+      '<div style="font-size:10px;color:#64748b;margin-top:2px;">MQTT · end-to-end · no account needed</div></div>'+
+      '<button onclick="document.getElementById(\'syncModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;flex-shrink:0;">&times;</button>'+
+    '</div>'+
+    '<div style="padding:18px 22px;">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;">'+statusBadge+
+        (_syncActive?'<span style="font-size:10px;color:#64748b;">last sync: '+esc(ago)+'</span>':'')+
+      '</div>'+
+      (_syncActive?
+        '<div style="background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;padding:12px 14px;margin-bottom:14px;">'+
+          '<div style="font-size:10px;color:#94a3b8;margin-bottom:6px;font-weight:700;"><i class="fas fa-users" style="margin-right:5px;color:#6366f1;"></i>Share this code with teammates:</div>'+
+          '<div style="display:flex;align-items:center;gap:8px;">'+
+            '<code style="flex:1;background:#0f172a;border:1px solid #334155;border-radius:7px;padding:8px 12px;font-size:14px;font-weight:700;color:#60a5fa;letter-spacing:1px;">'+esc(_syncRoom)+'</code>'+
+            '<button onclick="(navigator.clipboard||{writeText:function(){}}).writeText(\''+esc(_syncRoom)+'\').then(function(){showToastNotification(\'Copied!\',\'success\');})" style="background:#1e3a5f;color:#93c5fd;border:1px solid #1e4080;border-radius:7px;padding:8px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"><i class="fas fa-copy"></i> Copy</button>'+
+          '</div>'+
+          '<div style="display:flex;gap:6px;margin-top:10px;">'+
+            '<button onclick="_doPush()" style="flex:1;background:#059669;color:white;border:none;border-radius:7px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;"><i class="fas fa-upload"></i> Push my data</button>'+
+            '<button onclick="pullSync()" style="flex:1;background:#0369a1;color:white;border:none;border-radius:7px;padding:7px;font-size:11px;font-weight:700;cursor:pointer;"><i class="fas fa-download"></i> Pull latest</button>'+
+          '</div>'+
+        '</div>'
+      :'')+
+      '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:9px;padding:11px 14px;margin-bottom:14px;font-size:11px;color:#64748b;line-height:1.9;">'+
+        '<b style="color:#94a3b8;"><i class="fas fa-info-circle" style="color:#6366f1;margin-right:5px;"></i>How it works:</b><br>'+
+        '<span style="color:#6366f1;font-weight:700;">1.</span> Enter any Room Code below<br>'+
+        '<span style="color:#6366f1;font-weight:700;">2.</span> Give the <b>same code</b> to every teammate<br>'+
+        '<span style="color:#6366f1;font-weight:700;">3.</span> Click Connect on each device — changes sync instantly<br>'+
+        '<span style="font-size:9px;color:#475569;">Photos stay local only. Room data is not encrypted — use a private code.</span>'+
+      '</div>'+
+      '<div style="margin-bottom:13px;">'+
+        '<label style="font-size:10px;color:#64748b;display:block;margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Room Code</label>'+
+        '<input id="syncRoomInput" type="text" placeholder="e.g. my-team-2026" value="'+esc(_syncRoom)+'" autocomplete="off" '+
+          'style="width:100%;background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px 13px;color:#e2e8f0;font-size:15px;font-weight:700;outline:none;letter-spacing:0.5px;" '+
+          'onfocus="this.style.borderColor=\'#6366f1\'" onblur="this.style.borderColor=\'#334155\'" onkeydown="if(event.key===\'Enter\')connectSync()">'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;">'+
+        '<button onclick="connectSync()" style="flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:9px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;"><i class="fas fa-plug"></i> '+(_syncActive?'Switch Room':'Connect &amp; Sync')+'</button>'+
+        (_syncActive?'<button onclick="disconnectSync()" style="background:#1e293b;color:#ef4444;border:1.5px solid #ef4444;border-radius:9px;padding:12px 16px;font-size:12px;font-weight:700;cursor:pointer;"><i class="fas fa-unlink"></i></button>':'')+
+      '</div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+  setTimeout(function(){var i=document.getElementById('syncRoomInput');if(i){i.focus();i.select();}},80);
+}
+
 function startAutoSync(){}
+function _updateSyncBtn(on){_setSyncStatus(on?'live':'off');}
 function toggleOnlineSync(){showSyncModal();}
 function updateTotalPlotsBadge(){var el=document.getElementById('totalPlotsBadge');if(el)el.textContent=plots.length;}
 
@@ -2755,13 +2763,9 @@ window.onload=function(){
   }
   if(_syncConfig&&_syncConfig.active&&_syncConfig.room){
     _syncRoom=_syncConfig.room;_syncActive=true;_lastRemoteTs=0;
-    _setSyncStatus('connecting');
-    _ensureGun();
-    _gunNode=_gun.get('aiplot-v2-'+_syncConfig.room);
-    _initGunListener();
-    /* Push our current data and pull remote */
-    setTimeout(function(){_doPush();},800);
-    showToastNotification('🔗 Auto-reconnected to room: <b>'+esc(_syncConfig.room)+'</b>','success');
+    _mqttTopic='aiplot/v2/'+_syncConfig.room;
+    showToastNotification('🔗 Auto-reconnecting to room: <b>'+esc(_syncConfig.room)+'</b>…','info');
+    _doMqttConnect(_mqttSubscribeAndPush);
   }
 };
 </script>
