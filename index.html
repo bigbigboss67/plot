@@ -561,7 +561,7 @@ function saveToLocalStorage(){
   try{if(currentUser)localStorage.setItem('aiplot_user',JSON.stringify(currentUser));}catch(e){}
   if(_syncActive && _fbRoomRef){
     plots.forEach(function(p){
-      var sp = Object.assign({}, p);
+      var sp = JSON.parse(JSON.stringify(p));
       if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
       _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
     });
@@ -2581,7 +2581,7 @@ function connectSync(autoRoom){
     if(!data){
       if(plots.length > 0){
         plots.forEach(function(p){
-          var sp = Object.assign({}, p);
+          var sp = JSON.parse(JSON.stringify(p));
           if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
           _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
         });
@@ -2594,7 +2594,7 @@ function connectSync(autoRoom){
       });
       if(toPush.length > 0){
         toPush.forEach(function(p){
-          var sp = Object.assign({}, p);
+          var sp = JSON.parse(JSON.stringify(p));
           if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
           _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
         });
