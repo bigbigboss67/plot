@@ -143,6 +143,136 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 .aiplot-popup .leaflet-popup-tip{background:white;}
 .aiplot-popup .leaflet-popup-close-button{color:rgba(255,255,255,0.8)!important;top:7px!important;right:9px!important;font-size:18px!important;z-index:1;}
 .aiplot-popup .leaflet-popup-close-button:hover{color:white!important;}
+
+/* ── Mobile bottom nav ── */
+#mobileBottomNav{display:none;position:fixed;bottom:0;left:0;right:0;height:62px;background:#1e293b;border-top:1px solid #334155;z-index:2500;align-items:center;justify-content:space-around;padding:0 4px;}
+.mbn-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;color:#64748b;font-size:10px;font-weight:600;padding:6px 10px;border-radius:10px;cursor:pointer;transition:all 0.2s;min-width:48px;flex:1;}
+.mbn-btn i{font-size:18px;}
+.mbn-btn.active,.mbn-btn:active{color:#6366f1;}
+.mbn-add{background:linear-gradient(135deg,#6366f1,#8b5cf6)!important;color:white!important;border-radius:16px!important;width:52px;height:52px;min-width:52px;flex:none;box-shadow:0 4px 16px rgba(99,102,241,0.5);}
+.mbn-add i{font-size:22px;}
+
+/* ── Mobile backdrop (sidebar overlay) ── */
+#mobBackdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:2400;backdrop-filter:blur(3px);}
+#mobBackdrop.show{display:block;}
+
+/* ── Mobile menu sheet ── */
+#mobileMenuSheet{display:none;position:fixed;bottom:62px;left:0;right:0;background:#1e293b;border-top:1px solid #334155;border-radius:18px 18px 0 0;z-index:2600;padding:8px 0 16px;box-shadow:0 -8px 32px rgba(0,0,0,0.5);}
+#mobileMenuSheet.show{display:block;}
+.mms-item{display:flex;align-items:center;gap:12px;padding:13px 20px;color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;}
+.mms-item:active,.mms-item:hover{background:#334155;color:#f1f5f9;}
+.mms-item i{width:20px;text-align:center;font-size:15px;}
+.mms-handle{width:36px;height:4px;background:#334155;border-radius:2px;margin:8px auto 12px;}
+.mms-sep{height:1px;background:#334155;margin:4px 0;}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 768 px)
+   ══════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* Body: reserve space for bottom nav */
+  body{overflow:hidden;}
+  #app{height:calc(100vh - 62px);}
+
+  /* ── Sidebar: off-canvas drawer ── */
+  #sidebar{
+    position:fixed;left:-280px;top:0;height:100%;z-index:2500;
+    width:272px;transition:left 0.28s cubic-bezier(.4,0,.2,1);
+    box-shadow:4px 0 32px rgba(0,0,0,0.6);
+  }
+  #sidebar.mob-open{left:0;}
+  /* Hide collapsed state logic on mobile */
+  #sidebar.collapsed{width:272px;left:-280px;}
+  #sidebar.collapsed.mob-open{left:0;}
+
+  /* ── Topbar: compact ── */
+  #topbar{padding:0 10px;height:50px;gap:6px;}
+  .tbbrand{font-size:13px;}
+  .tbbrand span{display:none;}
+  .tbsrch{flex:1;max-width:none;}
+  /* Hide desktop-only topbar actions */
+  .tbacts .ibtn[title="Sync"],
+  .tbacts .ibtn[title="Export"],
+  #totalPlotsBadge,
+  #userBadge,
+  .ibtnp{display:none!important;}
+
+  /* ── Filter bar: horizontal scroll ── */
+  #filterbar{
+    flex-wrap:nowrap;overflow-x:auto;padding:5px 10px;
+    -webkit-overflow-scrolling:touch;gap:5px;scrollbar-width:none;
+  }
+  #filterbar::-webkit-scrollbar{display:none;}
+  #filterbar .fi{flex-shrink:0;font-size:11px;padding:4px 7px;}
+  #filterbar input[type="number"]{width:58px!important;}
+  #filterbar span[style*="height:22px"]{display:none;}/* hide dividers */
+
+  /* ── Content area ── */
+  #content{position:relative;}
+
+  /* ── Plot card: bottom sheet ── */
+  #plotCard{
+    position:fixed!important;
+    bottom:62px!important;top:auto!important;
+    right:0!important;left:0!important;
+    width:100%!important;max-width:100%!important;
+    max-height:80vh;
+    border-radius:20px 20px 0 0;
+    border-left:none;border-right:none;border-bottom:none;
+    z-index:2000;
+    padding-top:4px;
+  }
+  /* Drag handle on plot card */
+  #plotCard::before{
+    content:'';display:block;width:38px;height:4px;
+    background:#475569;border-radius:2px;margin:10px auto 6px;
+  }
+
+  /* ── Map controls: compact, move up from bottom nav ── */
+  .mctrl{bottom:70px;left:8px;gap:3px;}
+  .mcbtn{padding:6px 8px;font-size:10px;}
+  .mcbtn .mcbtn-label{display:none;}
+
+  /* ── Legend: compact, above bottom nav ── */
+  .mlegend{bottom:70px;right:8px;font-size:10px;padding:8px;}
+
+  /* ── Table view: padding for bottom nav ── */
+  #tableView{padding:10px 0 8px;overflow-x:auto;}
+  .dtable{font-size:11px;}
+  .dtable th,.dtable td{padding:7px 8px;white-space:nowrap;}
+
+  /* ── Toasts: above bottom nav ── */
+  #toastWrap{top:auto;bottom:72px;right:8px;left:8px;}
+  .toast{max-width:none;min-width:0;}
+
+  /* ── Modals: bottom sheet on mobile ── */
+  .moverlay{align-items:flex-end;padding:0;}
+  .mbox{width:100%;max-width:100%;border-radius:20px 20px 0 0;max-height:92vh;margin:0;}
+  .mhdr{padding:14px 18px;}
+  .mbody{padding:14px 18px;}
+  .mfoot{padding:12px 18px;}
+
+  /* ── Form: single column on mobile ── */
+  .fgrid{grid-template-columns:1fr!important;}
+
+  /* ── Mobile nav: show ── */
+  #mobileBottomNav{display:flex;}
+
+  /* ── No-GPS overlay: position above bottom nav ── */
+  #mapNoGps{bottom:62px!important;}
+
+  /* ── Set on map banner ── */
+  #setOnMapBanner{bottom:70px!important;}
+
+  /* ── Approx GPS banner ── */
+  #approxGpsBanner{bottom:130px!important;}
+}
+
+/* Tablet (768–1024): sidebar auto-collapses, card smaller */
+@media(min-width:769px) and (max-width:1024px){
+  #sidebar{width:180px;}
+  #plotCard{width:280px;}
+  .tbsrch{max-width:240px;}
+}
 </style>
 </head>
 <body>
@@ -160,6 +290,43 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <div id="toastWrap"></div>
+
+<!-- Mobile sidebar backdrop -->
+<div id="mobBackdrop" onclick="closeMobileMenu();closeSidebarMobile()"></div>
+
+<!-- Mobile bottom navigation -->
+<div id="mobileBottomNav">
+  <button class="mbn-btn active" id="mbn-map" onclick="togglePlotView('map');_setMbnActive('mbn-map')">
+    <i class="fas fa-map"></i><span>Map</span>
+  </button>
+  <button class="mbn-btn" id="mbn-table" onclick="togglePlotView('table');_setMbnActive('mbn-table')">
+    <i class="fas fa-table"></i><span>Table</span>
+  </button>
+  <button class="mbn-btn mbn-add" onclick="openPlotModal()">
+    <i class="fas fa-plus"></i>
+  </button>
+  <button class="mbn-btn" id="mbn-import" onclick="document.getElementById('importModal').classList.remove('hidden')">
+    <i class="fas fa-upload"></i><span>Import</span>
+  </button>
+  <button class="mbn-btn" id="mbn-more" onclick="openMobileMenu()">
+    <i class="fas fa-ellipsis-h"></i><span>More</span>
+  </button>
+</div>
+
+<!-- Mobile "More" menu sheet -->
+<div id="mobileMenuSheet">
+  <div class="mms-handle"></div>
+  <div class="mms-item" onclick="closeMobileMenu();exportCSV()"><i class="fas fa-file-export" style="color:#34d399;"></i> Export CSV</div>
+  <div class="mms-item" onclick="closeMobileMenu();toggleHeatmap()"><i class="fas fa-fire" style="color:#f59e0b;"></i> Heatmap</div>
+  <div class="mms-item" onclick="closeMobileMenu();startDistanceCalculator()"><i class="fas fa-ruler" style="color:#6366f1;"></i> Distance Tool</div>
+  <div class="mms-item" onclick="closeMobileMenu();startBufferAnalysis()"><i class="fas fa-circle-dot" style="color:#06b6d4;"></i> Buffer Analysis</div>
+  <div class="mms-item" onclick="closeMobileMenu();resolveMapsUrls()"><i class="fas fa-globe" style="color:#34d399;"></i> Improve GPS</div>
+  <div class="mms-sep"></div>
+  <div class="mms-item" onclick="closeMobileMenu();toggleOnlineSync()"><i class="fas fa-cloud" style="color:#6366f1;"></i> Online Sync</div>
+  <div class="mms-item" onclick="closeMobileMenu();showOwnerCodeSetup()"><i class="fas fa-lock" style="color:#c4b5fd;"></i> Owner Code</div>
+  <div class="mms-sep"></div>
+  <div class="mms-item" onclick="closeMobileMenu();logout()"><i class="fas fa-sign-out-alt" style="color:#ef4444;"></i> Logout</div>
+</div>
 
 <div id="plotModal" class="moverlay hidden">
   <div class="mbox" style="max-width:620px;">
@@ -1399,8 +1566,23 @@ function setMapStyle(style){
 function togglePlotView(view){
   currentView=view;
   var mw=document.getElementById('mapWrap'),tv=document.getElementById('tableView'),nm=document.getElementById('nav-map'),nt=document.getElementById('nav-table');
-  if(view==='map'){mw.style.display='block';mw.style.flex='1';tv.classList.remove('show');if(nm)nm.classList.add('active');if(nt)nt.classList.remove('active');setTimeout(function(){if(map)map.invalidateSize();},150);}
-  else{mw.style.display='none';tv.classList.add('show');if(nm)nm.classList.remove('active');if(nt)nt.classList.add('active');populateTable();}
+  if(view==='map'){
+    mw.style.display='block';mw.style.flex='1';tv.classList.remove('show');
+    if(nm)nm.classList.add('active');if(nt)nt.classList.remove('active');
+    setTimeout(function(){if(map)map.invalidateSize();},150);
+    /* Mobile nav sync */
+    var mb=document.getElementById('mbn-map'),mt=document.getElementById('mbn-table');
+    if(mb)mb.classList.add('active');if(mt)mt.classList.remove('active');
+  }else{
+    mw.style.display='none';tv.classList.add('show');
+    if(nm)nm.classList.remove('active');if(nt)nt.classList.add('active');
+    populateTable();
+    /* Mobile nav sync */
+    var mb2=document.getElementById('mbn-map'),mt2=document.getElementById('mbn-table');
+    if(mb2)mb2.classList.remove('active');if(mt2)mt2.classList.add('active');
+  }
+  /* Close sidebar drawer on mobile when navigating */
+  if(_isMobile())closeSidebarMobile();
 }
 
 function populateTable(){
@@ -2377,7 +2559,45 @@ function updateTotalPlotsBadge(){var el=document.getElementById('totalPlotsBadge
 function login(){var user=(document.getElementById('loginUser').value||'').trim();if(!user){showToastNotification('Enter a username.','error');return;}currentUser={name:user,role:'user'};saveToLocalStorage();document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent=user;showToastNotification('Welcome, '+user+'!','success');}
 function continueAsGuest(){currentUser={name:'Guest',role:'guest'};document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent='Guest';showToastNotification('Continuing as Guest.','info');}
 function logout(){if(!confirm('Log out?'))return;currentUser=null;localStorage.removeItem('aiplot_user');document.getElementById('loginModal').style.display='flex';var ub=document.getElementById('userBadge');if(ub)ub.textContent='';}
-function toggleSidebar(){var sb=document.getElementById('sidebar');if(sb)sb.classList.toggle('collapsed');setTimeout(function(){if(map)map.invalidateSize();},360);}
+function _isMobile(){return window.innerWidth<=768;}
+function toggleSidebar(){
+  var sb=document.getElementById('sidebar');if(!sb)return;
+  if(_isMobile()){
+    /* Mobile: slide-in drawer with backdrop */
+    var isOpen=sb.classList.contains('mob-open');
+    if(isOpen){closeSidebarMobile();}
+    else{
+      sb.classList.add('mob-open');
+      var bd=document.getElementById('mobBackdrop');if(bd)bd.classList.add('show');
+    }
+  }else{
+    sb.classList.toggle('collapsed');
+    setTimeout(function(){if(map)map.invalidateSize();},360);
+  }
+}
+function closeSidebarMobile(){
+  var sb=document.getElementById('sidebar');if(sb)sb.classList.remove('mob-open');
+  var bd=document.getElementById('mobBackdrop');if(bd)bd.classList.remove('show');
+  /* Also close menu sheet if open */
+  var ms=document.getElementById('mobileMenuSheet');if(ms)ms.classList.remove('show');
+}
+function openMobileMenu(){
+  var ms=document.getElementById('mobileMenuSheet');if(!ms)return;
+  var bd=document.getElementById('mobBackdrop');
+  ms.classList.add('show');
+  if(bd)bd.classList.add('show');
+}
+function closeMobileMenu(){
+  var ms=document.getElementById('mobileMenuSheet');if(ms)ms.classList.remove('show');
+  var bd=document.getElementById('mobBackdrop');if(bd)bd.classList.remove('show');
+}
+function _setMbnActive(id){
+  ['mbn-map','mbn-table','mbn-import','mbn-more'].forEach(function(i){
+    var el=document.getElementById(i);if(el)el.classList.remove('active');
+  });
+  var el=document.getElementById(id);if(el)el.classList.add('active');
+}
+window.openMobileMenu=openMobileMenu;window.closeMobileMenu=closeMobileMenu;window.closeSidebarMobile=closeSidebarMobile;window._setMbnActive=_setMbnActive;
 
 function showToastNotification(msg,type){var wrap=document.getElementById('toastWrap');if(!wrap)return;var t=document.createElement('div');t.className='toast '+(type||'info');var icon=type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle';t.innerHTML='<i class="fas fa-'+icon+'" style="margin-right:7px;"></i>'+esc(msg);wrap.appendChild(t);setTimeout(function(){t.style.animation='toastOut 0.3s ease forwards';setTimeout(function(){if(t.parentNode)t.parentNode.removeChild(t);},300);},3500);}
 
