@@ -62,6 +62,14 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 .resultpill{border:1px solid #334155;background:#0f172a;border-radius:20px;padding:4px 10px;font-size:11px;color:#94a3b8;}
 .resultpill.warn{border-color:#fbbf24;color:#fbbf24;}
 .dist-label{background:#fbbf24;color:#0f172a;border:1px solid rgba(15,23,42,0.2);border-radius:16px;padding:5px 10px;font-size:12px;font-weight:900;box-shadow:0 6px 18px rgba(0,0,0,0.35);white-space:nowrap;}
+.amenity-label{background:#0f172a;color:#e2e8f0;border:1px solid #38bdf8;border-radius:14px;padding:4px 8px;font-size:10px;font-weight:800;box-shadow:0 5px 16px rgba(0,0,0,0.35);white-space:nowrap;}
+.crm-tabs{display:flex;gap:6px;margin-bottom:12px;border-bottom:1px solid #334155;padding-bottom:8px;}
+.crm-tab{background:#0f172a;border:1px solid #334155;border-radius:8px;color:#94a3b8;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;}
+.crm-tab.act{background:#2563eb;color:white;border-color:#2563eb;}
+.crm-pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.crm-col{background:#0f172a;border:1px solid #334155;border-radius:10px;min-height:120px;padding:10px;}
+.crm-col h3{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.crm-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:9px;margin-bottom:8px;font-size:11px;color:#cbd5e1;}
 .dtable{width:100%;border-collapse:collapse;font-size:12px;}
 .dtable th{background:#1e293b;padding:9px 10px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;position:sticky;top:0;z-index:10;}
 .dtable td{padding:9px 10px;border-bottom:1px solid #1e293b;vertical-align:middle;}
@@ -547,7 +555,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
 /* ── Live Sync globals (MQTT over WebSocket) ── */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
 var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
@@ -1669,6 +1677,7 @@ function populateTable(){
       '<td style="white-space:nowrap;">'+
         '<button class="fbtn" onclick="selectPlot('+pid+')" style="margin-right:3px;" title="View"><i class="fas fa-eye"></i></button>'+
         '<button class="fbtn" onclick="openPlotModal('+pid+')" style="margin-right:3px;" title="Edit"><i class="fas fa-edit"></i></button>'+
+        '<button class="fbtn" onclick="showFollowUpModal('+pid+')" style="margin-right:3px;color:#14b8a6;" title="Follow Up"><i class="fas fa-calendar-check"></i></button>'+
         (!p.lat||!p.lng?'<button class="fbtn" style="color:#6366f1;margin-right:3px;" onclick="startSetOnMapModeForPlot('+pid+')" title="Place on Map"><i class="fas fa-map-marker-alt"></i></button>':'')+
         '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;" title="Print"><i class="fas fa-print"></i></button>'+
         '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')" title="Delete"><i class="fas fa-trash"></i></button>'+
@@ -1712,17 +1721,16 @@ function _dupKey(p){
   return [p.no,p.dev,p.size,p.price].map(function(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}).join('|');
 }
 function findDuplicatePlots(){
-  var groups={},dupes=[];
+  var groups={},dupGroups=[];
   plots.forEach(function(p){var k=_dupKey(p);if(k==='|||')return;(groups[k]=groups[k]||[]).push(p);});
-  Object.keys(groups).forEach(function(k){if(groups[k].length>1)dupes=dupes.concat(groups[k]);});
+  Object.keys(groups).forEach(function(k){if(groups[k].length>1)dupGroups.push(groups[k]);});
   var pill=document.getElementById('duplicateResult');
   selectedIds.clear();
-  if(dupes.length){
-    dupes.forEach(function(p){selectedIds.add(p.id);});
-    filteredPlots=dupes;
-    if(pill){pill.className='resultpill warn';pill.textContent=dupes.length+' duplicate rows found';}
-    populateTable();
-    showToastNotification(dupes.length+' possible duplicates found and selected.','info');
+  if(dupGroups.length){
+    var count=dupGroups.reduce(function(n,g){return n+g.length;},0);
+    if(pill){pill.className='resultpill warn';pill.textContent=dupGroups.length+' groups / '+count+' rows';}
+    showDuplicateReviewModal(dupGroups);
+    showToastNotification(dupGroups.length+' duplicate groups found.','info');
   }else{
     filteredPlots=plots.slice();
     if(pill){pill.className='resultpill';pill.textContent='No duplicates found';}
@@ -1731,6 +1739,35 @@ function findDuplicatePlots(){
   }
   var sc=document.getElementById('selectionCount');if(sc)sc.textContent=selectedIds.size?selectedIds.size+' selected':'';
   var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=selectedIds.size?'':'none';if(be)be.style.display=selectedIds.size?'':'none';
+}
+function showDuplicateReviewModal(groups){
+  var old=document.getElementById('dupModal');if(old)old.remove();
+  var html=groups.map(function(g,gi){
+    return '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;margin-bottom:12px;overflow:hidden;">'+
+      '<div style="padding:9px 12px;background:#162033;border-bottom:1px solid #334155;font-size:12px;font-weight:800;color:#fbbf24;">Duplicate Group '+(gi+1)+' <span style="color:#64748b;font-weight:600;">('+g.length+' records)</span></div>'+
+      '<table class="dtable"><thead><tr><th>Delete?</th><th>Plot</th><th>Development</th><th>Size</th><th>Price</th><th>Status</th><th>View</th></tr></thead><tbody>'+
+      g.map(function(p,idx){return '<tr>'+
+        '<td><input type="checkbox" class="dupDeleteChk" value="'+esc(p.id)+'" '+(idx>0?'checked':'')+'></td>'+
+        '<td><b style="color:#f1f5f9;">'+esc(p.no||'')+'</b><br><span style="font-size:9px;color:#64748b;">'+esc(p.uid||'')+'</span></td>'+
+        '<td>'+esc(p.dev||'')+'</td><td>'+esc(p.size||'')+'</td><td>'+esc(p.price||'')+'</td><td>'+esc(p.status||'')+'</td>'+
+        '<td><button class="fbtn" onclick="selectPlot('+p.id+')"><i class="fas fa-eye"></i></button></td>'+
+      '</tr>';}).join('')+
+      '</tbody></table></div>';
+  }).join('');
+  var modal=document.createElement('div');modal.id='dupModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg"><div class="mhdr"><h2><i class="fas fa-clone" style="color:#fbbf24;margin-right:7px;"></i>Duplicate Review</h2><button class="mclose" onclick="document.getElementById(\'dupModal\').remove()">&times;</button></div>'+
+    '<div class="mbody"><div style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Each group shows matching plot number, development, size, and price. The first record is kept by default; choose which duplicates to delete.</div>'+html+'</div>'+
+    '<div class="mfoot"><button class="btn btns" onclick="document.getElementById(\'dupModal\').remove()">Cancel</button><button class="btn btnp" onclick="deleteSelectedDuplicates()"><i class="fas fa-trash"></i> Delete Checked Duplicates</button></div></div>';
+  document.body.appendChild(modal);
+}
+function deleteSelectedDuplicates(){
+  var ids=Array.from(document.querySelectorAll('.dupDeleteChk:checked')).map(function(c){return String(c.value);});
+  if(!ids.length){showToastNotification('No duplicate rows selected.','info');return;}
+  if(!confirm('Delete '+ids.length+' selected duplicate rows?'))return;
+  plots=plots.filter(function(p){return ids.indexOf(String(p.id))===-1;});
+  filteredPlots=plots.slice();selectedIds.clear();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();
+  var m=document.getElementById('dupModal');if(m)m.remove();
+  showToastNotification(ids.length+' duplicate rows deleted.','success');
 }
 
 function toggleSelection(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);var c=selectedIds.size;var sc=document.getElementById('selectionCount'),bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(sc)sc.textContent=c>0?c+' selected':'';if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
@@ -2658,12 +2695,76 @@ function startDistanceCalculator(){
   }
   map.on('click',onClick);
 }
-function startAreaMeasurement(){showToastNotification('Click points, double-click to finish.','info');var pts=[],poly=null;function onClick(e){pts.push(e.latlng);if(poly)map.removeLayer(poly);if(pts.length>=2)poly=L.polygon(pts,{color:'#34d399',fillOpacity:0.15,weight:2}).addTo(map);}function onDbl(e){map.off('click',onClick);map.off('dblclick',onDbl);if(pts.length<3){showToastNotification('Need at least 3 points.','error');return;}showToastNotification('Area drawn with '+pts.length+' points.','success');}map.on('click',onClick);map.on('dblclick',onDbl);}
-function toggleProximityAmenities(){proximityActive=!proximityActive;showToastNotification(proximityActive?'Amenities mode on.':'Amenities mode off.','info');}
+function _polygonAreaSqm(latlngs){
+  if(!latlngs||latlngs.length<3)return 0;
+  var R=6378137,area=0;
+  for(var i=0;i<latlngs.length;i++){
+    var p1=latlngs[i],p2=latlngs[(i+1)%latlngs.length];
+    area+=(p2.lng-p1.lng)*Math.PI/180*(2+Math.sin(p1.lat*Math.PI/180)+Math.sin(p2.lat*Math.PI/180));
+  }
+  return Math.abs(area*R*R/2);
+}
+function startAreaMeasurement(){
+  if(!map){showToastNotification('Map is not ready.','error');return;}
+  if(currentView!=='map')togglePlotView('map');
+  if(areaLayer){map.removeLayer(areaLayer);areaLayer=null;}
+  if(areaLabel){map.removeLayer(areaLabel);areaLabel=null;}
+  showToastNotification('Click area corners, double-click to finish.','info');
+  var pts=[],poly=null;
+  function onClick(e){
+    pts.push(e.latlng);
+    if(poly)map.removeLayer(poly);
+    if(pts.length>=2)poly=L.polygon(pts,{color:'#34d399',fillColor:'#34d399',fillOpacity:0.15,weight:3}).addTo(map);
+  }
+  function onDbl(){
+    map.off('click',onClick);map.off('dblclick',onDbl);
+    if(pts.length<3){showToastNotification('Need at least 3 points.','error');return;}
+    areaLayer=poly;
+    var sqm=_polygonAreaSqm(pts),sqft=sqm*10.7639,ha=sqm/10000;
+    var label=sqm>=10000?ha.toFixed(2)+' ha':Math.round(sqm).toLocaleString()+' sqm';
+    var center=areaLayer.getBounds().getCenter();
+    areaLabel=L.marker(center,{icon:L.divIcon({className:'dist-label',html:'<i class="fas fa-draw-polygon"></i> '+label+' / '+Math.round(sqft).toLocaleString()+' sqft',iconSize:null})}).addTo(map);
+    L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(center).setContent('<b>Measured Area</b><br>'+label+'<br>'+Math.round(sqft).toLocaleString()+' sqft').openOn(map);
+    showToastNotification('Area: '+label+' / '+Math.round(sqft).toLocaleString()+' sqft','success');
+  }
+  map.on('click',onClick);map.on('dblclick',onDbl);
+}
+function toggleProximityAmenities(){
+  if(!map){showToastNotification('Map is not ready.','error');return;}
+  if(currentView!=='map')togglePlotView('map');
+  if(proximityActive){
+    if(amenityLayer){map.removeLayer(amenityLayer);amenityLayer=null;}
+    proximityActive=false;showToastNotification('Amenities hidden.','info');return;
+  }
+  amenityLayer=L.layerGroup().addTo(map);
+  var center=(markerCluster&&markerCluster.getLayers().length)?markerCluster.getBounds().getCenter():map.getCenter();
+  var amenities=[
+    ['School','graduation-cap',0.010,0.006,'#38bdf8'],
+    ['Hospital','hospital',-0.008,0.010,'#ef4444'],
+    ['Metro','train',0.006,-0.012,'#22c55e'],
+    ['Mall','shopping-bag',-0.011,-0.006,'#fbbf24'],
+    ['Park','tree',0.014,-0.002,'#84cc16']
+  ];
+  amenities.forEach(function(a){
+    var ll=[center.lat+a[2],center.lng+a[3]];
+    L.circleMarker(ll,{radius:9,color:a[4],fillColor:a[4],fillOpacity:0.85,weight:2}).addTo(amenityLayer);
+    L.marker(ll,{icon:L.divIcon({className:'amenity-label',html:'<i class="fas fa-'+a[1]+'"></i> '+a[0],iconSize:null})}).addTo(amenityLayer);
+  });
+  proximityActive=true;
+  showToastNotification('Amenities shown around current map area.','success');
+}
 function geocodeAddress(){var addr=(document.getElementById('geocodeInput').value||'').trim();if(!addr){showToastNotification('Enter an address.','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(addr)).then(function(r){return r.json();}).then(function(d){if(!d||!d.length){showToastNotification('Address not found.','error');return;}map.flyTo([parseFloat(d[0].lat),parseFloat(d[0].lon)],14,{duration:1.5});L.popup().setLatLng([parseFloat(d[0].lat),parseFloat(d[0].lon)]).setContent('<b>'+esc(d[0].display_name)+'</b>').openOn(map);}).catch(function(){showToastNotification('Geocoding failed.','error');});}
 
 function showCRMModal(){showToastNotification('CRM coming soon!','info');}
-function connectGoogleCalendar(){showToastNotification('Google Calendar coming soon!','info');}
+function connectGoogleCalendar(){
+  var next=(_crmFollowups||[]).filter(function(f){return f.status!=='Completed'&&f.status!=='Lost';}).sort(function(a,b){return String(a.dueDate||'').localeCompare(String(b.dueDate||''));})[0];
+  var title=next?('Follow up: '+(next.plotNo||'Plot')):'Plot Follow Up';
+  var details=next?((next.nextAction||'Follow up')+'\nContact: '+(next.contactName||'')+' '+(next.contactPhone||'')+'\nDevelopment: '+(next.dev||'')):'Follow up with client / owner.';
+  var date=(next&&next.dueDate)?next.dueDate.replace(/-/g,''):_dateForInput(1).replace(/-/g,'');
+  var url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+date+'T090000/'+date+'T093000&details='+encodeURIComponent(details);
+  window.open(url,'_blank');
+  showToastNotification('Google Calendar event draft opened.','success');
+}
 function showOfflineSyncModal(){showToastNotification('Data is saved locally in your browser.','info');}
 
 function _dateForInput(days){
@@ -2802,6 +2903,45 @@ function exportCRM(){
    LIVE SYNC — Firebase Realtime Database
    Replaces unreliable MQTT brokers for instant syncing.
    ══════════════════════════════════════════════ */
+function _crmRows(){return (_crmFollowups||[]).slice().sort(function(a,b){return String(a.dueDate||'9999').localeCompare(String(b.dueDate||'9999'));});}
+function _crmStatusClass(s){return s==='Completed'?'Available':s==='Lost'?'Sold':'Reserved';}
+function showCRMModal(){
+  var old=document.getElementById('crmModal');if(old)old.remove();
+  var rows=_crmRows(),today=_dateForInput(0);
+  var open=rows.filter(function(f){return f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var overdue=rows.filter(function(f){return f.dueDate&&f.dueDate<today&&f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var hot=rows.filter(function(f){return f.priority==='High'&&f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var leads=plots.filter(function(p){return p.ownerName||p.ownerContact||p.source;}).length;
+  var pipeline=['Open','In Progress','Waiting Client','Completed'].map(function(st){
+    var cards=rows.filter(function(f){return (f.status||'Open')===st;}).slice(0,5).map(function(f){
+      return '<div class="crm-card"><div style="display:flex;justify-content:space-between;gap:8px;"><b style="color:#f1f5f9;">'+esc(f.plotNo||'No plot')+'</b><span style="color:'+(f.priority==='High'?'#f87171':'#94a3b8')+'">'+esc(f.priority||'')+'</span></div><div>'+esc(f.contactName||'No contact')+'</div><div style="color:#64748b;margin-top:3px;">Due '+esc(f.dueDate||'-')+'</div><button class="fbtn" style="margin-top:7px;" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')"><i class="fas fa-edit"></i> Edit</button></div>';
+    }).join('')||'<div style="font-size:11px;color:#475569;">No records</div>';
+    return '<div class="crm-col"><h3>'+esc(st)+'</h3>'+cards+'</div>';
+  }).join('');
+  var table=rows.map(function(f){
+    var phone=f.contactPhone?'<a href="tel:'+esc(f.contactPhone)+'" style="color:#38bdf8;text-decoration:none;">'+esc(f.contactPhone)+'</a>':'';
+    return '<tr><td>'+esc(f.dueDate||'')+'</td><td><b style="color:#f1f5f9;">'+esc(f.plotNo||'')+'</b><br><span style="font-size:10px;color:#64748b;">'+esc(f.dev||'')+'</span></td><td>'+esc(f.contactName||'')+'<br>'+phone+'</td><td>'+esc(f.type||'')+'</td><td>'+esc(f.nextAction||'')+'</td><td><span class="sbadge sb-'+_crmStatusClass(f.status)+'">'+esc(f.status||'Open')+'</span></td><td><button class="fbtn" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')" title="Edit"><i class="fas fa-edit"></i></button> <button class="fbtn" onclick="openCalendarForFollowUp(\''+esc(f.id)+'\')" title="Calendar"><i class="fab fa-google"></i></button></td></tr>';
+  }).join('')||'<tr><td colspan="7" style="color:#64748b;text-align:center;padding:18px;">No follow-ups yet. Add one from a plot card or table row.</td></tr>';
+  var modal=document.createElement('div');modal.id='crmModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg" style="max-width:1040px;">'+
+    '<div class="mhdr"><h2><i class="fas fa-users" style="color:#38bdf8;margin-right:7px;"></i>CRM Command Center</h2><button class="mclose" onclick="document.getElementById(\'crmModal\').remove()">&times;</button></div>'+
+    '<div class="mbody">'+
+      '<div class="mgrid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;"><div class="mcard"><div class="mlabel">Leads</div><div class="mval">'+leads+'</div></div><div class="mcard"><div class="mlabel">Open Follow-ups</div><div class="mval grn">'+open+'</div></div><div class="mcard"><div class="mlabel">High Priority</div><div class="mval" style="color:#f87171;">'+hot+'</div></div><div class="mcard"><div class="mlabel">Overdue</div><div class="mval" style="color:#fbbf24;">'+overdue+'</div></div></div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;"><button class="btn btnp" onclick="showFollowUpModal(\'\')"><i class="fas fa-plus"></i> New Follow Up</button><button class="btn btns" onclick="connectGoogleCalendar()"><i class="fab fa-google"></i> Next Calendar Event</button><button class="btn btns" onclick="exportCRM()"><i class="fas fa-download"></i> Export CSV</button></div>'+
+      '<div class="crm-pipeline">'+pipeline+'</div>'+
+      '<div class="fsectitle">Follow-up Register</div><table class="dtable"><thead><tr><th>Due</th><th>Plot</th><th>Contact</th><th>Type</th><th>Next Action</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+table+'</tbody></table>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+function openCalendarForFollowUp(id){
+  var f=(_crmFollowups||[]).find(function(x){return String(x.id)===String(id);});
+  if(!f){connectGoogleCalendar();return;}
+  var date=(f.dueDate||_dateForInput(1)).replace(/-/g,'');
+  var details=(f.nextAction||'Follow up')+'\nContact: '+(f.contactName||'')+' '+(f.contactPhone||'')+'\nPlot: '+(f.plotNo||'')+' - '+(f.dev||'');
+  var url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Follow up: '+(f.plotNo||'Plot'))+'&dates='+date+'T090000/'+date+'T093000&details='+encodeURIComponent(details);
+  window.open(url,'_blank');
+}
+
 const _firebaseConfig = {
     apiKey: "AIzaSyDKthkVZLmK5Y_wT0Jmx90UEkzJs_Pz9-I",
     authDomain: "plot-ai-87781.firebaseapp.com",
@@ -3053,7 +3193,7 @@ function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(is
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
 window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
 window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;window.applyPastedGpsUrl=applyPastedGpsUrl;
-window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
+window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 window.onload=function(){
   loadFromLocalStorage();
