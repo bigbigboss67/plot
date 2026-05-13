@@ -485,7 +485,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
       <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
       <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;">
       <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
-      <select class="fi" onchange="setMapStyle(this.value)" title="Map Style"><option value="carto">Dark</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
+      <select class="fi" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
       <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export</button>
     </div>
@@ -527,7 +527,13 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
       </div>
       <div id="plotCard"></div>
       <div id="tableView">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div class="tabletools">
+          <div class="tbsrch" style="max-width:320px;flex:1 1 240px;"><i class="fas fa-search"></i><input type="text" id="tableSearchInput" placeholder="Search table..." oninput="document.getElementById('searchInput').value=this.value;debounceSearch()"></div>
+          <button class="fbtn" onclick="syncTableSearch()"><i class="fas fa-search"></i> Search</button>
+          <button class="fbtn" onclick="findDuplicatePlots()"><i class="fas fa-clone"></i> Find Duplicates</button>
+          <button class="fbtn" onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</button>
+          <span id="duplicateResult" class="resultpill"></span>
+          <span class="spacer"></span>
           <label style="font-size:12px;color:#64748b;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="selectAllChk" onchange="toggleSelectAll(this.checked)"> Select All</label>
           <span id="selectionCount" style="font-size:11px;color:#64748b;"></span>
         </div>
@@ -541,7 +547,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true;
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
 /* ── Live Sync globals (MQTT over WebSocket) ── */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
 var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
@@ -575,6 +581,7 @@ function saveToLocalStorage(){
 }
 function loadFromLocalStorage(){
   try{var p=localStorage.getItem('aiplot_plots');if(p)plots=JSON.parse(p);}catch(e){plots=[];}
+  try{var f=localStorage.getItem('aiplot_followups');if(f)_crmFollowups=JSON.parse(f)||[];}catch(e){_crmFollowups=[];}
   var maxUid=0;
   plots.forEach(function(p){
     if(p.uid){var m=p.uid.match(/-(\d+)$/);if(m)maxUid=Math.max(maxUid,parseInt(m[1],10));}
@@ -589,6 +596,10 @@ function loadFromLocalStorage(){
   try{var s=localStorage.getItem('aiplot_sync');if(s)_syncConfig=JSON.parse(s);}catch(e){}
   try{_ownerCode=localStorage.getItem('aiplot_owner_code')||null;}catch(e){}
   filteredPlots=plots.slice();
+}
+
+function saveFollowups(){
+  try{localStorage.setItem('aiplot_followups',JSON.stringify(_crmFollowups||[]));}catch(e){}
 }
 
 /* ── Owner Code Functions ── */
@@ -1462,7 +1473,15 @@ function addPlotMarkers(){
       if(isApprox)approxCount++;
       var m=L.marker([lat,lng],{icon:makeIcon(color,p.no,isApprox)});
       m.on('click',function(){selectPlot(p.id);});
-      m.bindPopup(makePopupHTML(p),{maxWidth:265,className:'aiplot-popup',closeButton:true});
+      m.bindPopup(makePopupHTML(p),{maxWidth:265,className:'aiplot-popup',closeButton:true,autoClose:false,closeOnClick:false});
+      m.on('mouseover',function(){
+        clearTimeout(_popupCloseTimer);
+        m.openPopup();
+      });
+      m.on('mouseout',function(){
+        clearTimeout(_popupCloseTimer);
+        _popupCloseTimer=setTimeout(function(){try{m.closePopup();}catch(e){}},10000);
+      });
       var ttip='<b>'+esc(p.no)+'</b>'+(p.dev?' &mdash; '+esc(p.dev):'');
       if(isApprox)ttip+='<br><span style="color:#fbbf24;font-size:10px;">⚠ Approximate location</span>';
       m.bindTooltip(ttip,{direction:'top',offset:[0,-52],opacity:0.95});
@@ -1602,8 +1621,8 @@ function _initSetOnMapClick(){
 function setMapStyle(style){
   if(!map)return;
   map.eachLayer(function(l){if(l instanceof L.TileLayer)map.removeLayer(l);});
-  var u={carto:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};
-  L.tileLayer(u[style]||u.carto,{attribution:'',maxZoom:20}).addTo(map);
+  var u={carto:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};
+  L.tileLayer(u[style]||u.osm,{attribution:'',maxZoom:20}).addTo(map);
   map.addLayer(markerCluster);
 }
 
@@ -1620,6 +1639,7 @@ function togglePlotView(view){
   }else{
     mw.style.display='none';tv.classList.add('show');
     if(nm)nm.classList.remove('active');if(nt)nt.classList.add('active');
+    var ts=document.getElementById('tableSearchInput'),s=document.getElementById('searchInput');if(ts&&s)ts.value=s.value||'';
     populateTable();
     /* Mobile nav sync */
     var mb2=document.getElementById('mbn-map'),mt2=document.getElementById('mbn-table');
@@ -1681,10 +1701,37 @@ function applyFilters(){
 }
 function clearFilters(){
   ['filterStatus','filterType','filterMinPrice','filterMaxPrice','filterMinSize','filterMaxSize','filterMinGfa','filterMaxGfa','searchInput'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  var ts=document.getElementById('tableSearchInput');if(ts)ts.value='';
+  var dr=document.getElementById('duplicateResult');if(dr){dr.className='resultpill';dr.textContent='';}
   filteredPlots=plots.slice();addPlotMarkers();if(currentView==='table')populateTable();
 }
 function filterByStatus(s){document.getElementById('filterStatus').value=s;applyFilters();}
 function debounceSearch(){clearTimeout(searchTimer);searchTimer=setTimeout(applyFilters,280);}
+function syncTableSearch(){var ts=document.getElementById('tableSearchInput'),s=document.getElementById('searchInput');if(ts&&s){s.value=ts.value;}applyFilters();}
+function _dupKey(p){
+  return [p.no,p.dev,p.size,p.price].map(function(v){return String(v||'').trim().toLowerCase().replace(/\s+/g,' ');}).join('|');
+}
+function findDuplicatePlots(){
+  var groups={},dupes=[];
+  plots.forEach(function(p){var k=_dupKey(p);if(k==='|||')return;(groups[k]=groups[k]||[]).push(p);});
+  Object.keys(groups).forEach(function(k){if(groups[k].length>1)dupes=dupes.concat(groups[k]);});
+  var pill=document.getElementById('duplicateResult');
+  selectedIds.clear();
+  if(dupes.length){
+    dupes.forEach(function(p){selectedIds.add(p.id);});
+    filteredPlots=dupes;
+    if(pill){pill.className='resultpill warn';pill.textContent=dupes.length+' duplicate rows found';}
+    populateTable();
+    showToastNotification(dupes.length+' possible duplicates found and selected.','info');
+  }else{
+    filteredPlots=plots.slice();
+    if(pill){pill.className='resultpill';pill.textContent='No duplicates found';}
+    populateTable();
+    showToastNotification('No duplicate plots found.','success');
+  }
+  var sc=document.getElementById('selectionCount');if(sc)sc.textContent=selectedIds.size?selectedIds.size+' selected':'';
+  var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=selectedIds.size?'':'none';if(be)be.style.display=selectedIds.size?'':'none';
+}
 
 function toggleSelection(id,checked){if(checked)selectedIds.add(id);else selectedIds.delete(id);var c=selectedIds.size;var sc=document.getElementById('selectionCount'),bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(sc)sc.textContent=c>0?c+' selected':'';if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
 function toggleSelectAll(checked){if(checked)filteredPlots.forEach(function(p){selectedIds.add(p.id);});else selectedIds.clear();populateTable();var c=selectedIds.size;var sc=document.getElementById('selectionCount');if(sc)sc.textContent=c>0?c+' selected':'';var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
@@ -2585,7 +2632,32 @@ function showUNIDOFeasibility(plotId){
 
 function toggleHeatmap(){var btn=document.getElementById('heatmapBtn');if(heatmapActive){if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}heatmapActive=false;if(btn)btn.classList.remove('act');showToastNotification('Heatmap off.','info');}else{var pts=plots.filter(function(p){return parseFloat(p.lat)&&parseFloat(p.lng);}).map(function(p){return[parseFloat(p.lat),parseFloat(p.lng),1];});if(!pts.length){showToastNotification('No plots with GPS.','error');return;}heatLayer=L.heatLayer(pts,{radius:35,blur:20,maxZoom:17}).addTo(map);heatmapActive=true;if(btn)btn.classList.add('act');showToastNotification('Heatmap on.','info');}}
 function startBufferAnalysis(){showToastNotification('Click on the map to place buffer.','info');map.once('click',function(e){if(bufferCircle){map.removeLayer(bufferCircle);bufferCircle=null;}var r=parseInt(prompt('Buffer radius (meters):','500')||'500');if(isNaN(r)||r<=0)return;bufferCircle=L.circle(e.latlng,{radius:r,color:'#6366f1',fillOpacity:0.12,weight:2}).addTo(map);var c=plots.filter(function(p){var la=parseFloat(p.lat),ln=parseFloat(p.lng);if(isNaN(la)||isNaN(ln))return false;return map.distance(e.latlng,[la,ln])<=r;}).length;showToastNotification(c+' plots within '+r+'m.','success');});}
-function startDistanceCalculator(){showToastNotification('Click 2 points to measure distance.','info');distanceMarkers.forEach(function(m){map.removeLayer(m);});distanceMarkers=[];if(distanceLine){map.removeLayer(distanceLine);distanceLine=null;}var pts=[],clicks=0;function onClick(e){pts.push(e.latlng);var m=L.circleMarker(e.latlng,{radius:5,color:'#fbbf24',fillOpacity:1}).addTo(map);distanceMarkers.push(m);clicks++;if(clicks===2){map.off('click',onClick);distanceLine=L.polyline(pts,{color:'#fbbf24',weight:2,dashArray:'5,4'}).addTo(map);var d=map.distance(pts[0],pts[1]);showToastNotification('Distance: '+(d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m'),'success');}}map.on('click',onClick);}
+function startDistanceCalculator(){
+  if(!map){showToastNotification('Map is not ready.','error');return;}
+  if(currentView!=='map')togglePlotView('map');
+  showToastNotification('Click 2 points to measure distance.','info');
+  distanceMarkers.forEach(function(m){try{map.removeLayer(m);}catch(e){}});
+  distanceMarkers=[];
+  if(distanceLine){map.removeLayer(distanceLine);distanceLine=null;}
+  if(distanceLabel){map.removeLayer(distanceLabel);distanceLabel=null;}
+  var pts=[],clicks=0;
+  function onClick(e){
+    pts.push(e.latlng);
+    var m=L.circleMarker(e.latlng,{radius:6,color:'#fbbf24',fillColor:'#fbbf24',fillOpacity:1,weight:2}).addTo(map);
+    distanceMarkers.push(m);clicks++;
+    if(clicks===2){
+      map.off('click',onClick);
+      distanceLine=L.polyline(pts,{color:'#fbbf24',weight:3,dashArray:'7,5'}).addTo(map);
+      var d=map.distance(pts[0],pts[1]);
+      var label=d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m';
+      var mid=L.latLng((pts[0].lat+pts[1].lat)/2,(pts[0].lng+pts[1].lng)/2);
+      distanceLabel=L.marker(mid,{icon:L.divIcon({className:'dist-label',html:'<i class="fas fa-ruler"></i> '+label,iconSize:null})}).addTo(map);
+      L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(mid).setContent('<b>Distance</b><br>'+label).openOn(map);
+      showToastNotification('Distance: '+label,'success');
+    }
+  }
+  map.on('click',onClick);
+}
 function startAreaMeasurement(){showToastNotification('Click points, double-click to finish.','info');var pts=[],poly=null;function onClick(e){pts.push(e.latlng);if(poly)map.removeLayer(poly);if(pts.length>=2)poly=L.polygon(pts,{color:'#34d399',fillOpacity:0.15,weight:2}).addTo(map);}function onDbl(e){map.off('click',onClick);map.off('dblclick',onDbl);if(pts.length<3){showToastNotification('Need at least 3 points.','error');return;}showToastNotification('Area drawn with '+pts.length+' points.','success');}map.on('click',onClick);map.on('dblclick',onDbl);}
 function toggleProximityAmenities(){proximityActive=!proximityActive;showToastNotification(proximityActive?'Amenities mode on.':'Amenities mode off.','info');}
 function geocodeAddress(){var addr=(document.getElementById('geocodeInput').value||'').trim();if(!addr){showToastNotification('Enter an address.','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(addr)).then(function(r){return r.json();}).then(function(d){if(!d||!d.length){showToastNotification('Address not found.','error');return;}map.flyTo([parseFloat(d[0].lat),parseFloat(d[0].lon)],14,{duration:1.5});L.popup().setLatLng([parseFloat(d[0].lat),parseFloat(d[0].lon)]).setContent('<b>'+esc(d[0].display_name)+'</b>').openOn(map);}).catch(function(){showToastNotification('Geocoding failed.','error');});}
@@ -2593,6 +2665,138 @@ function geocodeAddress(){var addr=(document.getElementById('geocodeInput').valu
 function showCRMModal(){showToastNotification('CRM coming soon!','info');}
 function connectGoogleCalendar(){showToastNotification('Google Calendar coming soon!','info');}
 function showOfflineSyncModal(){showToastNotification('Data is saved locally in your browser.','info');}
+
+function _dateForInput(days){
+  var d=new Date(Date.now()+(days||0)*86400000);
+  return d.toISOString().slice(0,10);
+}
+function _followupForPlot(id){
+  return (_crmFollowups||[]).filter(function(f){return String(f.plotId)===String(id);}).sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''));});
+}
+function showFollowUpModal(plotId,followId){
+  var p=plots.find(function(x){return String(x.id)===String(plotId);})||{};
+  var existing=(_crmFollowups||[]).find(function(f){return String(f.id)===String(followId);})||null;
+  var old=document.getElementById('followUpModal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='followUpModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg">'+
+    '<div class="mhdr"><h2><i class="fas fa-calendar-check" style="color:#14b8a6;margin-right:7px;"></i>Follow Up Entry</h2><button class="mclose" onclick="document.getElementById(\'followUpModal\').remove()">&times;</button></div>'+
+    '<div class="mbody">'+
+      '<input type="hidden" id="fu_id" value="'+esc(existing?existing.id:'')+'"><input type="hidden" id="fu_plotId" value="'+esc(plotId||'')+'">'+
+      '<div class="fsection"><div class="fsectitle">Plot / Lead</div><div class="fgrid">'+
+        '<div class="fgroup"><label>Plot No</label><input id="fu_plotNo" value="'+esc(existing?existing.plotNo:(p.no||''))+'" placeholder="Plot reference"></div>'+
+        '<div class="fgroup"><label>Development</label><input id="fu_dev" value="'+esc(existing?existing.dev:(p.dev||''))+'" placeholder="Development / area"></div>'+
+        '<div class="fgroup"><label>Client / Owner Name</label><input id="fu_contactName" value="'+esc(existing?existing.contactName:(p.ownerName||''))+'" placeholder="Name"></div>'+
+        '<div class="fgroup"><label>Contact Number</label><input id="fu_contactPhone" value="'+esc(existing?existing.contactPhone:(p.ownerContact||''))+'" placeholder="+971..."></div>'+
+      '</div></div>'+
+      '<div class="fsection"><div class="fsectitle">Follow Up Plan</div><div class="fgrid">'+
+        '<div class="fgroup"><label>Follow Up Type</label><select id="fu_type"><option>Call</option><option>WhatsApp</option><option>Email</option><option>Meeting</option><option>Site Visit</option><option>Document Request</option><option>Offer Follow-up</option></select></div>'+
+        '<div class="fgroup"><label>Priority</label><select id="fu_priority"><option>High</option><option>Medium</option><option>Low</option></select></div>'+
+        '<div class="fgroup"><label>Due Date</label><input id="fu_due" type="date" value="'+esc(existing?existing.dueDate:_dateForInput(1))+'"></div>'+
+        '<div class="fgroup"><label>Status</label><select id="fu_status"><option>Open</option><option>In Progress</option><option>Waiting Client</option><option>Completed</option><option>Lost</option></select></div>'+
+        '<div class="fgroup" style="grid-column:span 2;"><label>Next Action</label><input id="fu_nextAction" value="'+esc(existing?existing.nextAction:'Confirm availability, asking price, documents, and decision timeline.')+'"></div>'+
+        '<div class="fgroup" style="grid-column:span 2;"><label>Notes</label><textarea id="fu_notes" placeholder="Conversation notes, requirements, objections, promised documents...">'+esc(existing?existing.notes:'')+'</textarea></div>'+
+      '</div></div>'+
+    '</div>'+
+    '<div class="mfoot">'+
+      '<button class="btn btns" onclick="document.getElementById(\'followUpModal\').remove()">Cancel</button>'+
+      '<button class="btn btns" onclick="copyFollowUpMessage()"><i class="fas fa-copy"></i> Copy Message</button>'+
+      '<button class="btn btnp" onclick="saveFollowUpEntry()"><i class="fas fa-save"></i> Save Follow Up</button>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+  if(existing){['type','priority','status'].forEach(function(k){var el=document.getElementById('fu_'+k);if(el)el.value=existing[k]||el.value;});}
+}
+function _readFollowUpForm(){
+  return {
+    id:document.getElementById('fu_id').value||('FU-'+Date.now()),
+    plotId:document.getElementById('fu_plotId').value,
+    plotNo:document.getElementById('fu_plotNo').value.trim(),
+    dev:document.getElementById('fu_dev').value.trim(),
+    contactName:document.getElementById('fu_contactName').value.trim(),
+    contactPhone:document.getElementById('fu_contactPhone').value.trim(),
+    type:document.getElementById('fu_type').value,
+    priority:document.getElementById('fu_priority').value,
+    dueDate:document.getElementById('fu_due').value,
+    status:document.getElementById('fu_status').value,
+    nextAction:document.getElementById('fu_nextAction').value.trim(),
+    notes:document.getElementById('fu_notes').value.trim(),
+    createdAt:new Date().toISOString()
+  };
+}
+function saveFollowUpEntry(){
+  var f=_readFollowUpForm();
+  var idx=(_crmFollowups||[]).findIndex(function(x){return String(x.id)===String(f.id);});
+  if(idx>=0)_crmFollowups[idx]=Object.assign(_crmFollowups[idx],f,{updatedAt:new Date().toISOString()});
+  else _crmFollowups.push(f);
+  saveFollowups();
+  var m=document.getElementById('followUpModal');if(m)m.remove();
+  showToastNotification('Follow-up saved to CRM.','success');
+}
+function copyFollowUpMessage(){
+  var f=_readFollowUpForm();
+  var msg='Follow up: '+f.plotNo+' - '+f.dev+'\nType: '+f.type+'\nDue: '+f.dueDate+'\nNext action: '+f.nextAction+(f.notes?'\nNotes: '+f.notes:'');
+  navigator.clipboard.writeText(msg).then(function(){showToastNotification('Follow-up message copied.','success');});
+}
+function _feasData(p){
+  var price=parseNum(p.price),size=parseNum(p.size),gfa=parseNum(p.gfa)||parseNum(p.bua)||NaN;
+  var landPsf=(!isNaN(price)&&!isNaN(size)&&size>0)?price/size:NaN;
+  var gfaPsf=(!isNaN(price)&&!isNaN(gfa)&&gfa>0)?price/gfa:NaN;
+  var far=(!isNaN(gfa)&&!isNaN(size)&&size>0)?gfa/size:parseNum(p.far);
+  var score=_plotScore(p);
+  var verdict=score>=75?'Strong initial feasibility':score>=50?'Feasible with verification':'Needs more data before decision';
+  var missing=[];
+  if(isNaN(price)||price<=0)missing.push('asking price');
+  if(isNaN(size)||size<=0)missing.push('plot size');
+  if(isNaN(gfa)||gfa<=0)missing.push('GFA/BUA');
+  if(!p.locationUrl&&!parseNum(p.lat))missing.push('exact location');
+  if(!p.ownerContact)missing.push('owner/client contact');
+  return {price:price,size:size,gfa:gfa,landPsf:landPsf,gfaPsf:gfaPsf,far:far,score:score,verdict:verdict,missing:missing};
+}
+function showUNIDOFeasibility(plotId){
+  var p=plots.find(function(x){return String(x.id)===String(plotId);});if(!p)return;
+  var d=_feasData(p),color=d.score>=75?'#22c55e':d.score>=50?'#fbbf24':'#ef4444';
+  var old=document.getElementById('unidoFeasModal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='unidoFeasModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg">'+
+    '<div class="mhdr"><h2><i class="fas fa-chart-line" style="color:#fbbf24;margin-right:7px;"></i>UNIDO Feasibility Study</h2><button class="mclose" onclick="document.getElementById(\'unidoFeasModal\').remove()">&times;</button></div>'+
+    '<div class="mbody">'+
+      '<div style="display:grid;grid-template-columns:130px 1fr;gap:14px;align-items:center;margin-bottom:14px;">'+
+        '<div style="height:105px;border-radius:12px;background:'+color+';color:#0f172a;display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:900;"><div style="font-size:34px;">'+d.score+'</div><div style="font-size:10px;letter-spacing:1px;">READINESS SCORE</div></div>'+
+        '<div><div style="font-size:18px;font-weight:900;color:'+color+';margin-bottom:6px;">'+d.verdict+'</div><div style="font-size:12px;color:#94a3b8;line-height:1.7;">Pre-feasibility screen based on UNIDO-style chapters: project definition, market, technical, location, finance, implementation, risk, and decision readiness.</div></div>'+
+      '</div>'+
+      '<div class="fsection"><div class="fsectitle">1. Project Definition</div><table class="atable"><tr><td>Plot</td><td>'+esc(p.no||'')+'</td></tr><tr><td>Development</td><td>'+esc(p.dev||'')+'</td></tr><tr><td>Use / Type</td><td>'+esc(p.propUse||p.type||'Not specified')+'</td></tr><tr><td>Status</td><td>'+esc(p.status||'')+'</td></tr></table></div>'+
+      '<div class="fsection"><div class="fsectitle">2. Land And Area Economics</div><div class="mgrid"><div class="mcard"><div class="mlabel">Land Size</div><div class="mval">'+(isNaN(d.size)?'Need input':fmtN(d.size)+' sqft')+'</div></div><div class="mcard"><div class="mlabel">Land Cost</div><div class="mval grn">'+(isNaN(d.price)?'Need input':'AED '+fmtN(d.price))+'</div></div><div class="mcard"><div class="mlabel">Cost / Land sqft</div><div class="mval">'+(isNaN(d.landPsf)?'Need input':'AED '+fmtN(d.landPsf))+'</div></div><div class="mcard"><div class="mlabel">Cost / GFA sqft</div><div class="mval">'+(isNaN(d.gfaPsf)?'Need GFA':'AED '+fmtN(d.gfaPsf))+'</div></div></div></div>'+
+      '<div class="fsection"><div class="fsectitle">3. Technical Readiness</div><table class="atable"><tr><td>GFA / BUA</td><td>'+(isNaN(d.gfa)?'Missing':fmtN(d.gfa)+' sqft')+'</td></tr><tr><td>FAR</td><td>'+(isNaN(d.far)?'Missing':d.far.toFixed(2))+'</td></tr><tr><td>Height</td><td>'+esc(p.height||'Not specified')+'</td></tr><tr><td>Docs</td><td>'+esc(p.attachedDocs||'Not attached')+'</td></tr></table></div>'+
+      '<div class="fsection"><div class="fsectitle">4. Decision Notes</div><div style="background:#0f172a;border-left:3px solid '+color+';border-radius:0 9px 9px 0;padding:12px;font-size:12px;color:#cbd5e1;line-height:1.7;">Missing items: '+(d.missing.length?esc(d.missing.join(', ')):'None for first screen')+'. Next checks: demand comparables, zoning/authority approval, utility capacity, CAPEX/OPEX, revenue model, financing terms, implementation schedule, and sensitivity on selling/rental rates.</div></div>'+
+    '</div><div class="mfoot"><button class="btn btns" onclick="document.getElementById(\'unidoFeasModal\').remove()">Close</button><button class="btn btnp" onclick="printUNIDOFeasibility(\''+esc(plotId)+'\')"><i class="fas fa-print"></i> Print Report</button></div></div>';
+  document.body.appendChild(modal);
+}
+function printUNIDOFeasibility(plotId){
+  var p=plots.find(function(x){return String(x.id)===String(plotId);});if(!p)return;
+  var d=_feasData(p),today=new Date().toLocaleDateString();
+  var rows=[['Plot',p.no],['Development',p.dev],['Status',p.status],['Type / Use',p.propUse||p.type],['Land Size',isNaN(d.size)?'Missing':fmtN(d.size)+' sqft'],['Price',isNaN(d.price)?'Missing':'AED '+fmtN(d.price)],['Cost / Land sqft',isNaN(d.landPsf)?'Missing':'AED '+fmtN(d.landPsf)],['Cost / GFA sqft',isNaN(d.gfaPsf)?'Missing':'AED '+fmtN(d.gfaPsf)],['FAR',isNaN(d.far)?'Missing':d.far.toFixed(2)],['Score',d.score+' / 100'],['Verdict',d.verdict],['Missing Inputs',d.missing.length?d.missing.join(', '):'None for first screen']];
+  var html='<!doctype html><html><head><title>UNIDO Feasibility '+esc(p.no||'')+'</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:32px;}h1{margin:0 0 6px;}h2{margin-top:24px;border-bottom:1px solid #cbd5e1;padding-bottom:6px;}table{width:100%;border-collapse:collapse;margin-top:12px;}td{border:1px solid #cbd5e1;padding:9px;font-size:13px;}td:first-child{width:220px;background:#f1f5f9;font-weight:700;} .score{font-size:36px;font-weight:900;color:#0369a1;}@media print{button{display:none;}}</style></head><body><h1>UNIDO Pre-Feasibility Report</h1><div>Generated '+esc(today)+' by AI Plot Portal Pro</div><div class="score">'+d.score+' / 100</div><h2>Summary</h2><table>'+rows.map(function(r){return'<tr><td>'+esc(r[0]||'')+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><h2>Required Next Checks</h2><p>Market demand and comparables, zoning and authority approvals, utility capacity, CAPEX/OPEX estimate, revenue model, financing structure, implementation schedule, and sensitivity analysis.</p><button onclick="window.print()">Print / Save PDF</button></body></html>';
+  var w=window.open('','_blank','width=900,height=760');if(!w){showToastNotification('Popup blocked. Allow popups and try again.','error');return;}w.document.write(html);w.document.close();w.focus();
+}
+function showCRMModal(){
+  var old=document.getElementById('crmModal');if(old)old.remove();
+  var open=(_crmFollowups||[]).filter(function(f){return f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var done=(_crmFollowups||[]).filter(function(f){return f.status==='Completed';}).length;
+  var leads=plots.filter(function(p){return p.ownerName||p.ownerContact||p.source;}).length;
+  var list=(_crmFollowups||[]).slice().sort(function(a,b){return String(a.dueDate||'').localeCompare(String(b.dueDate||''));}).map(function(f){
+    return '<tr><td>'+esc(f.dueDate||'')+'</td><td>'+esc(f.plotNo||'')+'</td><td>'+esc(f.contactName||'')+'</td><td>'+esc(f.type||'')+'</td><td><span class="sbadge sb-'+(f.status==='Completed'?'Available':f.status==='Lost'?'Sold':'Reserved')+'">'+esc(f.status||'Open')+'</span></td><td><button class="fbtn" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')"><i class="fas fa-edit"></i></button></td></tr>';
+  }).join('')||'<tr><td colspan="6" style="color:#64748b;text-align:center;padding:18px;">No follow-ups yet.</td></tr>';
+  var modal=document.createElement('div');modal.id='crmModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg"><div class="mhdr"><h2><i class="fas fa-users" style="color:#38bdf8;margin-right:7px;"></i>CRM System</h2><button class="mclose" onclick="document.getElementById(\'crmModal\').remove()">&times;</button></div>'+
+    '<div class="mbody"><div class="mgrid" style="margin-bottom:14px;"><div class="mcard"><div class="mlabel">Total Plots</div><div class="mval">'+plots.length+'</div></div><div class="mcard"><div class="mlabel">Leads</div><div class="mval">'+leads+'</div></div><div class="mcard"><div class="mlabel">Open Follow-ups</div><div class="mval grn">'+open+'</div></div><div class="mcard"><div class="mlabel">Completed</div><div class="mval">'+done+'</div></div></div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:10px;"><button class="btn btnp" onclick="showFollowUpModal(\'\')"><i class="fas fa-plus"></i> New Follow Up</button><button class="btn btns" onclick="exportCRM()"><i class="fas fa-download"></i> Export CRM CSV</button></div>'+
+    '<table class="dtable"><thead><tr><th>Due</th><th>Plot</th><th>Contact</th><th>Type</th><th>Status</th><th>Edit</th></tr></thead><tbody>'+list+'</tbody></table></div></div>';
+  document.body.appendChild(modal);
+}
+function exportCRM(){
+  var rows=[['Due Date','Plot','Development','Contact','Phone','Type','Priority','Status','Next Action','Notes']].concat((_crmFollowups||[]).map(function(f){return[f.dueDate,f.plotNo,f.dev,f.contactName,f.contactPhone,f.type,f.priority,f.status,f.nextAction,f.notes];}));
+  var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='crm_followups.csv';a.click();URL.revokeObjectURL(a.href);
+}
 
 /* ══════════════════════════════════════════════
    LIVE SYNC — Firebase Realtime Database
@@ -2849,7 +3053,7 @@ function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(is
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
 window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
 window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;window.applyPastedGpsUrl=applyPastedGpsUrl;
-window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.showUNIDOFeasibility=showUNIDOFeasibility;window.showCRMModal=showCRMModal;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
+window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 window.onload=function(){
   loadFromLocalStorage();
