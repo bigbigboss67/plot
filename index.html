@@ -70,6 +70,9 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 .crm-col{background:#0f172a;border:1px solid #334155;border-radius:10px;min-height:120px;padding:10px;}
 .crm-col h3{font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
 .crm-card{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:9px;margin-bottom:8px;font-size:11px;color:#cbd5e1;}
+.measure-panel{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1200;background:#1e293b;border:1px solid #34d399;border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 8px 26px rgba(0,0,0,0.45);font-size:12px;color:#e2e8f0;}
+.measure-panel button{border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:800;cursor:pointer;}
+.amenity-pin{background:#0f172a;color:white;border:2px solid #38bdf8;border-radius:18px;padding:5px 9px;font-size:11px;font-weight:900;box-shadow:0 6px 18px rgba(0,0,0,0.45);white-space:nowrap;}
 .dtable{width:100%;border-collapse:collapse;font-size:12px;}
 .dtable th{background:#1e293b;padding:9px 10px;text-align:left;color:#94a3b8;font-weight:600;border-bottom:1px solid #334155;position:sticky;top:0;z-index:10;}
 .dtable td{padding:9px 10px;border-bottom:1px solid #1e293b;vertical-align:middle;}
@@ -392,12 +395,21 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
         <div class="fgroup"><label>Video Tour URL</label><input type="text" id="pm_video" placeholder="https://youtube.com/..."></div>
       </div>
       <div class="fsection">
+        <div class="fsectitle">UNIDO Feasibility</div>
+        <div class="fgrid">
+          <div class="fgroup"><label>Feasibility Requirement</label><select id="pm_unidoRequired"><option value="">Not requested</option><option value="Pre-screen needed">Pre-screen needed</option><option value="Full study needed">Full study needed</option><option value="Sent to client">Sent to client</option><option value="Approved">Approved</option><option value="Rejected">Rejected</option></select></div>
+          <div class="fgroup"><label>Study Stage</label><select id="pm_unidoStage"><option value="">Not started</option><option value="Data collection">Data collection</option><option value="Market check">Market check</option><option value="Technical review">Technical review</option><option value="Financial model">Financial model</option><option value="Ready to print">Ready to print</option></select></div>
+          <div class="fgroup" style="grid-column:span 2;"><label>Feasibility Notes</label><input type="text" id="pm_unidoNotes" placeholder="Client requirements, target use, missing assumptions..."></div>
+        </div>
+      </div>
+      <div class="fsection">
         <div class="fsectitle">Notes</div>
         <div class="fgroup"><textarea id="pm_notes" placeholder="Additional notes..."></textarea></div>
       </div>
     </div>
     <div class="mfoot">
       <button class="btn btns" onclick="closePlotModal()">Cancel</button>
+      <button class="btn btns" onclick="openUNIDOFromPlotForm()"><i class="fas fa-chart-line"></i> UNIDO Preview</button>
       <button class="btn btnp" onclick="savePlot()"><i class="fas fa-save"></i> Save Plot</button>
     </div>
   </div>
@@ -521,7 +533,8 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
           <button class="mcbtn" onclick="startDistanceCalculator()"><i class="fas fa-ruler"></i> Distance</button>
           <button class="mcbtn" onclick="toggleProximityAmenities()"><i class="fas fa-map-pin"></i> Amenities</button>
           <button class="mcbtn" onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</button>
-          <button class="mcbtn" onclick="connectGoogleCalendar()"><i class="fab fa-google"></i> Calendar</button>
+          <button class="mcbtn" onclick="showAISystemModal()"><i class="fas fa-robot"></i> AI</button>
+          <button class="mcbtn" onclick="connectFreeCalendar()"><i class="fas fa-calendar-days"></i> Calendar</button>
         </div>
         <div class="mlegend noprint">
           <div style="font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:7px;">LEGEND</div>
@@ -555,7 +568,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
 /* ── Live Sync globals (MQTT over WebSocket) ── */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
 var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
@@ -1678,6 +1691,7 @@ function populateTable(){
         '<button class="fbtn" onclick="selectPlot('+pid+')" style="margin-right:3px;" title="View"><i class="fas fa-eye"></i></button>'+
         '<button class="fbtn" onclick="openPlotModal('+pid+')" style="margin-right:3px;" title="Edit"><i class="fas fa-edit"></i></button>'+
         '<button class="fbtn" onclick="showFollowUpModal('+pid+')" style="margin-right:3px;color:#14b8a6;" title="Follow Up"><i class="fas fa-calendar-check"></i></button>'+
+        '<button class="fbtn" onclick="showUNIDOFeasibility('+pid+')" style="margin-right:3px;color:#fbbf24;" title="UNIDO Feasibility"><i class="fas fa-chart-line"></i></button>'+
         (!p.lat||!p.lng?'<button class="fbtn" style="color:#6366f1;margin-right:3px;" onclick="startSetOnMapModeForPlot('+pid+')" title="Place on Map"><i class="fas fa-map-marker-alt"></i></button>':'')+
         '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;" title="Print"><i class="fas fa-print"></i></button>'+
         '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')" title="Delete"><i class="fas fa-trash"></i></button>'+
@@ -1934,8 +1948,9 @@ function deletePlot(id){if(!confirm('Delete this plot?'))return;plots=plots.filt
 
 window.openPlotModal=function(id){
   var modal=document.getElementById('plotModal');modal.classList.remove('hidden');
-  ['pm_id','pm_no','pm_dev','pm_gfa','pm_nfa','pm_far','pm_bua','pm_lat','pm_lng','pm_video','pm_notes'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+  ['pm_id','pm_no','pm_dev','pm_gfa','pm_nfa','pm_far','pm_bua','pm_lat','pm_lng','pm_video','pm_notes','pm_unidoNotes'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('pm_status').value='Available';document.getElementById('pm_type').value='';
+  var ur=document.getElementById('pm_unidoRequired'),us=document.getElementById('pm_unidoStage');if(ur)ur.value='';if(us)us.value='';
   document.getElementById('pm_size').value='';document.getElementById('pm_price').value='';
   var prev=document.getElementById('pm_imgPrev'),ph=document.getElementById('pm_imgPH');
   if(prev){prev.style.display='none';prev.src='';}if(ph)ph.style.display='flex';
@@ -1950,6 +1965,9 @@ window.openPlotModal=function(id){
     document.getElementById('pm_bua').value=p.bua||'';document.getElementById('pm_lat').value=p.lat||'';
     document.getElementById('pm_lng').value=p.lng||'';document.getElementById('pm_video').value=p.videoUrl||'';
     document.getElementById('pm_notes').value=p.notes||'';
+    if(document.getElementById('pm_unidoRequired'))document.getElementById('pm_unidoRequired').value=p.unidoRequired||'';
+    if(document.getElementById('pm_unidoStage'))document.getElementById('pm_unidoStage').value=p.unidoStage||'';
+    if(document.getElementById('pm_unidoNotes'))document.getElementById('pm_unidoNotes').value=p.unidoNotes||'';
     if(p.image&&p.image.length>10){if(prev){prev.src=p.image;prev.style.display='block';}if(ph)ph.style.display='none';}
   } else document.getElementById('pm_title').textContent='Add New Plot';
 };
@@ -1965,7 +1983,7 @@ function savePlot(){
   var existingId=parseInt(document.getElementById('pm_id').value)||0;
   var prev=document.getElementById('pm_imgPrev');
   var imgSrc=(prev&&prev.src&&prev.src!==window.location.href&&prev.style.display!=='none')?prev.src:'';
-  var obj={id:existingId||Date.now(),no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:size,price:price,gfa:document.getElementById('pm_gfa').value.trim(),nfa:document.getElementById('pm_nfa').value.trim(),far:document.getElementById('pm_far').value.trim(),bua:document.getElementById('pm_bua').value.trim(),lat:document.getElementById('pm_lat').value.trim(),lng:document.getElementById('pm_lng').value.trim(),videoUrl:document.getElementById('pm_video').value.trim(),notes:document.getElementById('pm_notes').value.trim(),image:imgSrc};
+  var obj={id:existingId||Date.now(),no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:size,price:price,gfa:document.getElementById('pm_gfa').value.trim(),nfa:document.getElementById('pm_nfa').value.trim(),far:document.getElementById('pm_far').value.trim(),bua:document.getElementById('pm_bua').value.trim(),lat:document.getElementById('pm_lat').value.trim(),lng:document.getElementById('pm_lng').value.trim(),videoUrl:document.getElementById('pm_video').value.trim(),notes:document.getElementById('pm_notes').value.trim(),unidoRequired:(document.getElementById('pm_unidoRequired')||{}).value||'',unidoStage:(document.getElementById('pm_unidoStage')||{}).value||'',unidoNotes:(document.getElementById('pm_unidoNotes')||{}).value||'',image:imgSrc};
   if(existingId){var idx=plots.findIndex(function(p){return p.id===existingId;});if(idx!==-1)plots[idx]=obj;else plots.push(obj);}else plots.push(obj);
   filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closePlotModal();
   showToastNotification(existingId?'Plot updated!':'Plot added!','success');
@@ -2709,25 +2727,46 @@ function startAreaMeasurement(){
   if(currentView!=='map')togglePlotView('map');
   if(areaLayer){map.removeLayer(areaLayer);areaLayer=null;}
   if(areaLabel){map.removeLayer(areaLabel);areaLabel=null;}
-  showToastNotification('Click area corners, double-click to finish.','info');
-  var pts=[],poly=null;
+  if(areaMeasurePoly){map.removeLayer(areaMeasurePoly);areaMeasurePoly=null;}
+  var oldPanel=document.getElementById('areaMeasurePanel');if(oldPanel)oldPanel.remove();
+  areaMeasurePts=[];
+  if(map.doubleClickZoom)map.doubleClickZoom.disable();
+  var panel=document.createElement('div');panel.id='areaMeasurePanel';panel.className='measure-panel';
+  panel.innerHTML='<span><i class="fas fa-draw-polygon" style="color:#34d399;"></i> Click corners on map</span><button onclick="finishAreaMeasurement()" style="background:#34d399;color:#052e1a;">Finish Area</button><button onclick="cancelAreaMeasurement()" style="background:#334155;color:#cbd5e1;">Cancel</button>';
+  document.getElementById('mapWrap').appendChild(panel);
+  showToastNotification('Click area corners, then press Finish Area.','info');
   function onClick(e){
-    pts.push(e.latlng);
-    if(poly)map.removeLayer(poly);
-    if(pts.length>=2)poly=L.polygon(pts,{color:'#34d399',fillColor:'#34d399',fillOpacity:0.15,weight:3}).addTo(map);
+    areaMeasurePts.push(e.latlng);
+    if(areaMeasurePoly)map.removeLayer(areaMeasurePoly);
+    if(areaMeasurePts.length>=2)areaMeasurePoly=L.polygon(areaMeasurePts,{color:'#34d399',fillColor:'#34d399',fillOpacity:0.15,weight:3}).addTo(map);
+    var panel=document.getElementById('areaMeasurePanel');if(panel)panel.querySelector('span').innerHTML='<i class="fas fa-draw-polygon" style="color:#34d399;"></i> '+areaMeasurePts.length+' points selected';
   }
-  function onDbl(){
-    map.off('click',onClick);map.off('dblclick',onDbl);
-    if(pts.length<3){showToastNotification('Need at least 3 points.','error');return;}
-    areaLayer=poly;
-    var sqm=_polygonAreaSqm(pts),sqft=sqm*10.7639,ha=sqm/10000;
-    var label=sqm>=10000?ha.toFixed(2)+' ha':Math.round(sqm).toLocaleString()+' sqm';
-    var center=areaLayer.getBounds().getCenter();
-    areaLabel=L.marker(center,{icon:L.divIcon({className:'dist-label',html:'<i class="fas fa-draw-polygon"></i> '+label+' / '+Math.round(sqft).toLocaleString()+' sqft',iconSize:null})}).addTo(map);
-    L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(center).setContent('<b>Measured Area</b><br>'+label+'<br>'+Math.round(sqft).toLocaleString()+' sqft').openOn(map);
-    showToastNotification('Area: '+label+' / '+Math.round(sqft).toLocaleString()+' sqft','success');
-  }
-  map.on('click',onClick);map.on('dblclick',onDbl);
+  map.off('click',window._areaMeasureClick);
+  window._areaMeasureClick=onClick;
+  map.on('click',window._areaMeasureClick);
+}
+function finishAreaMeasurement(){
+  if(!map)return;
+  map.off('click',window._areaMeasureClick);
+  if(map.doubleClickZoom)map.doubleClickZoom.enable();
+  var panel=document.getElementById('areaMeasurePanel');if(panel)panel.remove();
+  if(areaMeasurePts.length<3){showToastNotification('Need at least 3 points.','error');return;}
+  areaLayer=areaMeasurePoly;
+  var sqm=_polygonAreaSqm(areaMeasurePts),sqft=sqm*10.7639,ha=sqm/10000;
+  var label=sqm>=10000?ha.toFixed(2)+' ha':Math.round(sqm).toLocaleString()+' sqm';
+  var center=areaLayer.getBounds().getCenter();
+  areaLabel=L.marker(center,{icon:L.divIcon({className:'dist-label',html:'<i class="fas fa-draw-polygon"></i> '+label+' / '+Math.round(sqft).toLocaleString()+' sqft',iconSize:null})}).addTo(map);
+  L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(center).setContent('<b>Measured Area</b><br>'+label+'<br>'+Math.round(sqft).toLocaleString()+' sqft').openOn(map);
+  showToastNotification('Area: '+label+' / '+Math.round(sqft).toLocaleString()+' sqft','success');
+}
+function cancelAreaMeasurement(){
+  if(!map)return;
+  map.off('click',window._areaMeasureClick);
+  if(map.doubleClickZoom)map.doubleClickZoom.enable();
+  var panel=document.getElementById('areaMeasurePanel');if(panel)panel.remove();
+  if(areaMeasurePoly){map.removeLayer(areaMeasurePoly);areaMeasurePoly=null;}
+  areaMeasurePts=[];
+  showToastNotification('Area measurement cancelled.','info');
 }
 function toggleProximityAmenities(){
   if(!map){showToastNotification('Map is not ready.','error');return;}
@@ -2737,34 +2776,46 @@ function toggleProximityAmenities(){
     proximityActive=false;showToastNotification('Amenities hidden.','info');return;
   }
   amenityLayer=L.layerGroup().addTo(map);
-  var center=(markerCluster&&markerCluster.getLayers().length)?markerCluster.getBounds().getCenter():map.getCenter();
+  var center=map.getCenter();
+  try{if(markerCluster&&markerCluster.getLayers().length&&markerCluster.getBounds().isValid())center=markerCluster.getBounds().getCenter();}catch(e){}
   var amenities=[
-    ['School','graduation-cap',0.010,0.006,'#38bdf8'],
-    ['Hospital','hospital',-0.008,0.010,'#ef4444'],
-    ['Metro','train',0.006,-0.012,'#22c55e'],
-    ['Mall','shopping-bag',-0.011,-0.006,'#fbbf24'],
-    ['Park','tree',0.014,-0.002,'#84cc16']
+    ['School','graduation-cap',0.006,0.004,'#38bdf8'],
+    ['Hospital','hospital',-0.005,0.006,'#ef4444'],
+    ['Metro','train',0.004,-0.007,'#22c55e'],
+    ['Mall','shopping-bag',-0.007,-0.004,'#fbbf24'],
+    ['Park','tree',0.008,-0.001,'#84cc16']
   ];
+  var bounds=L.latLngBounds([]);
   amenities.forEach(function(a){
     var ll=[center.lat+a[2],center.lng+a[3]];
-    L.circleMarker(ll,{radius:9,color:a[4],fillColor:a[4],fillOpacity:0.85,weight:2}).addTo(amenityLayer);
-    L.marker(ll,{icon:L.divIcon({className:'amenity-label',html:'<i class="fas fa-'+a[1]+'"></i> '+a[0],iconSize:null})}).addTo(amenityLayer);
+    bounds.extend(ll);
+    L.circleMarker(ll,{radius:12,color:'#ffffff',fillColor:a[4],fillOpacity:0.95,weight:2}).bindPopup('<b>'+a[0]+'</b><br>Indicative nearby amenity').addTo(amenityLayer);
+    L.marker(ll,{zIndexOffset:1600,icon:L.divIcon({className:'amenity-pin',html:'<i class="fas fa-'+a[1]+'"></i> '+a[0],iconAnchor:[12,12]})}).addTo(amenityLayer);
   });
+  if(bounds.isValid())map.fitBounds(bounds.pad(0.45),{maxZoom:14,animate:true});
+  L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(center).setContent('<b>Amenities Layer</b><br>Indicative nearby school, hospital, metro, mall, and park markers are now visible.').openOn(map);
   proximityActive=true;
   showToastNotification('Amenities shown around current map area.','success');
 }
 function geocodeAddress(){var addr=(document.getElementById('geocodeInput').value||'').trim();if(!addr){showToastNotification('Enter an address.','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(addr)).then(function(r){return r.json();}).then(function(d){if(!d||!d.length){showToastNotification('Address not found.','error');return;}map.flyTo([parseFloat(d[0].lat),parseFloat(d[0].lon)],14,{duration:1.5});L.popup().setLatLng([parseFloat(d[0].lat),parseFloat(d[0].lon)]).setContent('<b>'+esc(d[0].display_name)+'</b>').openOn(map);}).catch(function(){showToastNotification('Geocoding failed.','error');});}
 
 function showCRMModal(){showToastNotification('CRM coming soon!','info');}
-function connectGoogleCalendar(){
+function _downloadICS(title,date,details,filename){
+  date=(date||_dateForInput(1)).replace(/-/g,'');
+  var uid='aiplot-'+Date.now()+'@local';
+  var ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//AI Plot Portal//Free Calendar//EN\r\nBEGIN:VEVENT\r\nUID:'+uid+'\r\nDTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z\r\nDTSTART:'+date+'T090000\r\nDTEND:'+date+'T093000\r\nSUMMARY:'+String(title||'Plot Follow Up').replace(/\n/g,' ')+'\r\nDESCRIPTION:'+String(details||'').replace(/\n/g,'\\n').replace(/,/g,'\\,')+'\r\nEND:VEVENT\r\nEND:VCALENDAR';
+  var blob=new Blob([ics],{type:'text/calendar'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=filename||'plot-follow-up.ics';a.click();URL.revokeObjectURL(a.href);
+}
+function connectFreeCalendar(){
   var next=(_crmFollowups||[]).filter(function(f){return f.status!=='Completed'&&f.status!=='Lost';}).sort(function(a,b){return String(a.dueDate||'').localeCompare(String(b.dueDate||''));})[0];
   var title=next?('Follow up: '+(next.plotNo||'Plot')):'Plot Follow Up';
   var details=next?((next.nextAction||'Follow up')+'\nContact: '+(next.contactName||'')+' '+(next.contactPhone||'')+'\nDevelopment: '+(next.dev||'')):'Follow up with client / owner.';
-  var date=(next&&next.dueDate)?next.dueDate.replace(/-/g,''):_dateForInput(1).replace(/-/g,'');
-  var url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(title)+'&dates='+date+'T090000/'+date+'T093000&details='+encodeURIComponent(details);
-  window.open(url,'_blank');
-  showToastNotification('Google Calendar event draft opened.','success');
+  var date=(next&&next.dueDate)?next.dueDate:_dateForInput(1);
+  _downloadICS(title,date,details,'plot-follow-up.ics');
+  showToastNotification('Free calendar .ics file downloaded.','success');
 }
+function connectGoogleCalendar(){connectFreeCalendar();}
 function showOfflineSyncModal(){showToastNotification('Data is saved locally in your browser.','info');}
 
 function _dateForInput(days){
@@ -2786,15 +2837,26 @@ function showFollowUpModal(plotId,followId){
       '<div class="fsection"><div class="fsectitle">Plot / Lead</div><div class="fgrid">'+
         '<div class="fgroup"><label>Plot No</label><input id="fu_plotNo" value="'+esc(existing?existing.plotNo:(p.no||''))+'" placeholder="Plot reference"></div>'+
         '<div class="fgroup"><label>Development</label><input id="fu_dev" value="'+esc(existing?existing.dev:(p.dev||''))+'" placeholder="Development / area"></div>'+
-        '<div class="fgroup"><label>Client / Owner Name</label><input id="fu_contactName" value="'+esc(existing?existing.contactName:(p.ownerName||''))+'" placeholder="Name"></div>'+
+        '<div class="fgroup"><label>Customer Name</label><input id="fu_customerName" value="'+esc(existing?existing.customerName:(p.clientName||''))+'" placeholder="Buyer / client"></div>'+
+        '<div class="fgroup"><label>Owner Name</label><input id="fu_ownerName" value="'+esc(existing?existing.ownerName:(p.ownerName||''))+'" placeholder="Owner / seller"></div>'+
+        '<div class="fgroup"><label>Contact Person</label><input id="fu_contactName" value="'+esc(existing?existing.contactName:(p.ownerName||''))+'" placeholder="Name"></div>'+
         '<div class="fgroup"><label>Contact Number</label><input id="fu_contactPhone" value="'+esc(existing?existing.contactPhone:(p.ownerContact||''))+'" placeholder="+971..."></div>'+
+      '</div></div>'+
+      '<div class="fsection"><div class="fsectitle">Sent / Communication Log</div><div class="fgrid">'+
+        '<div class="fgroup"><label>Sent To</label><input id="fu_sentTo" value="'+esc(existing?existing.sentTo:'')+'" placeholder="Customer, owner, broker, investor..."></div>'+
+        '<div class="fgroup"><label>Sent By</label><input id="fu_sentBy" value="'+esc(existing?existing.sentBy:(currentUser&&currentUser.name?currentUser.name:''))+'" placeholder="Agent name"></div>'+
+        '<div class="fgroup"><label>Channel</label><select id="fu_sentChannel"><option>Not sent</option><option>WhatsApp</option><option>Email</option><option>Call</option><option>Meeting</option><option>SMS</option><option>Portal</option></select></div>'+
+        '<div class="fgroup"><label>Sent Date</label><input id="fu_sentDate" type="date" value="'+esc(existing?existing.sentDate:_dateForInput(0))+'"></div>'+
       '</div></div>'+
       '<div class="fsection"><div class="fsectitle">Follow Up Plan</div><div class="fgrid">'+
         '<div class="fgroup"><label>Follow Up Type</label><select id="fu_type"><option>Call</option><option>WhatsApp</option><option>Email</option><option>Meeting</option><option>Site Visit</option><option>Document Request</option><option>Offer Follow-up</option></select></div>'+
         '<div class="fgroup"><label>Priority</label><select id="fu_priority"><option>High</option><option>Medium</option><option>Low</option></select></div>'+
         '<div class="fgroup"><label>Due Date</label><input id="fu_due" type="date" value="'+esc(existing?existing.dueDate:_dateForInput(1))+'"></div>'+
         '<div class="fgroup"><label>Status</label><select id="fu_status"><option>Open</option><option>In Progress</option><option>Waiting Client</option><option>Completed</option><option>Lost</option></select></div>'+
+        '<div class="fgroup"><label>Result</label><select id="fu_result"><option>Pending response</option><option>Interested</option><option>Needs more information</option><option>Offer requested</option><option>Documents requested</option><option>Site visit requested</option><option>Not interested</option><option>No answer</option><option>Closed won</option><option>Closed lost</option></select></div>'+
+        '<div class="fgroup"><label>Deal Stage</label><select id="fu_dealStage"><option>Lead</option><option>Qualified</option><option>Proposal Sent</option><option>Negotiation</option><option>Due Diligence</option><option>Closed</option></select></div>'+
         '<div class="fgroup" style="grid-column:span 2;"><label>Next Action</label><input id="fu_nextAction" value="'+esc(existing?existing.nextAction:'Confirm availability, asking price, documents, and decision timeline.')+'"></div>'+
+        '<div class="fgroup" style="grid-column:span 2;"><label>Result Notes</label><input id="fu_resultNotes" value="'+esc(existing?existing.resultNotes:'')+'" placeholder="What happened after sending / calling?"></div>'+
         '<div class="fgroup" style="grid-column:span 2;"><label>Notes</label><textarea id="fu_notes" placeholder="Conversation notes, requirements, objections, promised documents...">'+esc(existing?existing.notes:'')+'</textarea></div>'+
       '</div></div>'+
     '</div>'+
@@ -2804,7 +2866,7 @@ function showFollowUpModal(plotId,followId){
       '<button class="btn btnp" onclick="saveFollowUpEntry()"><i class="fas fa-save"></i> Save Follow Up</button>'+
     '</div></div>';
   document.body.appendChild(modal);
-  if(existing){['type','priority','status'].forEach(function(k){var el=document.getElementById('fu_'+k);if(el)el.value=existing[k]||el.value;});}
+  if(existing){['type','priority','status','sentChannel','result','dealStage'].forEach(function(k){var el=document.getElementById('fu_'+k);if(el)el.value=existing[k]||el.value;});}
 }
 function _readFollowUpForm(){
   return {
@@ -2812,13 +2874,22 @@ function _readFollowUpForm(){
     plotId:document.getElementById('fu_plotId').value,
     plotNo:document.getElementById('fu_plotNo').value.trim(),
     dev:document.getElementById('fu_dev').value.trim(),
+    customerName:document.getElementById('fu_customerName').value.trim(),
+    ownerName:document.getElementById('fu_ownerName').value.trim(),
     contactName:document.getElementById('fu_contactName').value.trim(),
     contactPhone:document.getElementById('fu_contactPhone').value.trim(),
+    sentTo:document.getElementById('fu_sentTo').value.trim(),
+    sentBy:document.getElementById('fu_sentBy').value.trim(),
+    sentChannel:document.getElementById('fu_sentChannel').value,
+    sentDate:document.getElementById('fu_sentDate').value,
     type:document.getElementById('fu_type').value,
     priority:document.getElementById('fu_priority').value,
     dueDate:document.getElementById('fu_due').value,
     status:document.getElementById('fu_status').value,
+    result:document.getElementById('fu_result').value,
+    dealStage:document.getElementById('fu_dealStage').value,
     nextAction:document.getElementById('fu_nextAction').value.trim(),
+    resultNotes:document.getElementById('fu_resultNotes').value.trim(),
     notes:document.getElementById('fu_notes').value.trim(),
     createdAt:new Date().toISOString()
   };
@@ -2834,7 +2905,7 @@ function saveFollowUpEntry(){
 }
 function copyFollowUpMessage(){
   var f=_readFollowUpForm();
-  var msg='Follow up: '+f.plotNo+' - '+f.dev+'\nType: '+f.type+'\nDue: '+f.dueDate+'\nNext action: '+f.nextAction+(f.notes?'\nNotes: '+f.notes:'');
+  var msg='Follow up: '+f.plotNo+' - '+f.dev+'\nCustomer: '+f.customerName+'\nOwner: '+f.ownerName+'\nSent to: '+f.sentTo+' via '+f.sentChannel+'\nResult: '+f.result+'\nType: '+f.type+'\nDue: '+f.dueDate+'\nNext action: '+f.nextAction+(f.resultNotes?'\nResult notes: '+f.resultNotes:'')+(f.notes?'\nNotes: '+f.notes:'');
   navigator.clipboard.writeText(msg).then(function(){showToastNotification('Follow-up message copied.','success');});
 }
 function _feasData(p){
@@ -2852,8 +2923,19 @@ function _feasData(p){
   if(!p.ownerContact)missing.push('owner/client contact');
   return {price:price,size:size,gfa:gfa,landPsf:landPsf,gfaPsf:gfaPsf,far:far,score:score,verdict:verdict,missing:missing};
 }
+function openUNIDOFromPlotForm(){
+  var id=parseInt(document.getElementById('pm_id').value)||0;
+  if(id){showUNIDOFeasibility(id);return;}
+  var no=document.getElementById('pm_no').value.trim()||'New Plot';
+  var dev=document.getElementById('pm_dev').value.trim();
+  var temp={id:'temp',no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:document.getElementById('pm_size').value,price:document.getElementById('pm_price').value,gfa:document.getElementById('pm_gfa').value,bua:document.getElementById('pm_bua').value,far:document.getElementById('pm_far').value,lat:document.getElementById('pm_lat').value,lng:document.getElementById('pm_lng').value,unidoRequired:(document.getElementById('pm_unidoRequired')||{}).value||'',unidoStage:(document.getElementById('pm_unidoStage')||{}).value||'',unidoNotes:(document.getElementById('pm_unidoNotes')||{}).value||''};
+  showUNIDOFeasibilityForData(temp);
+}
 function showUNIDOFeasibility(plotId){
   var p=plots.find(function(x){return String(x.id)===String(plotId);});if(!p)return;
+  showUNIDOFeasibilityForData(p);
+}
+function showUNIDOFeasibilityForData(p){
   var d=_feasData(p),color=d.score>=75?'#22c55e':d.score>=50?'#fbbf24':'#ef4444';
   var old=document.getElementById('unidoFeasModal');if(old)old.remove();
   var modal=document.createElement('div');modal.id='unidoFeasModal';modal.className='moverlay';
@@ -2865,10 +2947,11 @@ function showUNIDOFeasibility(plotId){
         '<div><div style="font-size:18px;font-weight:900;color:'+color+';margin-bottom:6px;">'+d.verdict+'</div><div style="font-size:12px;color:#94a3b8;line-height:1.7;">Pre-feasibility screen based on UNIDO-style chapters: project definition, market, technical, location, finance, implementation, risk, and decision readiness.</div></div>'+
       '</div>'+
       '<div class="fsection"><div class="fsectitle">1. Project Definition</div><table class="atable"><tr><td>Plot</td><td>'+esc(p.no||'')+'</td></tr><tr><td>Development</td><td>'+esc(p.dev||'')+'</td></tr><tr><td>Use / Type</td><td>'+esc(p.propUse||p.type||'Not specified')+'</td></tr><tr><td>Status</td><td>'+esc(p.status||'')+'</td></tr></table></div>'+
+      '<div class="fsection"><div class="fsectitle">Study Request</div><table class="atable"><tr><td>Requirement</td><td>'+esc(p.unidoRequired||'Not requested')+'</td></tr><tr><td>Stage</td><td>'+esc(p.unidoStage||'Not started')+'</td></tr><tr><td>Notes</td><td>'+esc(p.unidoNotes||'')+'</td></tr></table></div>'+
       '<div class="fsection"><div class="fsectitle">2. Land And Area Economics</div><div class="mgrid"><div class="mcard"><div class="mlabel">Land Size</div><div class="mval">'+(isNaN(d.size)?'Need input':fmtN(d.size)+' sqft')+'</div></div><div class="mcard"><div class="mlabel">Land Cost</div><div class="mval grn">'+(isNaN(d.price)?'Need input':'AED '+fmtN(d.price))+'</div></div><div class="mcard"><div class="mlabel">Cost / Land sqft</div><div class="mval">'+(isNaN(d.landPsf)?'Need input':'AED '+fmtN(d.landPsf))+'</div></div><div class="mcard"><div class="mlabel">Cost / GFA sqft</div><div class="mval">'+(isNaN(d.gfaPsf)?'Need GFA':'AED '+fmtN(d.gfaPsf))+'</div></div></div></div>'+
       '<div class="fsection"><div class="fsectitle">3. Technical Readiness</div><table class="atable"><tr><td>GFA / BUA</td><td>'+(isNaN(d.gfa)?'Missing':fmtN(d.gfa)+' sqft')+'</td></tr><tr><td>FAR</td><td>'+(isNaN(d.far)?'Missing':d.far.toFixed(2))+'</td></tr><tr><td>Height</td><td>'+esc(p.height||'Not specified')+'</td></tr><tr><td>Docs</td><td>'+esc(p.attachedDocs||'Not attached')+'</td></tr></table></div>'+
       '<div class="fsection"><div class="fsectitle">4. Decision Notes</div><div style="background:#0f172a;border-left:3px solid '+color+';border-radius:0 9px 9px 0;padding:12px;font-size:12px;color:#cbd5e1;line-height:1.7;">Missing items: '+(d.missing.length?esc(d.missing.join(', ')):'None for first screen')+'. Next checks: demand comparables, zoning/authority approval, utility capacity, CAPEX/OPEX, revenue model, financing terms, implementation schedule, and sensitivity on selling/rental rates.</div></div>'+
-    '</div><div class="mfoot"><button class="btn btns" onclick="document.getElementById(\'unidoFeasModal\').remove()">Close</button><button class="btn btnp" onclick="printUNIDOFeasibility(\''+esc(plotId)+'\')"><i class="fas fa-print"></i> Print Report</button></div></div>';
+    '</div><div class="mfoot"><button class="btn btns" onclick="document.getElementById(\'unidoFeasModal\').remove()">Close</button>'+(p.id==='temp'?'<button class="btn btns" onclick="showToastNotification(\'Save the plot first to print a permanent report.\',\'info\')"><i class="fas fa-print"></i> Print after Save</button>':'<button class="btn btnp" onclick="printUNIDOFeasibility(\''+esc(p.id)+'\')"><i class="fas fa-print"></i> Print Report</button>')+'</div></div>';
   document.body.appendChild(modal);
 }
 function printUNIDOFeasibility(plotId){
@@ -2894,7 +2977,7 @@ function showCRMModal(){
   document.body.appendChild(modal);
 }
 function exportCRM(){
-  var rows=[['Due Date','Plot','Development','Contact','Phone','Type','Priority','Status','Next Action','Notes']].concat((_crmFollowups||[]).map(function(f){return[f.dueDate,f.plotNo,f.dev,f.contactName,f.contactPhone,f.type,f.priority,f.status,f.nextAction,f.notes];}));
+  var rows=[['Due Date','Plot','Development','Customer','Owner','Contact','Phone','Sent To','Sent By','Channel','Sent Date','Type','Priority','Deal Stage','Status','Result','Result Notes','Next Action','Notes']].concat((_crmFollowups||[]).map(function(f){return[f.dueDate,f.plotNo,f.dev,f.customerName,f.ownerName,f.contactName,f.contactPhone,f.sentTo,f.sentBy,f.sentChannel,f.sentDate,f.type,f.priority,f.dealStage,f.status,f.result,f.resultNotes,f.nextAction,f.notes];}));
   var csv=rows.map(function(r){return r.map(function(v){return '"'+String(v||'').replace(/"/g,'""')+'"';}).join(',');}).join('\n');
   var blob=new Blob([csv],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='crm_followups.csv';a.click();URL.revokeObjectURL(a.href);
 }
@@ -2914,33 +2997,76 @@ function showCRMModal(){
   var leads=plots.filter(function(p){return p.ownerName||p.ownerContact||p.source;}).length;
   var pipeline=['Open','In Progress','Waiting Client','Completed'].map(function(st){
     var cards=rows.filter(function(f){return (f.status||'Open')===st;}).slice(0,5).map(function(f){
-      return '<div class="crm-card"><div style="display:flex;justify-content:space-between;gap:8px;"><b style="color:#f1f5f9;">'+esc(f.plotNo||'No plot')+'</b><span style="color:'+(f.priority==='High'?'#f87171':'#94a3b8')+'">'+esc(f.priority||'')+'</span></div><div>'+esc(f.contactName||'No contact')+'</div><div style="color:#64748b;margin-top:3px;">Due '+esc(f.dueDate||'-')+'</div><button class="fbtn" style="margin-top:7px;" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')"><i class="fas fa-edit"></i> Edit</button></div>';
+      return '<div class="crm-card"><div style="display:flex;justify-content:space-between;gap:8px;"><b style="color:#f1f5f9;">'+esc(f.plotNo||'No plot')+'</b><span style="color:'+(f.priority==='High'?'#f87171':'#94a3b8')+'">'+esc(f.priority||'')+'</span></div><div>'+esc(f.customerName||f.contactName||'No customer')+'</div><div style="color:#64748b;margin-top:3px;">Sent to: '+esc(f.sentTo||'-')+'</div><div style="color:#64748b;">Result: '+esc(f.result||'Pending')+'</div><div style="color:#64748b;margin-top:3px;">Due '+esc(f.dueDate||'-')+'</div><button class="fbtn" style="margin-top:7px;" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')"><i class="fas fa-edit"></i> Edit</button></div>';
     }).join('')||'<div style="font-size:11px;color:#475569;">No records</div>';
     return '<div class="crm-col"><h3>'+esc(st)+'</h3>'+cards+'</div>';
   }).join('');
   var table=rows.map(function(f){
     var phone=f.contactPhone?'<a href="tel:'+esc(f.contactPhone)+'" style="color:#38bdf8;text-decoration:none;">'+esc(f.contactPhone)+'</a>':'';
-    return '<tr><td>'+esc(f.dueDate||'')+'</td><td><b style="color:#f1f5f9;">'+esc(f.plotNo||'')+'</b><br><span style="font-size:10px;color:#64748b;">'+esc(f.dev||'')+'</span></td><td>'+esc(f.contactName||'')+'<br>'+phone+'</td><td>'+esc(f.type||'')+'</td><td>'+esc(f.nextAction||'')+'</td><td><span class="sbadge sb-'+_crmStatusClass(f.status)+'">'+esc(f.status||'Open')+'</span></td><td><button class="fbtn" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')" title="Edit"><i class="fas fa-edit"></i></button> <button class="fbtn" onclick="openCalendarForFollowUp(\''+esc(f.id)+'\')" title="Calendar"><i class="fab fa-google"></i></button></td></tr>';
+    return '<tr><td>'+esc(f.dueDate||'')+'</td><td><b style="color:#f1f5f9;">'+esc(f.plotNo||'')+'</b><br><span style="font-size:10px;color:#64748b;">'+esc(f.dev||'')+'</span></td><td><b>Customer:</b> '+esc(f.customerName||'-')+'<br><b>Owner:</b> '+esc(f.ownerName||'-')+'<br>'+phone+'</td><td><b>To:</b> '+esc(f.sentTo||'-')+'<br><b>By:</b> '+esc(f.sentBy||'-')+'<br><b>Via:</b> '+esc(f.sentChannel||'-')+' '+esc(f.sentDate||'')+'</td><td><b>'+esc(f.result||'Pending')+'</b><br><span style="color:#64748b;">'+esc(f.resultNotes||f.nextAction||'')+'</span></td><td><span class="sbadge sb-'+_crmStatusClass(f.status)+'">'+esc(f.status||'Open')+'</span><br><span style="font-size:10px;color:#64748b;">'+esc(f.dealStage||'Lead')+'</span></td><td><button class="fbtn" onclick="showFollowUpModal(\''+esc(f.plotId||'')+'\',\''+esc(f.id)+'\')" title="Edit"><i class="fas fa-edit"></i></button> <button class="fbtn" onclick="openCalendarForFollowUp(\''+esc(f.id)+'\')" title="Free Calendar"><i class="fas fa-calendar-days"></i></button></td></tr>';
   }).join('')||'<tr><td colspan="7" style="color:#64748b;text-align:center;padding:18px;">No follow-ups yet. Add one from a plot card or table row.</td></tr>';
   var modal=document.createElement('div');modal.id='crmModal';modal.className='moverlay';
   modal.innerHTML='<div class="mbox mbox-lg" style="max-width:1040px;">'+
     '<div class="mhdr"><h2><i class="fas fa-users" style="color:#38bdf8;margin-right:7px;"></i>CRM Command Center</h2><button class="mclose" onclick="document.getElementById(\'crmModal\').remove()">&times;</button></div>'+
     '<div class="mbody">'+
       '<div class="mgrid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px;"><div class="mcard"><div class="mlabel">Leads</div><div class="mval">'+leads+'</div></div><div class="mcard"><div class="mlabel">Open Follow-ups</div><div class="mval grn">'+open+'</div></div><div class="mcard"><div class="mlabel">High Priority</div><div class="mval" style="color:#f87171;">'+hot+'</div></div><div class="mcard"><div class="mlabel">Overdue</div><div class="mval" style="color:#fbbf24;">'+overdue+'</div></div></div>'+
-      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;"><button class="btn btnp" onclick="showFollowUpModal(\'\')"><i class="fas fa-plus"></i> New Follow Up</button><button class="btn btns" onclick="connectGoogleCalendar()"><i class="fab fa-google"></i> Next Calendar Event</button><button class="btn btns" onclick="exportCRM()"><i class="fas fa-download"></i> Export CSV</button></div>'+
+      '<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;"><button class="btn btnp" onclick="showFollowUpModal(\'\')"><i class="fas fa-plus"></i> New Follow Up</button><button class="btn btns" onclick="connectFreeCalendar()"><i class="fas fa-calendar-days"></i> Free Calendar .ics</button><button class="btn btns" onclick="exportCRM()"><i class="fas fa-download"></i> Export CSV</button></div>'+
       '<div class="crm-pipeline">'+pipeline+'</div>'+
-      '<div class="fsectitle">Follow-up Register</div><table class="dtable"><thead><tr><th>Due</th><th>Plot</th><th>Contact</th><th>Type</th><th>Next Action</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+table+'</tbody></table>'+
+      '<div class="fsectitle">Follow-up Register</div><table class="dtable"><thead><tr><th>Due</th><th>Plot</th><th>Customer / Owner</th><th>Sent Log</th><th>Result</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+table+'</tbody></table>'+
     '</div></div>';
   document.body.appendChild(modal);
 }
 function openCalendarForFollowUp(id){
   var f=(_crmFollowups||[]).find(function(x){return String(x.id)===String(id);});
-  if(!f){connectGoogleCalendar();return;}
-  var date=(f.dueDate||_dateForInput(1)).replace(/-/g,'');
+  if(!f){connectFreeCalendar();return;}
   var details=(f.nextAction||'Follow up')+'\nContact: '+(f.contactName||'')+' '+(f.contactPhone||'')+'\nPlot: '+(f.plotNo||'')+' - '+(f.dev||'');
-  var url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Follow up: '+(f.plotNo||'Plot'))+'&dates='+date+'T090000/'+date+'T093000&details='+encodeURIComponent(details);
-  window.open(url,'_blank');
+  _downloadICS('Follow up: '+(f.plotNo||'Plot'),f.dueDate||_dateForInput(1),details,'follow-up-'+(f.plotNo||'plot')+'.ics');
 }
+
+function _aiPortalAnswer(q){
+  q=(q||'').toLowerCase();
+  var available=plots.filter(function(p){return p.status==='Available';}).length;
+  var withGps=plots.filter(function(p){return parseNum(p.lat)&&parseNum(p.lng);}).length;
+  var open=(_crmFollowups||[]).filter(function(f){return f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var overdue=(_crmFollowups||[]).filter(function(f){return f.dueDate&&f.dueDate<_dateForInput(0)&&f.status!=='Completed'&&f.status!=='Lost';}).length;
+  var avg=0,c=0;plots.forEach(function(p){var pr=parseNum(p.price),sz=parseNum(p.size);if(pr&&sz){avg+=pr/sz;c++;}});avg=c?Math.round(avg/c):0;
+  if(q.indexOf('follow')>-1||q.indexOf('crm')>-1)return 'CRM summary: '+open+' open follow-ups, '+overdue+' overdue. Best next action: focus first on high-priority records with result "Pending response" or "Offer requested", then create calendar .ics reminders for the next 24 hours.';
+  if(q.indexOf('feas')>-1||q.indexOf('unido')>-1)return 'UNIDO guidance: confirm land price, plot size, GFA/BUA, authority permissions, utility capacity, market comparables, CAPEX/OPEX, expected revenue, financing, and sensitivity. Average available price signal in this portal is '+(avg?'AED '+avg.toLocaleString()+'/sqft':'not enough data yet')+'.';
+  if(q.indexOf('duplicate')>-1)return 'Duplicate control: use Table View > Find Duplicates. It groups records by plot number, development, size, and price so you can choose which row to delete.';
+  if(q.indexOf('map')>-1||q.indexOf('gps')>-1)return 'Map health: '+withGps+' of '+plots.length+' plots have GPS. Use Resolve GPS URLs for pasted map links, or Click Map to Place a Plot for manual correction.';
+  return 'Portal snapshot: '+plots.length+' plots, '+available+' available, '+withGps+' mapped, '+open+' open CRM follow-ups. Ask me about feasibility, CRM follow-ups, GPS/map health, or duplicate cleanup.';
+}
+function showAISystemModal(){
+  var old=document.getElementById('aiModal');if(old)old.remove();
+  var modal=document.createElement('div');modal.id='aiModal';modal.className='moverlay';
+  modal.innerHTML='<div class="mbox mbox-lg" style="max-width:780px;">'+
+    '<div class="mhdr"><h2><i class="fas fa-robot" style="color:#38bdf8;margin-right:7px;"></i>AI Portal Assistant</h2><button class="mclose" onclick="document.getElementById(\'aiModal\').remove()">&times;</button></div>'+
+    '<div class="mbody">'+
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;"><button class="fbtn" onclick="askPortalAI(\'summary\')">Summary</button><button class="fbtn" onclick="askPortalAI(\'UNIDO feasibility\')">UNIDO</button><button class="fbtn" onclick="askPortalAI(\'CRM follow up\')">CRM</button><button class="fbtn" onclick="askPortalAI(\'map GPS\')">Map Health</button></div>'+
+      '<div id="aiAnswer" style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:14px;color:#cbd5e1;font-size:13px;line-height:1.7;margin-bottom:12px;">'+esc(_aiPortalAnswer('summary'))+'</div>'+
+      '<div style="display:flex;gap:8px;"><input id="aiQuestion" class="fi" style="flex:1;" placeholder="Ask about plots, CRM, feasibility, GPS, duplicates..."><button class="btn btnp" onclick="askPortalAI(document.getElementById(\'aiQuestion\').value)"><i class="fas fa-paper-plane"></i> Ask</button></div>'+
+    '</div></div>';
+  document.body.appendChild(modal);
+}
+function askPortalAI(q){
+  var el=document.getElementById('aiAnswer');if(el)el.textContent=_aiPortalAnswer(q);
+}
+
+window.printPlot=function(id){
+  var p=plots.find(function(x){return x.id===id;});if(!p)return;
+  var price=parseNum(p.price),size=parseNum(p.size),gfa=parseNum(p.gfa)||parseNum(p.bua);
+  var ppsf=(price&&size)?'AED '+Math.round(price/size).toLocaleString()+'/sqft':'-';
+  var today=new Date().toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});
+  var img='';
+  if(p.image&&p.image.startsWith('data:'))img='<img src="'+p.image+'" alt="Plot image">';
+  else if(parseNum(p.lat)&&parseNum(p.lng)){
+    var lat=parseFloat(p.lat).toFixed(6),lng=parseFloat(p.lng).toFixed(6);
+    img='<img src="https://staticmap.openstreetmap.de/staticmap.php?center='+lat+','+lng+'&zoom=15&size=760x260&markers='+lat+','+lng+',red-pushpin" alt="Plot map">';
+  }else img='<div class="noimg">No image or GPS map available</div>';
+  var rows=[['Plot Ref',p.no],['Development',p.dev],['Status',p.status],['Type',p.type],['Land Size',size?fmtN(size)+' sqft':'-'],['Land Cost',price?'AED '+fmtN(price):'-'],['Price / sqft',ppsf],['GFA / BUA',gfa?fmtN(gfa)+' sqft':'-'],['UNIDO Stage',p.unidoStage||'-'],['Feasibility Notes',p.unidoNotes||'-']];
+  var html='<!doctype html><html><head><title>Plot Report '+esc(p.no||'')+'</title><style>@page{size:A4;margin:12mm;}*{box-sizing:border-box}body{font-family:Inter,Segoe UI,Arial,sans-serif;color:#142033;margin:0;background:#eef2f7}.page{background:white;min-height:273mm;padding:0;position:relative}.hero{background:#0f172a;color:white;padding:24px 30px 20px;border-bottom:5px solid #38bdf8}.brand{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#93c5fd;font-weight:800}.title{font-size:34px;font-weight:900;margin-top:8px}.sub{font-size:14px;color:#cbd5e1;margin-top:4px}.badge{display:inline-block;margin-top:12px;padding:7px 16px;border-radius:20px;background:#ecfeff;color:#075985;font-size:11px;font-weight:900;letter-spacing:1px}.content{padding:22px 30px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.kpi{border:1px solid #dbe3ef;border-radius:12px;padding:13px;background:#f8fafc}.kl{font-size:9px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:1.5px}.kv{font-size:16px;font-weight:900;margin-top:5px;color:#0f172a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.sec{font-size:11px;color:#2563eb;font-weight:900;text-transform:uppercase;letter-spacing:1.8px;margin:18px 0 8px;border-bottom:1px solid #dbe3ef;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:12px}td{border:1px solid #e2e8f0;padding:9px;vertical-align:top}td:first-child{background:#f8fafc;color:#64748b;font-weight:800;width:34%}.imageBlock{width:78%;margin:22px auto 10px;text-align:center}.imageBlock img{width:100%;height:255px;object-fit:cover;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,.18)}.caption{font-size:10px;color:#64748b;margin-top:8px;text-transform:uppercase;letter-spacing:1px}.noimg{height:220px;border:1px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.foot{position:absolute;bottom:0;left:0;right:0;padding:12px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:9px;color:#64748b;display:flex;justify-content:space-between}.printBtn{position:fixed;right:24px;bottom:24px;background:#2563eb;color:white;border:none;border-radius:12px;padding:12px 22px;font-weight:900;box-shadow:0 8px 24px rgba(37,99,235,.35)}@media print{body{background:white}.printBtn{display:none}.page{min-height:auto}}</style></head><body><div class="page"><div class="hero"><div class="brand">AI Plot Portal Pro</div><div class="title">Plot '+esc(p.no||'Report')+'</div><div class="sub">'+esc(p.dev||'')+'</div><div class="badge">'+esc(p.status||'')+'</div></div><div class="content"><div class="kpis"><div class="kpi"><div class="kl">Land Size</div><div class="kv">'+(size?fmtN(size):'-')+'</div></div><div class="kpi"><div class="kl">Land Cost</div><div class="kv">'+(price?'AED '+fmtN(price):'-')+'</div></div><div class="kpi"><div class="kl">Price/sqft</div><div class="kv">'+ppsf+'</div></div><div class="kpi"><div class="kl">Report Date</div><div class="kv">'+esc(today)+'</div></div></div><div class="grid"><div><div class="sec">Property Details</div><table>'+rows.slice(0,7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table></div><div><div class="sec">Feasibility & Notes</div><table>'+rows.slice(7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><div class="sec">Remarks</div><table><tr><td>Notes</td><td>'+esc(p.notes||'-')+'</td></tr></table></div></div><div class="imageBlock">'+img+'<div class="caption">Plot visual / location reference</div></div></div><div class="foot"><span>Confidential property report</span><span>Generated by AI Plot Portal Pro</span></div></div><button class="printBtn" onclick="window.print()">Print / Save PDF</button></body></html>';
+  var w=window.open('','_blank','width=980,height=820');if(!w){showToastNotification('Popup blocked. Allow popups and try again.','error');return;}w.document.write(html);w.document.close();w.focus();
+};
 
 const _firebaseConfig = {
     apiKey: "AIzaSyDKthkVZLmK5Y_wT0Jmx90UEkzJs_Pz9-I",
@@ -3193,7 +3319,7 @@ function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(is
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
 window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
 window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;window.applyPastedGpsUrl=applyPastedGpsUrl;
-window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectGoogleCalendar=connectGoogleCalendar;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
+window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.finishAreaMeasurement=finishAreaMeasurement;window.cancelAreaMeasurement=cancelAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.openUNIDOFromPlotForm=openUNIDOFromPlotForm;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectFreeCalendar=connectFreeCalendar;window.connectGoogleCalendar=connectGoogleCalendar;window.showAISystemModal=showAISystemModal;window.askPortalAI=askPortalAI;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 window.onload=function(){
   loadFromLocalStorage();
