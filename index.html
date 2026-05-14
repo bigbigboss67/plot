@@ -295,18 +295,6 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </head>
 <body>
 
-<div id="loginModal">
-  <div class="lbox">
-    <div class="llogo"><i class="fas fa-map-marked-alt"></i></div>
-    <div class="ltitle">AI Plot Portal Pro</div>
-    <div class="lsub">Smart Real Estate Plot Management</div>
-    <input class="linp" id="loginUser" type="text" placeholder="Username" onkeydown="if(event.key==='Enter')login()">
-    <input class="linp" id="loginPass" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')login()">
-    <button class="lbtn" onclick="login()">Sign In</button>
-    <button class="lbtn lguest" onclick="continueAsGuest()">Continue as Guest</button>
-  </div>
-</div>
-
 <div id="toastWrap"></div>
 
 <!-- Mobile sidebar backdrop -->
@@ -360,6 +348,37 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
           <div class="fgroup"><label>Type</label><select id="pm_type"><option value="">-- Select Type --</option><option value="Residential">Residential</option><option value="Commercial">Commercial</option><option value="Mixed Use">Mixed Use</option><option value="Industrial">Industrial</option><option value="Agricultural">Agricultural</option></select></div>
         </div>
       </div>
+
+      <div class="fsection">
+        <div class="fsectitle">People & Contacts</div>
+        <div class="fgrid" style="grid-template-columns:repeat(2,1fr);gap:12px;">
+          <!-- Agent Card -->
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;">
+            <div style="font-weight:700;color:#818cf8;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;"><i class="fas fa-user-tie" style="margin-right:6px;"></i>Agent</div>
+            <div class="fgroup"><label>Name</label><input type="text" id="pm_agentName" placeholder="Agent name"></div>
+            <div class="fgroup"><label>Contact</label><input type="text" id="pm_agentContact" placeholder="+971..."></div>
+          </div>
+          <!-- Developer Card -->
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;">
+            <div style="font-weight:700;color:#34d399;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;"><i class="fas fa-building" style="margin-right:6px;"></i>Developer</div>
+            <div class="fgroup"><label>Contact Name</label><input type="text" id="pm_devContactName" placeholder="Developer contact"></div>
+            <div class="fgroup"><label>Phone</label><input type="text" id="pm_devContact" placeholder="+971..."></div>
+          </div>
+          <!-- Owner Card -->
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;">
+            <div style="font-weight:700;color:#c4b5fd;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;"><i class="fas fa-key" style="margin-right:6px;"></i>Owner</div>
+            <div class="fgroup"><label>Name</label><input type="text" id="pm_ownerName" placeholder="Owner name"></div>
+            <div class="fgroup"><label>Contact</label><input type="text" id="pm_ownerContact" placeholder="+971..."></div>
+          </div>
+          <!-- Customer Card -->
+          <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;">
+            <div style="font-weight:700;color:#fbbf24;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;"><i class="fas fa-user" style="margin-right:6px;"></i>Customer</div>
+            <div class="fgroup"><label>Name</label><input type="text" id="pm_customerName" placeholder="Customer name"></div>
+            <div class="fgroup"><label>Contact</label><input type="text" id="pm_customerContact" placeholder="+971..."></div>
+          </div>
+        </div>
+      </div>
+
       <div class="fsection">
         <div class="fsectitle">Financial</div>
         <div class="fgrid">
@@ -457,6 +476,48 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
       <a onclick="document.getElementById('importModal').classList.remove('hidden')"><i class="fas fa-file-import"></i> Import Plots</a>
       <a onclick="exportCSV()"><i class="fas fa-file-export"></i> Export CSV</a>
       <a onclick="showCRMModal()"><i class="fas fa-users"></i> CRM</a>
+      <div class="sbsec" style="margin-top:6px;">Contacts</div>
+      <a onclick="showAgentDirectory()"><i class="fas fa-user-tie"></i> Agents</a>
+      <a onclick="showDeveloperDirectory()"><i class="fas fa-building"></i> Developers</a>
+      <a onclick="showOwnerDirectory()"><i class="fas fa-key"></i> Owners</a>
+      <a onclick="showCustomerDirectory()"><i class="fas fa-user"></i> Customers</a>
+      <div class="sbsec" style="margin-top:8px;">Quick Add</div>
+      <div style="padding:0 8px 8px;">
+        <div style="margin-bottom:6px;">
+          <div onclick="toggleQuick('agent')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;color:#94a3b8;"><span><i class='fas fa-user-tie' style='color:#818cf8;margin-right:6px;'></i>Agent</span><span id='qt_agent'>+</span></div>
+          <div id='qp_agent' style='display:none;padding:6px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 6px 6px;'>
+            <input id='qa_name' placeholder='Name*' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qa_phone' placeholder='Phone' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qa_company' placeholder='Company' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <button onclick='quickAddAgent()' style='width:100%;padding:4px;font-size:11px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;'>Save</button>
+          </div>
+        </div>
+        <div style="margin-bottom:6px;">
+          <div onclick="toggleQuick('dev')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;color:#94a3b8;"><span><i class='fas fa-building' style='color:#34d399;margin-right:6px;'></i>Developer</span><span id='qt_dev'>+</span></div>
+          <div id='qp_dev' style='display:none;padding:6px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 6px 6px;'>
+            <input id='qd_name' placeholder='Company*' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qd_phone' placeholder='Phone' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <button onclick='quickAddDeveloper()' style='width:100%;padding:4px;font-size:11px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;'>Save</button>
+          </div>
+        </div>
+        <div style="margin-bottom:6px;">
+          <div onclick="toggleQuick('owner')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;color:#94a3b8;"><span><i class='fas fa-key' style='color:#c4b5fd;margin-right:6px;'></i>Owner</span><span id='qt_owner'>+</span></div>
+          <div id='qp_owner' style='display:none;padding:6px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 6px 6px;'>
+            <input id='qo_name' placeholder='Name*' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qo_phone' placeholder='Phone' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <button onclick='quickAddOwner()' style='width:100%;padding:4px;font-size:11px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;'>Save</button>
+          </div>
+        </div>
+        <div style="margin-bottom:6px;">
+          <div onclick="toggleQuick('cust')" style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;cursor:pointer;font-size:11px;color:#94a3b8;"><span><i class='fas fa-user' style='color:#fbbf24;margin-right:6px;'></i>Customer</span><span id='qt_cust'>+</span></div>
+          <div id='qp_cust' style='display:none;padding:6px;background:#0f172a;border:1px solid #334155;border-top:none;border-radius:0 0 6px 6px;'>
+            <input id='qc_name' placeholder='Name*' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qc_phone' placeholder='Phone' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <input id='qc_budget' placeholder='Budget' style='width:100%;margin-bottom:4px;font-size:11px;padding:4px 6px;background:#1e293b;border:1px solid #334155;border-radius:4px;color:#e2e8f0;'>
+            <button onclick='quickAddCustomer()' style='width:100%;padding:4px;font-size:11px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;'>Save</button>
+          </div>
+        </div>
+      </div>
       <a onclick="showOfflineSyncModal()"><i class="fas fa-sync"></i> Offline Sync</a>
       <a onclick="resolveMapsUrls()" style="color:#34d399;"><i class="fas fa-globe"></i> Resolve GPS URLs</a>
       <a onclick="showOwnerCodeSetup()" style="color:#c4b5fd;"><i class="fas fa-lock"></i> Set Owner Code</a>
@@ -568,7 +629,7 @@ body{background:#0f172a;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;hei
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser=null,searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser={name:'Guest',role:'guest'},searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
 /* ── Live Sync globals (MQTT over WebSocket) ── */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
 var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
@@ -1948,6 +2009,7 @@ function deletePlot(id){if(!confirm('Delete this plot?'))return;plots=plots.filt
 
 window.openPlotModal=function(id){
   var modal=document.getElementById('plotModal');modal.classList.remove('hidden');
+  populateContactDropdowns();
   ['pm_id','pm_no','pm_dev','pm_gfa','pm_nfa','pm_far','pm_bua','pm_lat','pm_lng','pm_video','pm_notes','pm_unidoNotes'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('pm_status').value='Available';document.getElementById('pm_type').value='';
   var ur=document.getElementById('pm_unidoRequired'),us=document.getElementById('pm_unidoStage');if(ur)ur.value='';if(us)us.value='';
@@ -1958,7 +2020,7 @@ window.openPlotModal=function(id){
     var p=plots.find(function(x){return x.id===id;});if(!p)return;
     document.getElementById('pm_title').textContent='Edit Plot '+p.no;
     document.getElementById('pm_id').value=p.id;document.getElementById('pm_no').value=p.no||'';
-    document.getElementById('pm_dev').value=p.dev||'';document.getElementById('pm_status').value=p.status||'Available';
+    document.getElementById('pm_dev').value=p.dev||'';populateContactDropdowns(); setTimeout(function(){var sel=document.getElementById('pm_agentName'); if(sel){var idx=_agents.findIndex(function(a){return a.name===p.agentName;}); if(idx>=0){sel.value=String(idx); fillAgentContact();}}},50);document.getElementById('pm_agentContact').value=p.agentContact||'';var selD=document.getElementById('pm_devContactName'); if(selD){var idxD=_developers.findIndex(function(d){return d.name===p.devContactName;}); if(idxD>=0){selD.value=String(idxD); fillDeveloperContact();}}document.getElementById('pm_devContact').value=p.devContact||'';var selO=document.getElementById('pm_ownerName'); if(selO){var idxO=_ownersDir.findIndex(function(o){return o.name===p.ownerName;}); if(idxO>=0){selO.value=String(idxO); fillOwnerContact();}}document.getElementById('pm_ownerContact').value=p.ownerContact||'';var selC=document.getElementById('pm_customerName'); if(selC){var idxC=_customers.findIndex(function(c){return c.name===p.customerName;}); if(idxC>=0){selC.value=String(idxC); fillCustomerContact();}}document.getElementById('pm_customerContact').value=p.customerContact||'';document.getElementById('pm_status').value=p.status||'Available';
     document.getElementById('pm_type').value=p.type||'';document.getElementById('pm_size').value=p.size||'';
     document.getElementById('pm_price').value=p.price||'';document.getElementById('pm_gfa').value=p.gfa||'';
     document.getElementById('pm_nfa').value=p.nfa||'';document.getElementById('pm_far').value=p.far||'';
@@ -1983,7 +2045,7 @@ function savePlot(){
   var existingId=parseInt(document.getElementById('pm_id').value)||0;
   var prev=document.getElementById('pm_imgPrev');
   var imgSrc=(prev&&prev.src&&prev.src!==window.location.href&&prev.style.display!=='none')?prev.src:'';
-  var obj={id:existingId||Date.now(),no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:size,price:price,gfa:document.getElementById('pm_gfa').value.trim(),nfa:document.getElementById('pm_nfa').value.trim(),far:document.getElementById('pm_far').value.trim(),bua:document.getElementById('pm_bua').value.trim(),lat:document.getElementById('pm_lat').value.trim(),lng:document.getElementById('pm_lng').value.trim(),videoUrl:document.getElementById('pm_video').value.trim(),notes:document.getElementById('pm_notes').value.trim(),unidoRequired:(document.getElementById('pm_unidoRequired')||{}).value||'',unidoStage:(document.getElementById('pm_unidoStage')||{}).value||'',unidoNotes:(document.getElementById('pm_unidoNotes')||{}).value||'',image:imgSrc};
+  var obj={id:existingId||Date.now(),no:no,dev:dev,status:document.getElementById('pm_status').value,type:document.getElementById('pm_type').value,size:size,price:price,gfa:document.getElementById('pm_gfa').value.trim(),nfa:document.getElementById('pm_nfa').value.trim(),far:document.getElementById('pm_far').value.trim(),bua:document.getElementById('pm_bua').value.trim(),lat:document.getElementById('pm_lat').value.trim(),lng:document.getElementById('pm_lng').value.trim(),videoUrl:document.getElementById('pm_video').value.trim(),notes:document.getElementById('pm_notes').value.trim(),unidoRequired:(document.getElementById('pm_unidoRequired')||{}).value||'',unidoStage:(document.getElementById('pm_unidoStage')||{}).value||'',unidoNotes:(document.getElementById('pm_unidoNotes')||{}).value||'',image:imgSrc,agentName:document.getElementById('pm_agentName').value.trim(),agentContact:document.getElementById('pm_agentContact').value.trim(),devContactName:document.getElementById('pm_devContactName').value.trim(),devContact:document.getElementById('pm_devContact').value.trim(),ownerName:document.getElementById('pm_ownerName').value.trim(),ownerContact:document.getElementById('pm_ownerContact').value.trim(),customerName:document.getElementById('pm_customerName').value.trim(),customerContact:document.getElementById('pm_customerContact').value.trim()};
   if(existingId){var idx=plots.findIndex(function(p){return p.id===existingId;});if(idx!==-1)plots[idx]=obj;else plots.push(obj);}else plots.push(obj);
   filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closePlotModal();
   showToastNotification(existingId?'Plot updated!':'Plot added!','success');
@@ -2393,7 +2455,7 @@ window.printPlot=function(id){
   if(p.bua)areaRows+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqft</td></tr>';
 
   /* ── Decide what to show in the image area ── */
-  var hasImage=p.image&&p.image.startsWith('data:');
+  var hasImage=p.image&&(p.image.startsWith('data:')||p.image.startsWith('http')||p.image.startsWith('https')||p.image.startsWith('blob:'));
   var pLat=parseFloat(p.lat),pLng=parseFloat(p.lng);
   var hasGps=!isNaN(pLat)&&!isNaN(pLng)&&pLat!==0&&pLng!==0;
   var isApprox=p._gpsMethod==='city'||p._gpsMethod==='default';
@@ -2541,9 +2603,20 @@ window.printPlot=function(id){
     '</div>'+
     '<button class="pbtn" onclick="window.print()">&#128424; Print / Save PDF</button>'+
     '</body></html>';
-  var w=window.open('','_blank','width=960,height=780');
-  if(!w){showToastNotification('Popup blocked — allow popups for this site and try again.','error');return;}
-  w.document.write(html);w.document.close();w.focus();
+  // Use Blob URL to avoid popup blocker
+  try{
+    var blob=new Blob([html],{type:'text/html'});
+    var url=URL.createObjectURL(blob);
+    var w=window.open(url,'_blank');
+    if(!w){throw new Error('blocked');}
+    w.onload=function(){setTimeout(function(){w.print();},300);};
+    showToastNotification('Print preview opened','success');
+  }catch(e){
+    // Fallback: download HTML file
+    var blob=new Blob([html],{type:'text/html'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Plot-'+(p.no||'Report')+'.html'; a.click();
+    showToastNotification('Popup blocked - HTML downloaded. Open file and press Ctrl+P','info');
+  }
 };
 
 window.startVideoCall=function(plotId){
@@ -2695,6 +2768,7 @@ function startDistanceCalculator(){
   distanceMarkers=[];
   if(distanceLine){map.removeLayer(distanceLine);distanceLine=null;}
   if(distanceLabel){map.removeLayer(distanceLabel);distanceLabel=null;}
+  var oldPanel=document.getElementById('measurePanel');if(oldPanel)oldPanel.remove();
   var pts=[],clicks=0;
   function onClick(e){
     pts.push(e.latlng);
@@ -2709,10 +2783,22 @@ function startDistanceCalculator(){
       distanceLabel=L.marker(mid,{icon:L.divIcon({className:'dist-label',html:'<i class="fas fa-ruler"></i> '+label,iconSize:null})}).addTo(map);
       L.popup({closeButton:true,autoClose:false,closeOnClick:false}).setLatLng(mid).setContent('<b>Distance</b><br>'+label).openOn(map);
       showToastNotification('Distance: '+label,'success');
+      var panel=document.createElement('div');panel.id='measurePanel';
+      panel.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e293b;border:2px solid #fbbf24;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-size:13px;color:#e2e8f0;';
+      panel.innerHTML='<i class="fas fa-ruler" style="color:#fbbf24;font-size:16px;"></i><span style="font-weight:800;">Distance: '+label+'</span><button onclick="clearDistanceMeasure()" style="background:#ef4444;color:white;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;margin-left:8px;">Close</button>';
+      document.body.appendChild(panel);
     }
   }
   map.on('click',onClick);
 }
+window.clearDistanceMeasure=function(){
+  distanceMarkers.forEach(function(m){try{map.removeLayer(m);}catch(e){}});distanceMarkers=[];
+  if(distanceLine){map.removeLayer(distanceLine);distanceLine=null;}
+  if(distanceLabel){map.removeLayer(distanceLabel);distanceLabel=null;}
+  var p=document.getElementById('measurePanel');if(p)p.remove();
+  map.closePopup();
+  showToastNotification('Measurement cleared','info');
+};
 function _polygonAreaSqm(latlngs){
   if(!latlngs||latlngs.length<3)return 0;
   var R=6378137,area=0;
@@ -3058,7 +3144,7 @@ window.printPlot=function(id){
   var ppsf=(price&&size)?'AED '+Math.round(price/size).toLocaleString()+'/sqft':'-';
   var today=new Date().toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});
   var img='';
-  if(p.image&&p.image.startsWith('data:'))img='<img src="'+p.image+'" alt="Plot image">';
+  if(p.image&&(p.image.startsWith('data:')||p.image.startsWith('http')||p.image.startsWith('https')||p.image.startsWith('blob:')))img='<img src="'+p.image+'" alt="Plot image">';
   else if(parseNum(p.lat)&&parseNum(p.lng)){
     var lat=parseFloat(p.lat).toFixed(6),lng=parseFloat(p.lng).toFixed(6);
     img='<img src="https://staticmap.openstreetmap.de/staticmap.php?center='+lat+','+lng+'&zoom=15&size=760x260&markers='+lat+','+lng+',red-pushpin" alt="Plot map">';
@@ -3321,6 +3407,39 @@ window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=start
 window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;window.applyPastedGpsUrl=applyPastedGpsUrl;
 window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.finishAreaMeasurement=finishAreaMeasurement;window.cancelAreaMeasurement=cancelAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.openUNIDOFromPlotForm=openUNIDOFromPlotForm;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectFreeCalendar=connectFreeCalendar;window.connectGoogleCalendar=connectGoogleCalendar;window.showAISystemModal=showAISystemModal;window.askPortalAI=askPortalAI;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
+
+function toggleQuick(t){
+  var p=document.getElementById('qp_'+t); var s=document.getElementById('qt_'+t);
+  if(!p) return; var open=p.style.display!=='none' && p.style.display!=='';
+  p.style.display=open?'none':'block'; if(s) s.textContent=open?'+':'−';
+}
+function quickAddAgent(){
+  var n=document.getElementById('qa_name').value.trim(); if(!n){showToastNotification('Name required','error');return;}
+  var ph=document.getElementById('qa_phone').value.trim(); var co=document.getElementById('qa_company').value.trim();
+  if(typeof _agents==='undefined') window._agents=[]; _agents.push({name:n,phone:ph,company:co}); localStorage.setItem('crm_agents',JSON.stringify(_agents)); showToastNotification('Agent added','success');
+  document.getElementById('qa_name').value='';document.getElementById('qa_phone').value='';document.getElementById('qa_company').value=''; if(typeof populateContactDropdowns==='function') populateContactDropdowns();
+}
+function quickAddDeveloper(){
+  var n=document.getElementById('qd_name').value.trim(); if(!n){showToastNotification('Company required','error');return;}
+  var ph=document.getElementById('qd_phone').value.trim();
+  if(typeof _developers==='undefined') window._developers=[]; _developers.push({name:n,phone:ph}); localStorage.setItem('crm_developers',JSON.stringify(_developers)); showToastNotification('Developer added','success');
+  document.getElementById('qd_name').value='';document.getElementById('qd_phone').value=''; if(typeof populateContactDropdowns==='function') populateContactDropdowns();
+}
+function quickAddOwner(){
+  var code=localStorage.getItem('owner_code'); var unlocked=localStorage.getItem('owner_unlocked')==='1';
+  if(code && !unlocked){showToastNotification('Unlock Owner Code first','error'); if(typeof unlockOwner==='function') unlockOwner(); return;}
+  var n=document.getElementById('qo_name').value.trim(); if(!n){showToastNotification('Name required','error');return;}
+  var ph=document.getElementById('qo_phone').value.trim();
+  if(typeof _ownersDir==='undefined') window._ownersDir=[]; _ownersDir.push({name:n,phone:ph}); localStorage.setItem('crm_owners_dir',JSON.stringify(_ownersDir)); showToastNotification('Owner added','success');
+  document.getElementById('qo_name').value='';document.getElementById('qo_phone').value=''; if(typeof populateContactDropdowns==='function') populateContactDropdowns();
+}
+function quickAddCustomer(){
+  var n=document.getElementById('qc_name').value.trim(); if(!n){showToastNotification('Name required','error');return;}
+  var ph=document.getElementById('qc_phone').value.trim(); var bu=document.getElementById('qc_budget').value.trim();
+  if(typeof _customers==='undefined') window._customers=[]; _customers.push({name:n,phone:ph,budget:bu}); localStorage.setItem('crm_customers',JSON.stringify(_customers)); showToastNotification('Customer added','success');
+  document.getElementById('qc_name').value='';document.getElementById('qc_phone').value='';document.getElementById('qc_budget').value=''; if(typeof populateContactDropdowns==='function') populateContactDropdowns();
+}
+
 window.onload=function(){
   loadFromLocalStorage();
 
@@ -3353,7 +3472,7 @@ window.onload=function(){
   _autoFitMap=true;/* always fit to all pins on fresh page load */
 
   initMap();populateTable();togglePlotView('map');updateTotalPlotsBadge();
-  if(currentUser){document.getElementById('loginModal').style.display='none';var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
+  if(currentUser){var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
   setInterval(function(){if(map)map.invalidateSize();},800);
   /* Async-resolve plots that have only approximate GPS (city/default fallback) or no GPS */
   var needImprovement=plots.filter(function(p){
