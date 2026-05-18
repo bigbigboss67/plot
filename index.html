@@ -1762,7 +1762,10 @@ function addPlotMarkers(){
       /* Hover → show compact dark popup preview */
       m.bindPopup(makePopupHTML(p),{maxWidth:300,className:'aiplot-popup',closeButton:false,autoClose:false,closeOnClick:false,offset:[0,-8]});
       m.on('mouseover',function(){
-        if(!m.isPopupOpen())m.openPopup();
+        if(!m.isPopupOpen()){
+          map.closePopup();
+          m.openPopup();
+        }
       });
       markerCluster.addLayer(m);
       added++;
