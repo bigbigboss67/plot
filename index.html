@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI Plot Portal Pro v4.1</title>
+<title>XP HOMES</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -642,7 +642,7 @@ body{background:#04080f;color:#dde6f0;font-family:"Inter",system-ui,sans-serif;h
   <div id="sidebar">
     <div class="sbh">
       <div class="sblogo"><i class="fas fa-map-marked-alt"></i></div>
-      <div><div class="sbtitle">AI Plot Portal</div><div class="sbsub">Pro Edition</div></div>
+      <div><div class="sbtitle">XP HOMES</div><div class="sbsub">Property Intelligence</div></div>
     </div>
     <nav class="sbnav">
       <div class="sbsec">Views</div>
@@ -674,7 +674,7 @@ body{background:#04080f;color:#dde6f0;font-family:"Inter",system-ui,sans-serif;h
   <div id="main">
     <div id="topbar">
       <button class="ibtn" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
-      <span class="tbbrand"><i class="fas fa-brain" style="color:#6366f1;margin-right:5px;"></i>AI Plot Portal Pro <span style="font-size:9px;background:#1e3a5f;color:#6366f1;border-radius:4px;padding:1px 5px;font-weight:600;">v4.1</span></span>
+      <span class="tbbrand"><i class="fas fa-home" style="color:#6366f1;margin-right:5px;"></i>XP HOMES</span>
       <div class="tbsrch"><i class="fas fa-search"></i><input type="text" id="searchInput" placeholder="Search plots..." oninput="debounceSearch()"></div>
       <div class="tbacts">
         <button class="ibtn" onclick="toggleOnlineSync()" title="Sync"><i class="fas fa-cloud"></i></button>
@@ -2857,7 +2857,7 @@ window.printPlot=function(id){
     '<style>'+css+'</style></head><body>'+
     '<div class="page">'+
       '<div class="hdr">'+
-        '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">AI Plot Portal Pro</div><div class="logo-sb">Property Intelligence Platform</div></div></div></div>'+
+        '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">XP HOMES</div><div class="logo-sb">Property Intelligence Platform</div></div></div></div>'+
         '<div class="hdr-r"><div class="rpt-lbl">Report ID</div><div class="rpt-id">'+esc(reportId)+'</div><div class="rpt-dt">'+esc(today)+'</div></div>'+
       '</div>'+
       '<div class="accent"></div>'+
@@ -2891,7 +2891,7 @@ window.printPlot=function(id){
         '</div>'+
       '</div>'+
       '<div class="foot">'+
-        '<div class="foot-l"><span class="conf">Confidential</span><br>For authorized use only. AI Plot Portal Pro.</div>'+
+        '<div class="foot-l"><span class="conf">Confidential</span><br>For authorized use only. XP HOMES.</div>'+
         '<div class="foot-r">Generated: '+esc(today)+'<br>ID: '+esc(reportId)+'</div>'+
       '</div>'+
     '</div>'+
@@ -3182,7 +3182,7 @@ function showCRMModal(){showToastNotification('CRM coming soon!','info');}
 function _downloadICS(title,date,details,filename){
   date=(date||_dateForInput(1)).replace(/-/g,'');
   var uid='aiplot-'+Date.now()+'@local';
-  var ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//AI Plot Portal//Free Calendar//EN\r\nBEGIN:VEVENT\r\nUID:'+uid+'\r\nDTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z\r\nDTSTART:'+date+'T090000\r\nDTEND:'+date+'T093000\r\nSUMMARY:'+String(title||'Plot Follow Up').replace(/\n/g,' ')+'\r\nDESCRIPTION:'+String(details||'').replace(/\n/g,'\\n').replace(/,/g,'\\,')+'\r\nEND:VEVENT\r\nEND:VCALENDAR';
+  var ics='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//XP HOMES//Free Calendar//EN\r\nBEGIN:VEVENT\r\nUID:'+uid+'\r\nDTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z\r\nDTSTART:'+date+'T090000\r\nDTEND:'+date+'T093000\r\nSUMMARY:'+String(title||'Plot Follow Up').replace(/\n/g,' ')+'\r\nDESCRIPTION:'+String(details||'').replace(/\n/g,'\\n').replace(/,/g,'\\,')+'\r\nEND:VEVENT\r\nEND:VCALENDAR';
   var blob=new Blob([ics],{type:'text/calendar'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=filename||'plot-follow-up.ics';a.click();URL.revokeObjectURL(a.href);
 }
@@ -3337,7 +3337,7 @@ function printUNIDOFeasibility(plotId){
   var p=plots.find(function(x){return String(x.id)===String(plotId);});if(!p)return;
   var d=_feasData(p),today=new Date().toLocaleDateString();
   var rows=[['Plot',p.no],['Development',p.dev],['Status',p.status],['Type / Use',p.propUse||p.type],['Land Size',isNaN(d.size)?'Missing':fmtN(d.size)+' sqft'],['Price',isNaN(d.price)?'Missing':'AED '+fmtN(d.price)],['Cost / Land sqft',isNaN(d.landPsf)?'Missing':'AED '+fmtN(d.landPsf)],['Cost / GFA sqft',isNaN(d.gfaPsf)?'Missing':'AED '+fmtN(d.gfaPsf)],['FAR',isNaN(d.far)?'Missing':d.far.toFixed(2)],['Score',d.score+' / 100'],['Verdict',d.verdict],['Missing Inputs',d.missing.length?d.missing.join(', '):'None for first screen']];
-  var html='<!doctype html><html><head><title>UNIDO Feasibility '+esc(p.no||'')+'</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:32px;}h1{margin:0 0 6px;}h2{margin-top:24px;border-bottom:1px solid #cbd5e1;padding-bottom:6px;}table{width:100%;border-collapse:collapse;margin-top:12px;}td{border:1px solid #cbd5e1;padding:9px;font-size:13px;}td:first-child{width:220px;background:#f1f5f9;font-weight:700;} .score{font-size:36px;font-weight:900;color:#0369a1;}@media print{button{display:none;}}</style></head><body><h1>UNIDO Pre-Feasibility Report</h1><div>Generated '+esc(today)+' by AI Plot Portal Pro</div><div class="score">'+d.score+' / 100</div><h2>Summary</h2><table>'+rows.map(function(r){return'<tr><td>'+esc(r[0]||'')+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><h2>Required Next Checks</h2><p>Market demand and comparables, zoning and authority approvals, utility capacity, CAPEX/OPEX estimate, revenue model, financing structure, implementation schedule, and sensitivity analysis.</p><button onclick="window.print()">Print / Save PDF</button></body></html>';
+  var html='<!doctype html><html><head><title>UNIDO Feasibility '+esc(p.no||'')+'</title><style>body{font-family:Arial,sans-serif;color:#0f172a;margin:32px;}h1{margin:0 0 6px;}h2{margin-top:24px;border-bottom:1px solid #cbd5e1;padding-bottom:6px;}table{width:100%;border-collapse:collapse;margin-top:12px;}td{border:1px solid #cbd5e1;padding:9px;font-size:13px;}td:first-child{width:220px;background:#f1f5f9;font-weight:700;} .score{font-size:36px;font-weight:900;color:#0369a1;}@media print{button{display:none;}}</style></head><body><h1>UNIDO Pre-Feasibility Report</h1><div>Generated '+esc(today)+' by XP HOMES</div><div class="score">'+d.score+' / 100</div><h2>Summary</h2><table>'+rows.map(function(r){return'<tr><td>'+esc(r[0]||'')+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><h2>Required Next Checks</h2><p>Market demand and comparables, zoning and authority approvals, utility capacity, CAPEX/OPEX estimate, revenue model, financing structure, implementation schedule, and sensitivity analysis.</p><button onclick="window.print()">Print / Save PDF</button></body></html>';
   var w=window.open('','_blank','width=900,height=760');if(!w){showToastNotification('Popup blocked. Allow popups and try again.','error');return;}w.document.write(html);w.document.close();w.focus();
 }
 function showCRMModal(){
@@ -3443,7 +3443,7 @@ window.printPlot=function(id){
     img='<img src="https://staticmap.openstreetmap.de/staticmap.php?center='+lat+','+lng+'&zoom=15&size=760x260&markers='+lat+','+lng+',red-pushpin" alt="Plot map">';
   }else img='<div class="noimg">No image or GPS map available</div>';
   var rows=[['Plot Ref',p.no],['Development',p.dev],['Status',p.status],['Type',p.type],['Land Size',size?fmtN(size)+' sqft':'-'],['Land Cost',price?'AED '+fmtN(price):'-'],['Price / sqft',ppsf],['GFA / BUA',gfa?fmtN(gfa)+' sqft':'-'],['UNIDO Stage',p.unidoStage||'-'],['Feasibility Notes',p.unidoNotes||'-']];
-  var html='<!doctype html><html><head><title>Plot Report '+esc(p.no||'')+'</title><style>@page{size:A4;margin:12mm;}*{box-sizing:border-box}body{font-family:Inter,Segoe UI,Arial,sans-serif;color:#142033;margin:0;background:#eef2f7}.page{background:white;min-height:273mm;padding:0;position:relative}.hero{background:#0f172a;color:white;padding:24px 30px 20px;border-bottom:5px solid #38bdf8}.brand{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#93c5fd;font-weight:800}.title{font-size:34px;font-weight:900;margin-top:8px}.sub{font-size:14px;color:#cbd5e1;margin-top:4px}.badge{display:inline-block;margin-top:12px;padding:7px 16px;border-radius:20px;background:#ecfeff;color:#075985;font-size:11px;font-weight:900;letter-spacing:1px}.content{padding:22px 30px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.kpi{border:1px solid #dbe3ef;border-radius:12px;padding:13px;background:#f8fafc}.kl{font-size:9px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:1.5px}.kv{font-size:16px;font-weight:900;margin-top:5px;color:#0f172a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.sec{font-size:11px;color:#2563eb;font-weight:900;text-transform:uppercase;letter-spacing:1.8px;margin:18px 0 8px;border-bottom:1px solid #dbe3ef;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:12px}td{border:1px solid #e2e8f0;padding:9px;vertical-align:top}td:first-child{background:#f8fafc;color:#64748b;font-weight:800;width:34%}.imageBlock{width:78%;margin:22px auto 10px;text-align:center}.imageBlock img{width:100%;height:255px;object-fit:cover;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,.18)}.caption{font-size:10px;color:#64748b;margin-top:8px;text-transform:uppercase;letter-spacing:1px}.noimg{height:220px;border:1px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.foot{position:absolute;bottom:0;left:0;right:0;padding:12px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:9px;color:#64748b;display:flex;justify-content:space-between}.printBtn{position:fixed;right:24px;bottom:24px;background:#2563eb;color:white;border:none;border-radius:12px;padding:12px 22px;font-weight:900;box-shadow:0 8px 24px rgba(37,99,235,.35)}@media print{body{background:white}.printBtn{display:none}.page{min-height:auto}}</style></head><body><div class="page"><div class="hero"><div class="brand">AI Plot Portal Pro</div><div class="title">Plot '+esc(p.no||'Report')+'</div><div class="sub">'+esc(p.dev||'')+'</div><div class="badge">'+esc(p.status||'')+'</div></div><div class="content"><div class="kpis"><div class="kpi"><div class="kl">Land Size</div><div class="kv">'+(size?fmtN(size):'-')+'</div></div><div class="kpi"><div class="kl">Land Cost</div><div class="kv">'+(price?'AED '+fmtN(price):'-')+'</div></div><div class="kpi"><div class="kl">Price/sqft</div><div class="kv">'+ppsf+'</div></div><div class="kpi"><div class="kl">Report Date</div><div class="kv">'+esc(today)+'</div></div></div><div class="grid"><div><div class="sec">Property Details</div><table>'+rows.slice(0,7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table></div><div><div class="sec">Feasibility & Notes</div><table>'+rows.slice(7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><div class="sec">Remarks</div><table><tr><td>Notes</td><td>'+esc(p.notes||'-')+'</td></tr></table></div></div><div class="imageBlock">'+img+'<div class="caption">Plot visual / location reference</div></div></div><div class="foot"><span>Confidential property report</span><span>Generated by AI Plot Portal Pro</span></div></div><button class="printBtn" onclick="window.print()">Print / Save PDF</button></body></html>';
+  var html='<!doctype html><html><head><title>Plot Report '+esc(p.no||'')+'</title><style>@page{size:A4;margin:12mm;}*{box-sizing:border-box}body{font-family:Inter,Segoe UI,Arial,sans-serif;color:#142033;margin:0;background:#eef2f7}.page{background:white;min-height:273mm;padding:0;position:relative}.hero{background:#0f172a;color:white;padding:24px 30px 20px;border-bottom:5px solid #38bdf8}.brand{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#93c5fd;font-weight:800}.title{font-size:34px;font-weight:900;margin-top:8px}.sub{font-size:14px;color:#cbd5e1;margin-top:4px}.badge{display:inline-block;margin-top:12px;padding:7px 16px;border-radius:20px;background:#ecfeff;color:#075985;font-size:11px;font-weight:900;letter-spacing:1px}.content{padding:22px 30px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.kpi{border:1px solid #dbe3ef;border-radius:12px;padding:13px;background:#f8fafc}.kl{font-size:9px;color:#64748b;font-weight:900;text-transform:uppercase;letter-spacing:1.5px}.kv{font-size:16px;font-weight:900;margin-top:5px;color:#0f172a}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.sec{font-size:11px;color:#2563eb;font-weight:900;text-transform:uppercase;letter-spacing:1.8px;margin:18px 0 8px;border-bottom:1px solid #dbe3ef;padding-bottom:6px}table{width:100%;border-collapse:collapse;font-size:12px}td{border:1px solid #e2e8f0;padding:9px;vertical-align:top}td:first-child{background:#f8fafc;color:#64748b;font-weight:800;width:34%}.imageBlock{width:78%;margin:22px auto 10px;text-align:center}.imageBlock img{width:100%;height:255px;object-fit:cover;border:1px solid #cbd5e1;border-radius:14px;box-shadow:0 14px 34px rgba(15,23,42,.18)}.caption{font-size:10px;color:#64748b;margin-top:8px;text-transform:uppercase;letter-spacing:1px}.noimg{height:220px;border:1px dashed #94a3b8;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#64748b;background:#f8fafc}.foot{position:absolute;bottom:0;left:0;right:0;padding:12px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:9px;color:#64748b;display:flex;justify-content:space-between}.printBtn{position:fixed;right:24px;bottom:24px;background:#2563eb;color:white;border:none;border-radius:12px;padding:12px 22px;font-weight:900;box-shadow:0 8px 24px rgba(37,99,235,.35)}@media print{body{background:white}.printBtn{display:none}.page{min-height:auto}}</style></head><body><div class="page"><div class="hero"><div class="brand">XP HOMES</div><div class="title">Plot '+esc(p.no||'Report')+'</div><div class="sub">'+esc(p.dev||'')+'</div><div class="badge">'+esc(p.status||'')+'</div></div><div class="content"><div class="kpis"><div class="kpi"><div class="kl">Land Size</div><div class="kv">'+(size?fmtN(size):'-')+'</div></div><div class="kpi"><div class="kl">Land Cost</div><div class="kv">'+(price?'AED '+fmtN(price):'-')+'</div></div><div class="kpi"><div class="kl">Price/sqft</div><div class="kv">'+ppsf+'</div></div><div class="kpi"><div class="kl">Report Date</div><div class="kv">'+esc(today)+'</div></div></div><div class="grid"><div><div class="sec">Property Details</div><table>'+rows.slice(0,7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table></div><div><div class="sec">Feasibility & Notes</div><table>'+rows.slice(7).map(function(r){return'<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1]||'')+'</td></tr>';}).join('')+'</table><div class="sec">Remarks</div><table><tr><td>Notes</td><td>'+esc(p.notes||'-')+'</td></tr></table></div></div><div class="imageBlock">'+img+'<div class="caption">Plot visual / location reference</div></div></div><div class="foot"><span>Confidential property report</span><span>Generated by XP HOMES</span></div></div><button class="printBtn" onclick="window.print()">Print / Save PDF</button></body></html>';
   var w=window.open('','_blank','width=980,height=820');if(!w){showToastNotification('Popup blocked. Allow popups and try again.','error');return;}w.document.write(html);w.document.close();w.focus();
 };
 
@@ -3573,6 +3573,41 @@ function connectSync(autoRoom){
 function _doPush(){}
 function pushSync(){}
 function pullSync(){}
+
+function adminPushAll(){
+  if(!_syncActive||!_fbRoomRef){
+    showToastNotification('<i class="fas fa-exclamation-triangle"></i> Not connected to a sync room. Connect first via the Sync button.','error');
+    return;
+  }
+  var btn=document.getElementById('adminSyncBtn');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>Syncing…';}
+  var done=0,total=plots.length;
+  if(total===0){
+    showToastNotification('No plots to sync.','info');
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-sync-alt" style="margin-right:6px;color:#34d399;"></i>Sync All Now';}
+    return;
+  }
+  plots.forEach(function(p){
+    var sp=JSON.parse(JSON.stringify(p));
+    if(typeof sp.image==='string'&&sp.image.startsWith('data:'))sp.image='';
+    _fbRoomRef.child(String(p.id).replace(/\./g,'_')).set(sp).then(function(){
+      done++;
+      if(done===total){
+        showToastNotification('<i class="fas fa-check-circle"></i> All '+total+' plots synced to room <b>'+esc(_syncRoom)+'</b>','success');
+        _logActivity('sync','Admin pushed all '+total+' plots to sync room '+_syncRoom);
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-check" style="margin-right:6px;color:#34d399;"></i>Synced!';}
+        setTimeout(function(){if(btn)btn.innerHTML='<i class="fas fa-sync-alt" style="margin-right:6px;color:#34d399;"></i>Sync All Now';},3000);
+      }
+    }).catch(function(e){
+      done++;
+      console.warn('Sync error for plot '+p.id,e);
+      if(done===total){
+        showToastNotification('<i class="fas fa-exclamation-triangle"></i> Sync completed with errors. Check console.','error');
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="fas fa-sync-alt" style="margin-right:6px;color:#34d399;"></i>Sync All Now';}
+      }
+    });
+  });
+}
 
 function disconnectSync(silent){
   clearTimeout(_pushTimer);
@@ -3876,6 +3911,7 @@ function _dashAdmin(){
   }
   html+='<div class="dash-section">Admin Actions <span class="admin-only-badge">Admin Only</span></div>';
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;">';
+  html+='<button id="adminSyncBtn" onclick="adminPushAll()" style="background:#064e3b;border:1px solid #059669;color:#34d399;border-radius:9px;padding:9px 16px;font-size:12px;cursor:pointer;font-weight:600;"><i class="fas fa-sync-alt" style="margin-right:6px;color:#34d399;"></i>Sync All Now</button>';
   html+='<button onclick="exportCSV();_logActivity(\'export\',\'CSV export by admin\');" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:9px;padding:9px 16px;font-size:12px;cursor:pointer;"><i class="fas fa-file-export" style="margin-right:6px;color:#6366f1;"></i>Export All Plots</button>';
   html+='<button onclick="_clearActivityLog()" style="background:#1e293b;border:1px solid #ef4444;color:#ef4444;border-radius:9px;padding:9px 16px;font-size:12px;cursor:pointer;"><i class="fas fa-trash" style="margin-right:6px;"></i>Clear Activity Log</button>';
   html+='<button onclick="document.getElementById(\'importModal\').classList.remove(\'hidden\');closeDashboard();" style="background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:9px;padding:9px 16px;font-size:12px;cursor:pointer;"><i class="fas fa-file-import" style="margin-right:6px;color:#34d399;"></i>Import Plots</button>';
@@ -4089,7 +4125,7 @@ function delCust(i){ if(confirm('Delete?')){ _customers.splice(i,1); localStorag
 <div id="loginModal" style="display:flex;">
   <div class="lbox">
     <div class="llogo"><i class="fas fa-map-marked-alt"></i></div>
-    <div class="ltitle">AI Plot Portal Pro</div>
+    <div class="ltitle">XP HOMES</div>
     <div class="lsub" id="loginSubtitle">Sign in to your account</div>
     <input id="loginUser" class="linp" type="text" placeholder="Username" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()" oninput="_checkAdminUser()">
     <input id="loginPass" class="linp" type="password" placeholder="Password" autocomplete="current-password" id="loginPass" style="display:none;" onkeydown="if(event.key==='Enter')login()">
