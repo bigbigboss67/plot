@@ -280,33 +280,48 @@ body{background:#04080f;color:#dde6f0;font-family:"Inter",system-ui,sans-serif;h
 .dash-bar{height:8px;border-radius:6px;transition:width 0.6s ease;}
 /* Admin-only indicator */
 .admin-only-badge{display:inline-block;background:rgba(139,92,246,0.2);border:1px solid #7c3aed;color:#c4b5fd;font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:1px;margin-left:6px;}
-/* Leaflet popup overrides — Onyx Meridian dark hover card */
+/* Leaflet popup overrides — full card style */
 .aiplot-popup .leaflet-popup-content-wrapper{
-  padding:0;border-radius:12px;border:1px solid rgba(99,102,241,0.2);
-  box-shadow:0 16px 48px rgba(0,0,0,0.6),0 0 0 1px rgba(255,255,255,0.04);
-  overflow:hidden;background:#0d1829;}
+  padding:0;border-radius:14px;border:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 0 1px rgba(255,255,255,0.04);
+  overflow:hidden;background:#111827;}
 .aiplot-popup .leaflet-popup-content{margin:0;width:auto!important;}
 .aiplot-popup .leaflet-popup-tip-container{display:none;}
-.aiplot-popup .leaflet-popup-close-button{
-  color:rgba(255,255,255,0.5)!important;top:8px!important;right:10px!important;
-  font-size:16px!important;z-index:1;line-height:1;}
-.aiplot-popup .leaflet-popup-close-button:hover{color:white!important;}
-/* Popup inner layout */
-.pp-head{padding:13px 16px 11px;border-bottom:1px solid rgba(255,255,255,0.07);}
-.pp-num{font-family:'Inter',sans-serif;font-weight:900;font-size:20px;letter-spacing:-0.5px;color:#eaf0f8;line-height:1.1;}
-.pp-dev{font-size:11px;color:#7e96b4;margin-top:2px;font-family:'Inter',sans-serif;font-weight:500;}
-.pp-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:4px 10px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;font-family:'Inter',sans-serif;}
-.pp-metrics{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.07);}
-.pp-m{padding:11px 16px;text-align:center;}
-.pp-m:first-child{border-right:1px solid rgba(255,255,255,0.07);}
-.pp-m-lbl{font-size:9px;color:#7e96b4;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;font-family:'Inter',sans-serif;}
-.pp-m-val{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:#dde6f0;}
-.pp-m-sub{font-family:'JetBrains Mono',monospace;font-size:10px;color:#7e96b4;margin-top:2px;}
-.pp-foot{padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.pp-type{font-size:10px;color:#7e96b4;font-style:italic;font-family:'Inter',sans-serif;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.pp-cta{background:#6366f1;color:white;border:none;border-radius:7px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap;transition:background 0.15s;}
-.pp-cta:hover{background:#818cf8;}
-.pp-approx{padding:8px 16px 0;font-size:10px;color:#f59e0b;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px;}
+.aiplot-popup .leaflet-popup-close-button{display:none!important;}
+/* Card sections */
+.pp-topbar{display:flex;justify-content:space-between;align-items:center;padding:11px 14px 0;}
+.pp-badge{display:inline-flex;align-items:center;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:800;text-transform:capitalize;letter-spacing:0.3px;font-family:'Inter',sans-serif;}
+.pp-close{background:rgba(255,255,255,0.08);border:none;color:#7e96b4;border-radius:8px;width:26px;height:26px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background 0.15s;}
+.pp-close:hover{background:rgba(255,255,255,0.15);color:#eaf0f8;}
+.pp-title{padding:8px 14px 10px;font-family:'Inter',sans-serif;}
+.pp-num{font-weight:900;font-size:19px;letter-spacing:-0.5px;color:#eaf0f8;display:inline;}
+.pp-sep{color:#4e6380;font-weight:400;margin:0 6px;}
+.pp-dev-inline{font-size:14px;color:#7e96b4;font-weight:500;display:inline;}
+.pp-photo{height:90px;background:#0d1829;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.pp-photo img{width:100%;height:100%;object-fit:cover;}
+.pp-photo-icon{color:#1e3a5f;font-size:32px;}
+.pp-metrics{display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);}
+.pp-m{padding:10px 8px;text-align:center;}
+.pp-m+.pp-m{border-left:1px solid rgba(255,255,255,0.06);}
+.pp-m-lbl{font-size:8px;color:#4e6380;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px;font-family:'Inter',sans-serif;}
+.pp-m-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:#dde6f0;}
+.pp-m-val.em{color:#34d399;}
+.pp-m-val.am{color:#fbbf24;}
+.pp-m-val.cr{color:#f87171;}
+.pp-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:10px 12px;}
+.pp-btn{border:none;border-radius:8px;padding:8px 4px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:filter 0.15s;}
+.pp-btn:hover{filter:brightness(1.15);}
+.pp-btn-details{background:#1e293b;color:#94a3b8;}
+.pp-btn-wa{background:#16a34a;color:white;}
+.pp-btn-share{background:#1d4ed8;color:white;}
+.pp-status-bar{padding:10px 12px;border-top:1px solid rgba(255,255,255,0.06);}
+.pp-status-lbl{font-size:8px;color:#4e6380;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-family:'Inter',sans-serif;}
+.pp-status-btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;}
+.pp-sbtn{border:none;border-radius:7px;padding:7px 4px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;background:#1e293b;color:#4e6380;transition:all 0.15s;}
+.pp-sbtn.active-av{background:#14532d;color:#4ade80;}
+.pp-sbtn.active-rs{background:#78350f;color:#fbbf24;}
+.pp-sbtn.active-sl{background:#7f1d1d;color:#f87171;}
+.pp-approx{padding:6px 14px 0;font-size:9px;color:#f59e0b;font-family:'Inter',sans-serif;display:flex;align-items:center;gap:5px;}
 
 /* -- Mobile bottom nav -- */
 #mobileBottomNav{display:none;position:fixed;bottom:0;left:0;right:0;height:62px;background:#070d1a;border-top:1px solid #102040;z-index:2500;align-items:center;justify-content:space-around;padding:0 4px;}
@@ -1628,47 +1643,95 @@ function makeIcon(color,label,approx){
 function makePopupHTML(p){
   var price=parseNum(p.price),size=parseNum(p.size);
   var szOk=!isNaN(size)&&size>0,prOk=!isNaN(price)&&price>0;
-  var ppsf=(szOk&&prOk)?pricePerSqft(price,size):'';
   var pid=p.id;
   var isApprox=(p._gpsMethod==='city'||p._gpsMethod==='default');
-  /* Status badge colors */
-  var badgeBg=p.status==='Available'?'rgba(16,185,129,0.18)':p.status==='Reserved'?'rgba(245,158,11,0.18)':'rgba(239,68,68,0.18)';
-  var badgeCol=p.status==='Available'?'#10b981':p.status==='Reserved'?'#f59e0b':'#ef4444';
-  var badgeBorder=p.status==='Available'?'rgba(16,185,129,0.35)':p.status==='Reserved'?'rgba(245,158,11,0.35)':'rgba(239,68,68,0.35)';
-  /* Price color matches status */
-  var priceCol=p.status==='Available'?'#34d399':p.status==='Reserved'?'#fbbf24':'#f87171';
+  /* Format price as M for compactness */
+  var priceStr=prOk?(price>=1000000?(price/1000000).toFixed(2)+'M':fmtN(price)):'—';
+  /* Price/sqft */
+  var ppsfNum=(szOk&&prOk)?(price/size):0;
+  var ppsfStr=ppsfNum>0?Math.round(ppsfNum).toString():'—';
+  /* Status colors */
+  var sIsAv=p.status==='Available',sIsRs=p.status==='Reserved',sIsSl=p.status==='Sold';
+  var badgeBg=sIsAv?'#14532d':sIsRs?'#78350f':sIsSl?'#7f1d1d':'#1e293b';
+  var badgeCol=sIsAv?'#4ade80':sIsRs?'#fbbf24':sIsSl?'#f87171':'#94a3b8';
+  var valClass=sIsAv?'em':sIsRs?'am':sIsSl?'cr':'';
+  /* Photo */
+  var photoHtml=p.photo
+    ?'<img src="'+esc(p.photo)+'" alt="" onerror="this.parentNode.innerHTML=\'<i class=\\\"fas fa-image pp-photo-icon\\\"></i>\'">'
+    :'<i class="fas fa-image pp-photo-icon"></i>';
+  /* WA href */
+  var phone=(p.phone||p.ownerContact||'').replace(/\D/g,'');
+  var waHref=phone?'onclick="window.open(\'https://wa.me/'+phone+'\',\'_blank\');return false;"':'onclick="return false;" style="opacity:0.5;cursor:not-allowed;"';
+  /* Share */
+  var shareHref='onclick="(navigator.clipboard||{writeText:function(){}}).writeText(window.location.origin+window.location.pathname+\'?plot='+pid+'\').then(function(){showToastNotification(\'Link copied!\',\'success\');}).catch(function(){});return false;"';
   return (
-    '<div style="width:260px;font-family:Inter,sans-serif;">'+
-    /* Header */
-    '<div class="pp-head" style="display:flex;justify-content:space-between;align-items:flex-start;">'+
-      '<div>'+
-        '<div class="pp-num">'+esc(p.no)+'</div>'+
-        (p.dev?'<div class="pp-dev">'+esc(p.dev)+'</div>':'')+
-      '</div>'+
-      '<span class="pp-badge" style="background:'+badgeBg+';color:'+badgeCol+';border:1px solid '+badgeBorder+';">'+esc(p.status||'')+'</span>'+
+    '<div style="width:280px;font-family:Inter,sans-serif;">'+
+    /* Top bar: status badge + close */
+    '<div class="pp-topbar">'+
+      '<span class="pp-badge" style="background:'+badgeBg+';color:'+badgeCol+';">'+esc(p.status||'Unknown')+'</span>'+
+      '<button class="pp-close" onclick="if(map)map.closePopup();" title="Close">&times;</button>'+
     '</div>'+
-    /* Approximate GPS notice */
+    /* Title */
+    '<div class="pp-title">'+
+      '<span class="pp-num">'+esc(p.no)+'</span>'+
+      (p.dev?'<span class="pp-sep">—</span><span class="pp-dev-inline">'+esc(p.dev)+'</span>':'')+
+      (p.type?'<div style="font-size:10px;color:#4e6380;margin-top:2px;font-style:italic;">'+esc(p.type)+'</div>':'')+
+    '</div>'+
+    /* Photo */
+    '<div class="pp-photo">'+photoHtml+'</div>'+
+    /* Approx GPS */
     (isApprox?'<div class="pp-approx"><i class="fas fa-exclamation-triangle"></i> Approximate location</div>':'')+
-    /* Metrics */
+    /* Metrics: PRICE | SQFT | AED/SQ */
     '<div class="pp-metrics">'+
       '<div class="pp-m">'+
-        '<div class="pp-m-lbl">Area (sqft)</div>'+
+        '<div class="pp-m-lbl">Price</div>'+
+        '<div class="pp-m-val '+valClass+'">'+priceStr+'</div>'+
+      '</div>'+
+      '<div class="pp-m">'+
+        '<div class="pp-m-lbl">Sqft</div>'+
         '<div class="pp-m-val">'+(szOk?fmtN(size):'—')+'</div>'+
       '</div>'+
       '<div class="pp-m">'+
-        '<div class="pp-m-lbl">Price (AED)</div>'+
-        '<div class="pp-m-val" style="color:'+priceCol+';">'+(prOk?fmtN(price):'—')+'</div>'+
-        (ppsf?'<div class="pp-m-sub">'+ppsf+'/sqft</div>':'')+
+        '<div class="pp-m-lbl">AED/sq</div>'+
+        '<div class="pp-m-val '+valClass+'">'+ppsfStr+'</div>'+
       '</div>'+
     '</div>'+
-    /* Footer */
-    '<div class="pp-foot">'+
-      '<span class="pp-type">'+(p.type?esc(p.type):'')+'</span>'+
-      '<button class="pp-cta" onclick="window._popupOpen('+pid+')"><i class="fas fa-expand-alt" style="margin-right:4px;"></i>Details</button>'+
+    /* Action buttons */
+    '<div class="pp-btns">'+
+      '<button class="pp-btn pp-btn-details" onclick="window._popupOpen('+pid+')"><i class="fas fa-expand-alt"></i> Details</button>'+
+      '<button class="pp-btn pp-btn-wa" '+waHref+'><i class="fab fa-whatsapp"></i> WA</button>'+
+      '<button class="pp-btn pp-btn-share" '+shareHref+'><i class="fas fa-share-alt"></i> Share</button>'+
+    '</div>'+
+    /* Status toggle */
+    '<div class="pp-status-bar">'+
+      '<div class="pp-status-lbl">Status</div>'+
+      '<div class="pp-status-btns">'+
+        '<button class="pp-sbtn'+(sIsAv?' active-av':'')+'" onclick="window._ppSetStatus('+pid+',\'Available\',this)">Available</button>'+
+        '<button class="pp-sbtn'+(sIsRs?' active-rs':'')+'" onclick="window._ppSetStatus('+pid+',\'Reserved\',this)">Reserved</button>'+
+        '<button class="pp-sbtn'+(sIsSl?' active-sl':'')+'" onclick="window._ppSetStatus('+pid+',\'Sold\',this)">Sold</button>'+
+      '</div>'+
     '</div>'+
     '</div>'
   );
 }
+
+/* Inline status change from popup status bar */
+window._ppSetStatus=function(pid,status,btn){
+  var p=plots.find(function(x){return x.id===pid;});
+  if(!p)return;
+  p.status=status;
+  /* Update all sibling buttons */
+  var bar=btn.parentNode;
+  bar.querySelectorAll('.pp-sbtn').forEach(function(b){b.className='pp-sbtn';});
+  var cls=status==='Available'?'active-av':status==='Reserved'?'active-rs':'active-sl';
+  btn.className='pp-sbtn '+cls;
+  /* Refresh popup content */
+  var popup=map&&map._popup;
+  if(popup){popup.setContent(makePopupHTML(p));}
+  /* Refresh marker color */
+  addPlotMarkers();
+  showToastNotification('<i class="fas fa-check-circle"></i> '+esc(p.no)+' → '+status,'success');
+};
 
 window._popupOpen=function(pid){
   if(map)map.closePopup();
@@ -1697,13 +1760,9 @@ function addPlotMarkers(){
         selectPlot(p.id);
       });
       /* Hover → show compact dark popup preview */
-      m.bindPopup(makePopupHTML(p),{maxWidth:280,className:'aiplot-popup',closeButton:false,autoClose:true,closeOnClick:true,offset:[0,-8]});
+      m.bindPopup(makePopupHTML(p),{maxWidth:300,className:'aiplot-popup',closeButton:false,autoClose:false,closeOnClick:false,offset:[0,-8]});
       m.on('mouseover',function(){
-        clearTimeout(_popupCloseTimer);
         if(!m.isPopupOpen())m.openPopup();
-      });
-      m.on('mouseout',function(){
-        _popupCloseTimer=setTimeout(function(){try{m.closePopup();}catch(e){}},400);
       });
       markerCluster.addLayer(m);
       added++;
