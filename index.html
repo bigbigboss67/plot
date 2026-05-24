@@ -5065,7 +5065,8 @@ function _sendChat(){
   _showTyping();
 
   /* Step 1: Always answer from local portal data immediately */
-  var localAnswer = _aiReply(msg);
+  var localAnswer;
+  try { localAnswer = _aiReply(msg); } catch(e){ localAnswer = 'Try: "open plot form", "how many plots?", "show available plots", "find plot [number]"'; }
   var isGenericFallback = localAnswer.startsWith('Try:');
   var wantsWebInsight = /price.*trend|market|invest|forecast|predict|future|value|worth|growth|demand|appreciat|rental|yield|return|economy|inflation|interest rate|location|neighbour|infrastr|transport/i.test(msg);
 
@@ -5150,7 +5151,7 @@ function _aiReply(q){
   /* ── PORTAL ACTIONS ── */
 
   // Open new plot form
-  if(ql.match(/open|new|add|create|افتح|أضف|dodaj|otvori/).test&&ql.match(/plot|form|parcela|قطعة/i)){
+  if(ql.match(/open|new|add|create|افتح|أضف|dodaj|otvori/)&&ql.match(/plot|form|parcela|قطعة/i)){
     setTimeout(function(){ if(typeof openPlotModal==='function') openPlotModal(); },300);
     return '✅ Opening new plot form. I\'ll help you fill it in — just tell me the details!';
   }
