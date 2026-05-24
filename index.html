@@ -110,8 +110,8 @@ body{background:var(--g1);background-image:radial-gradient(ellipse 80% 60% at 20
 .pc-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--glass-border);}
 .pc-m{padding:12px 10px;text-align:center;border-right:1px solid var(--glass-border);position:relative;}
 .pc-m:last-child{border-right:none;}
-.pc-m-lbl{font-size:7.5px;color:#4e6380;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
-.pc-m-val{font-size:12px;font-weight:800;color:#eaf0f8;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-m-lbl{font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-family:'Space Grotesk','Inter',sans-serif;white-space:nowrap;}
+.pc-m-val{font-size:14px;font-weight:800;color:#eaf0f8;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pc-m-val.c-em{color:#10b981;}
 .pc-m-val.c-in{color:#6366f1;}
 .pc-m-val.c-am{color:#f59e0b;}
@@ -120,17 +120,17 @@ body{background:var(--g1);background-image:radial-gradient(ellipse 80% 60% at 20
 .pc-body{padding:0;}
 .pc-sect{padding:12px 16px;border-bottom:1px solid var(--glass-border);}
 .pc-sect:last-child{border-bottom:none;}
-.pc-sect-label{font-size:8.5px;font-weight:800;color:#4e6380;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:9px;font-family:'JetBrains Mono',monospace;}
-.pc-row{display:flex;align-items:center;justify-content:space-between;padding:4px 0;}
+.pc-sect-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:9px;font-family:'Space Grotesk','Inter',sans-serif;}
+.pc-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;}
 .pc-row+.pc-row{border-top:1px solid var(--glass-border);}
-.pc-row-k{font-size:10px;color:#4e6380;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.5px;}
-.pc-row-v{font-size:11px;color:#dde6f0;font-weight:600;text-align:right;}
+.pc-row-k{font-size:11px;color:#64748b;font-family:'Space Grotesk','Inter',sans-serif;font-weight:500;}
+.pc-row-v{font-size:12px;color:#e2e8f0;font-weight:600;text-align:right;}
 
 /* ── STATUS CHANGE ── */
 .pc-status-wrap{padding:12px 16px;border-bottom:1px solid var(--glass-border);}
-.pc-status-label{font-size:8.5px;font-weight:800;color:#4e6380;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:7px;font-family:'JetBrains Mono',monospace;}
+.pc-status-label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;font-family:'Space Grotesk','Inter',sans-serif;}
 .pc-status-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
-.pc-sbtn{border:none;border-radius:10px;padding:8px 4px;font-size:10px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all 0.18s;font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;}
+.pc-sbtn{border:none;border-radius:10px;padding:9px 4px;font-size:11px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all 0.18s;font-family:'Space Grotesk','Inter',sans-serif;}
 .pc-sbtn:hover{filter:brightness(1.2);}
 .pc-sbtn-dot{width:7px;height:7px;border-radius:50%;}
 
@@ -679,6 +679,60 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
   </div>
 </div>
 
+<!-- ── Settings Modal ── -->
+<div id="settingsModal" class="moverlay hidden">
+  <div class="mbox" style="max-width:500px;">
+    <div class="mhdr">
+      <h2><i class="fas fa-cog" style="color:#34d399;margin-right:8px;"></i>Settings</h2>
+      <button class="mclose" onclick="document.getElementById('settingsModal').classList.add('hidden')">&times;</button>
+    </div>
+    <div class="mbody" style="padding:20px 24px;">
+
+      <!-- AI Section -->
+      <div style="margin-bottom:24px;">
+        <div style="font-size:11px;font-weight:700;color:#4e6380;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-family:'Space Grotesk',sans-serif;">
+          <i class="fas fa-robot" style="color:#6366f1;margin-right:6px;"></i>AI Assistant
+        </div>
+        <div style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.18);border-radius:10px;padding:16px;">
+          <div style="font-size:12px;color:#a5b4fc;font-weight:600;margin-bottom:6px;">Gemini API Key</div>
+          <div style="font-size:11px;color:#6b7eb8;margin-bottom:12px;line-height:1.5;">
+            Connect Google Gemini AI for intelligent responses. The AI will use your portal data first, then web knowledge.
+            Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#818cf8;text-decoration:underline;">aistudio.google.com</a>.
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="password" id="geminiKeyInput" placeholder="AIza..." style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:12px;outline:none;font-family:'Space Grotesk',sans-serif;" oninput="this.style.borderColor=this.value?'#6366f1':'rgba(255,255,255,0.12)'">
+            <button onclick="_applyGeminiKey()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;border-radius:8px;color:white;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:'Space Grotesk',sans-serif;">
+              <i class="fas fa-check" style="margin-right:4px;"></i>Save
+            </button>
+            <button onclick="_clearGeminiKey()" title="Remove key" style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:8px;color:#f87171;padding:8px 11px;font-size:12px;cursor:pointer;">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div id="geminiKeyStatus" style="margin-top:10px;font-size:11px;"></div>
+        </div>
+      </div>
+
+      <!-- Portal Info -->
+      <div style="margin-bottom:0;">
+        <div style="font-size:11px;font-weight:700;color:#4e6380;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;font-family:'Space Grotesk',sans-serif;">
+          <i class="fas fa-info-circle" style="color:#fbbf24;margin-right:6px;"></i>Portal Info
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;">
+            <div style="font-size:10px;color:#6b7eb8;margin-bottom:4px;font-family:'Space Grotesk',sans-serif;text-transform:uppercase;letter-spacing:0.5px;">Version</div>
+            <div style="font-size:13px;font-weight:700;color:#e2e8f0;">XP HOMES v2.0</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;">
+            <div style="font-size:10px;color:#6b7eb8;margin-bottom:4px;font-family:'Space Grotesk',sans-serif;text-transform:uppercase;letter-spacing:0.5px;">AI Mode</div>
+            <div id="settingsAiMode" style="font-size:13px;font-weight:700;">Checking...</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
 <div id="importModal" class="moverlay hidden">
   <div class="mbox mbox-lg">
     <div class="mhdr"><h2><i class="fas fa-file-import" style="color:#6366f1;margin-right:7px;"></i>Import Plots</h2><button class="mclose" onclick="closeImportModal()">&times;</button></div>
@@ -732,6 +786,7 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
       <div class="sbsec" style="margin-top:6px;">Account</div>
       <a onclick="showDashboard()" style="color:#a5b4fc;"><i class="fas fa-chart-line"></i> Dashboard</a>
       <a onclick="toggleOnlineSync()"><i class="fas fa-cloud"></i> Online Sync</a>
+      <a onclick="showSettingsModal()" style="color:#34d399;"><i class="fas fa-cog"></i> Settings</a>
       <a onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a>
     </nav>
   </div>
@@ -5051,8 +5106,58 @@ function _showTyping(){
 }
 function _hideTyping(){ var t=document.getElementById('chatTyping'); if(t)t.remove(); }
 
-/* ── Gemini API key (optional — set to enable AI market insights) ── */
-var _GEMINI_API_KEY = ''; // e.g. 'AIzaSy...'  Get free key: aistudio.google.com
+/* ── Gemini API key — loaded from localStorage, configurable via Settings modal ── */
+var _GEMINI_API_KEY = localStorage.getItem('aiplot_gemini_key') || '';
+window._saveGeminiKey = function(k){
+  k = (k||'').trim();
+  _GEMINI_API_KEY = k;
+  if(k) localStorage.setItem('aiplot_gemini_key', k);
+  else localStorage.removeItem('aiplot_gemini_key');
+  showToastNotification(k ? '<i class="fas fa-robot"></i> Gemini AI connected!' : '<i class="fas fa-robot"></i> Gemini key removed — using Wikipedia fallback', k?'success':'info');
+};
+
+/* ── Settings Modal ── */
+function showSettingsModal(){
+  var modal = document.getElementById('settingsModal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  /* pre-fill key field (masked) */
+  var inp = document.getElementById('geminiKeyInput');
+  if(inp) inp.value = _GEMINI_API_KEY ? '••••••••••••••••' : '';
+  _updateSettingsStatus();
+}
+function _updateSettingsStatus(){
+  var statusEl = document.getElementById('geminiKeyStatus');
+  var modeEl = document.getElementById('settingsAiMode');
+  if(statusEl){
+    if(_GEMINI_API_KEY){
+      statusEl.innerHTML = '<i class="fas fa-check-circle" style="color:#34d399;margin-right:5px;"></i><span style="color:#34d399;font-weight:600;">Gemini AI active</span> — responses use portal data + Gemini intelligence';
+    } else {
+      statusEl.innerHTML = '<i class="fas fa-info-circle" style="color:#f59e0b;margin-right:5px;"></i><span style="color:#f59e0b;font-weight:600;">No key set</span> — using local logic + Wikipedia fallback';
+    }
+  }
+  if(modeEl){
+    if(_GEMINI_API_KEY){
+      modeEl.innerHTML = '<span style="color:#34d399;"><i class="fas fa-robot" style="margin-right:4px;"></i>Gemini Active</span>';
+    } else {
+      modeEl.innerHTML = '<span style="color:#f59e0b;"><i class="fas fa-wikipedia-w" style="margin-right:4px;"></i>Wikipedia</span>';
+    }
+  }
+}
+function _applyGeminiKey(){
+  var inp = document.getElementById('geminiKeyInput');
+  var k = (inp ? inp.value : '').trim();
+  if(k === '••••••••••••••••') return; /* unchanged masked value */
+  window._saveGeminiKey(k);
+  _updateSettingsStatus();
+  if(inp && k) inp.value = '••••••••••••••••';
+}
+function _clearGeminiKey(){
+  window._saveGeminiKey('');
+  var inp = document.getElementById('geminiKeyInput');
+  if(inp) inp.value = '';
+  _updateSettingsStatus();
+}
 
 /* Build a specific search topic from the user's message + local plot data context */
 function _buildInsightTopic(msg){
@@ -5115,35 +5220,46 @@ function _sendChat(){
   _addChatMsg('user', msg);
   _showTyping();
 
-  /* Step 1: Always answer from local portal data immediately */
-  var localAnswer;
-  try { localAnswer = _aiReply(msg); } catch(e){ localAnswer = 'Try: "open plot form", "how many plots?", "show available plots", "find plot [number]"'; }
+  /* Pure UI commands always handled locally — instant, no AI needed */
+  var isPureCommand = /^(open (new )?plot form|fill |set (status|price|size|development)|map view|table view|switch to|show (available|reserved|sold) plots|show all|clear filter|find plot )/i.test(msg.trim());
 
-  /* Step 2: Build specific insight topic from actual data context */
-  var insightTopic = _buildInsightTopic(msg);
-
-  /* Skip web insight only for pure UI commands (form fill, view switch, etc.) */
-  var isPureCommand = /^(open (new )?plot form|fill (plot |field )|set (status|price|size|development)|map view|table view|switch to|show (available|reserved|sold) plots)/i.test(msg.trim());
-
-  /* Always show local answer within ~700ms — never block on network */
-  setTimeout(function(){
-    _hideTyping();
-    _addChatMsg('ai', localAnswer);
-
-    /* Fire-and-forget web insight — appends to the just-shown bubble when ready */
-    if(!isPureCommand){
-      _fetchWebInsight(insightTopic, function(webInsight){
-        if(!webInsight) return;
-        var msgEl = document.getElementById('aiChatMessages');
-        if(!msgEl) return;
-        var last = msgEl.querySelector('.chat-msg.ai:last-of-type');
-        if(last){
-          last.innerHTML += '<br><br><span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;">🌐 INSIGHT</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
-          msgEl.scrollTop = msgEl.scrollHeight;
-        }
-      });
-    }
-  }, 600 + Math.random()*300);
+  if(isPureCommand || !_GEMINI_API_KEY){
+    /* LOCAL PATH: run instant local reply + optional Wikipedia insight */
+    var localAnswer;
+    try { localAnswer = _aiReply(msg); } catch(e){ localAnswer = 'Try: "open plot form", "how many plots?", "show available plots", "find plot [number]"'; }
+    var insightTopic = _buildInsightTopic(msg);
+    setTimeout(function(){
+      _hideTyping();
+      _addChatMsg('ai', localAnswer);
+      if(!isPureCommand){
+        _fetchWebInsight(insightTopic, function(webInsight){
+          if(!webInsight) return;
+          var msgEl = document.getElementById('aiChatMessages');
+          if(!msgEl) return;
+          var last = msgEl.querySelector('.chat-msg.ai:last-of-type');
+          if(last){
+            last.innerHTML += '<br><br><span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;">🌐 WEB INSIGHT</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
+            msgEl.scrollTop = msgEl.scrollHeight;
+          }
+        });
+      }
+    }, 600 + Math.random()*300);
+  } else {
+    /* GEMINI PATH: AI answers with full portal data context as primary */
+    _callGeminiChat(msg, function(aiReply){
+      _hideTyping();
+      if(aiReply){
+        /* Also run local to execute any actions (filter, open form, etc.) */
+        try { _aiReply(msg); } catch(e){}
+        _addChatMsg('ai', '<span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;display:block;margin-bottom:4px;">🤖 AI</span>'+aiReply);
+      } else {
+        /* Gemini failed — fallback to local */
+        var localAnswer;
+        try { localAnswer = _aiReply(msg); } catch(e){ localAnswer = 'Try: "how many plots?", "show available plots", "find plot [number]"'; }
+        _addChatMsg('ai', localAnswer);
+      }
+    });
+  }
 }
 
 /* Fetch web insight — receives already-specific topic, Gemini if key set else Wikipedia */
@@ -5168,25 +5284,71 @@ function _fetchWebInsight(topic, callback){
     .catch(function(){ _cb(''); });
 }
 
-/* Gemini 1.5 Flash call — enriches replies with real AI */
-function _callGemini(question, callback){
-  var pcount = typeof plots!=='undefined'?plots.length:0;
-  var avail  = typeof plots!=='undefined'?plots.filter(function(p){return p.status==='Available';}).length:0;
-  var devs   = typeof plots!=='undefined'?[...new Set(plots.map(function(p){return p.dev;}).filter(Boolean))].slice(0,6).join(', '):'';
-  var prices = typeof plots!=='undefined'?plots.map(function(p){return parseFloat(p.price);}).filter(function(v){return !isNaN(v);}):[];
-  var avgP   = prices.length?Math.round(prices.reduce(function(a,b){return a+b;},0)/prices.length):0;
-  var ctx    = 'Portal: '+pcount+' total plots, '+avail+' available. Developments: '+devs+'. Avg price: AED '+avgP+'.';
-  var prompt = 'You are a concise real estate AI for XP HOMES. Context: '+ctx+' User: "'+question+'". Reply in 2–3 sentences with market insight or prediction. Be specific and helpful.';
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+_GEMINI_API_KEY, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
+/* Build rich context string from all local plot data */
+function _buildPlotContext(){
+  if(typeof plots==='undefined'||!plots.length) return 'No plots in portal yet.';
+  var avail=plots.filter(function(p){return p.status==='Available';}).length;
+  var res=plots.filter(function(p){return p.status==='Reserved';}).length;
+  var sold=plots.filter(function(p){return p.status==='Sold';}).length;
+  var prices=plots.map(function(p){return parseFloat(p.price);}).filter(function(v){return !isNaN(v);});
+  var minP=prices.length?Math.min.apply(null,prices):0;
+  var maxP=prices.length?Math.max.apply(null,prices):0;
+  var avgP=prices.length?Math.round(prices.reduce(function(a,b){return a+b;},0)/prices.length):0;
+  var devs=[];plots.forEach(function(p){if(p.dev&&devs.indexOf(p.dev)===-1)devs.push(p.dev);});
+  var cities=[];plots.forEach(function(p){var c=p.city||p.emirate;if(c&&cities.indexOf(c)===-1)cities.push(c);});
+  var sample=plots.slice(0,15).map(function(p){
+    return 'Plot '+esc(p.no)+': '+p.status+', '+(p.dev||'?')+', AED '+(p.price||'?')+', '+(p.size||'?')+' sqft'+(p.city?' ('+p.city+')':'');
+  }).join('\n');
+  return 'PORTAL STATS:\n'
+    +'- Total: '+plots.length+' plots ('+avail+' available, '+res+' reserved, '+sold+' sold)\n'
+    +'- Developments: '+devs.join(', ')+'\n'
+    +'- Locations: '+cities.join(', ')+'\n'
+    +'- Price range: AED '+fmtN(minP)+' – AED '+fmtN(maxP)+' (avg AED '+fmtN(avgP)+')\n'
+    +'PLOT LIST (sample):\n'+sample;
+}
+
+/* Gemini as primary chat AI — data first, then knowledge */
+function _callGeminiChat(question, callback){
+  var _done=false;
+  var _t=setTimeout(function(){if(!_done){_done=true;callback('');}},10000);
+  function _cb(v){clearTimeout(_t);if(!_done){_done=true;callback(v);}}
+  var ctx = _buildPlotContext();
+  var prompt = 'You are the XP HOMES AI assistant embedded in a real estate plot management portal.\n'
+    +'You have direct access to the portal\'s live data shown below.\n'
+    +'Rules:\n'
+    +'1. Check portal data FIRST before answering any question about plots, prices, availability.\n'
+    +'2. Be concise — 2 to 4 sentences max.\n'
+    +'3. If asked about market trends, investment outlook, or external info, answer from your knowledge AFTER referencing the portal data.\n'
+    +'4. Use the exact plot numbers, prices, and developments from the data.\n'
+    +'5. If the user asks for a list, format it cleanly.\n\n'
+    +ctx+'\n\n'
+    +'USER: '+question+'\nASSISTANT:';
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+_GEMINI_API_KEY,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:250,temperature:0.6}})
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r){return r.json();})
   .then(function(data){
-    var text = data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]?data.candidates[0].content.parts[0].text:'';
-    callback(text?text.substring(0,400):'');
+    var text=data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]?data.candidates[0].content.parts[0].text:'';
+    _cb(text?text.trim().replace(/\n/g,'<br>'):'');
   })
-  .catch(function(){ callback(''); });
+  .catch(function(){_cb('');});
+}
+
+/* Gemini for web insight append (topic-specific) */
+function _callGemini(question, callback){
+  var ctx=_buildPlotContext();
+  var prompt='You are a real estate market analyst. Portal context:\n'+ctx+'\n\nUser question: "'+question+'"\n\nProvide a 2-sentence market insight or trend relevant to this query. Be specific and data-driven.';
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+_GEMINI_API_KEY,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:120,temperature:0.7}})
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    var text=data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts&&data.candidates[0].content.parts[0]?data.candidates[0].content.parts[0].text:'';
+    callback(text?text.trim().substring(0,300):'');
+  })
+  .catch(function(){callback('');});
 }
 
 function _fillField(id, val){ var el=document.getElementById(id); if(el){ el.value=val; el.dispatchEvent(new Event('input')); el.focus(); } }
