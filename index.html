@@ -3673,18 +3673,19 @@ function connectSync(autoRoom){
       showToastNotification('<i class="fas fa-check-circle"></i> Joined empty room <b>'+esc(_syncRoom)+'</b>'+(adminMode?'':' <span style="color:#818cf8">(view only)</span>'),'success');
     } else {
       if(adminMode){
-        /* Admin: push any local plots not yet in Firebase */
-        var toPush = [];
+        /* Admin: push ALL local plots to Firebase — local version is authoritative */
         plots.forEach(function(p){
-          if(!data[String(p.id).replace(/\./g, '_')]) toPush.push(p);
+          var sp = JSON.parse(JSON.stringify(p));
+          if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
+          _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
         });
-        if(toPush.length > 0){
-          toPush.forEach(function(p){
-            var sp = JSON.parse(JSON.stringify(p));
-            if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
-            _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
-          });
-        }
+        /* Remove Firebase plots that no longer exist locally */
+        var _localIds = plots.map(function(p){ return String(p.id).replace(/\./g,'_'); });
+        Object.keys(data).forEach(function(key){
+          if(_localIds.indexOf(key) === -1){
+            _fbRoomRef.child(key).remove();
+          }
+        });
       }
       showToastNotification('<i class="fas fa-check-circle"></i> Joined room <b>'+esc(_syncRoom)+'</b>'+(adminMode?' <span style="color:#34d399">(admin · sync on)</span>':' <span style="color:#818cf8">(view only)</span>'),'success');
     }
@@ -3692,23 +3693,34 @@ function connectSync(autoRoom){
     _fbRoomRef.on('child_added', function(snap){
       var p = snap.val(); if(!p||!p.id)return;
       var idx = plots.findIndex(function(x){return String(x.id) === String(p.id);});
-      if(idx === -1){ plots.push(p); _syncRefreshUI(); }
-      else {
-        /* Preserve local image if remote stripped it */
+      if(idx === -1){
+        /* Genuinely new plot — add for everyone */
+        plots.push(p);
+        _syncRefreshUI();
+      } else if(!_isAdminUser()){
+        /* Viewer: accept Firebase version, preserve local image */
         var localImg = plots[idx].image||'';
         plots[idx] = Object.assign({}, p);
         if(!plots[idx].image && localImg) plots[idx].image = localImg;
         _syncRefreshUI();
       }
+      /* Admin: plot already exists locally — local version is authoritative, ignore Firebase echo */
     });
 
     _fbRoomRef.on('child_changed', function(snap){
       var p = snap.val(); if(!p||!p.id)return;
+      /* Admin: local version is authoritative — ignore all Firebase change events */
+      if(_isAdminUser()) return;
+      /* Viewer: accept Firebase update */
       var idx = plots.findIndex(function(x){return String(x.id) === String(p.id);});
       if(idx !== -1){
         var localImg = plots[idx].image||'';
         plots[idx] = Object.assign({}, p);
         if(!plots[idx].image && localImg) plots[idx].image = localImg;
+        _syncRefreshUI();
+      } else {
+        /* Viewer doesn't have this plot yet — add it */
+        plots.push(p);
         _syncRefreshUI();
       }
     });
@@ -5230,6 +5242,55 @@ function _aiReply(q){
     } else return 'Could not find plot <b>'+pno+'</b>. Check the plot number and try again.';
   }
 
+  /* ── SMART DATA SEARCH (runs before generic keyword patterns) ── */
+  if(typeof plots!=='undefined' && plots.length > 0 && ql.length > 1){
+    // Strip command words to get the search term
+    var _searchTerm = ql
+      .replace(/^(plot|find|search|show|about|tell me about|info on|details of|what is|get)\s+/i,'')
+      .replace(/\s*(plot|parcela|قطعة)s?\s*$/i,'')
+      .trim();
+    if(_searchTerm.length > 1){
+      /* Exact plot number match */
+      var _byNo = plots.find(function(p){ return p.no && p.no.toLowerCase() === _searchTerm; });
+      if(_byNo){
+        var _p=_byNo;
+        return '📋 Plot <b>'+_p.no+'</b><br>'
+          +'Development: <b>'+(_p.dev||'—')+'</b><br>'
+          +'Status: <b>'+(_p.status||'—')+'</b><br>'
+          +'Size: <b>'+(_p.size||'—')+' sqft</b><br>'
+          +'Price: <b>AED '+(_p.price?fmtN(parseFloat(_p.price)):'—')+'</b><br>'
+          +(_p.ownerName?'Owner: <b>'+_p.ownerName+'</b><br>':'')
+          +(_p.city||_p.emirate?'Location: <b>'+((_p.city||'')+(_p.emirate?' · '+_p.emirate:'')).trim()+'</b><br>':'')
+          +(_p.notes?'Notes: '+_p.notes+'<br>':'')
+          +'<br>Say "find plot '+_p.no+'" to open it on the map.';
+      }
+      /* Multi-field partial match */
+      var _matches = plots.filter(function(p){
+        var h = [p.no,p.dev,p.type,p.status,p.ownerName,p.ownerContact,p.source,p.city,p.emirate,String(p.price||''),String(p.size||''),p.notes]
+          .map(function(v){return (v||'').toLowerCase();}).join(' ');
+        return h.indexOf(_searchTerm) !== -1;
+      });
+      if(_matches.length === 1){
+        var _m=_matches[0];
+        return '📋 Found: Plot <b>'+_m.no+'</b> ('+(_m.dev||'—')+')<br>'
+          +'Status: <b>'+(_m.status||'—')+'</b> · Size: <b>'+(_m.size||'—')+' sqft</b><br>'
+          +'Price: <b>AED '+(_m.price?fmtN(parseFloat(_m.price)):'—')+'</b>'
+          +(_m.ownerName?'<br>Owner: '+_m.ownerName:'')
+          +'<br>Say "find plot '+_m.no+'" to open it.';
+      }
+      if(_matches.length > 1 && _matches.length <= 10){
+        return '<b>'+_matches.length+' plots</b> match "<b>'+esc(_searchTerm)+'</b>":<br>'+
+          _matches.map(function(m){
+            return '• <b>'+m.no+'</b> ('+( m.dev||'—')+') — '+(m.status||'—')+' · AED '+(m.price?fmtN(parseFloat(m.price)):'—');
+          }).join('<br>')+
+          '<br>Say "find plot [no]" to open any of them.';
+      }
+      if(_matches.length > 10){
+        return '<b>'+_matches.length+' plots</b> match "<b>'+esc(_searchTerm)+'</b>". Narrow your search or use the search bar above.';
+      }
+    }
+  }
+
   /* ── DATA QUERIES ── */
   if(ql.match(/how many|count|total|كم|koliko/i))
     return 'We have <b>'+total+' plots</b> total: <b>'+avail+'</b> available, <b>'+res+'</b> reserved, <b>'+sold+'</b> sold.';
@@ -5259,31 +5320,6 @@ function _aiReply(q){
     return 'Breza Hills is a residential development in Bosnia. We have '+
       (typeof plots!=='undefined'?plots.filter(function(p){return p.dev&&p.dev.toLowerCase().includes('breza');}).length:0)+
       ' plots in this development.';
-
-  // Full-text search across all plot fields
-  if(typeof plots!=='undefined' && ql.length > 2){
-    var term = ql.replace(/^(plot|find|search|show|about)\s+/i,'').trim();
-    /* First: exact plot number */
-    var byNo = plots.find(function(p){ return p.no && p.no.toLowerCase() === term; });
-    if(byNo) return 'Plot <b>'+byNo.no+'</b> ('+byNo.dev+'): <b>'+byNo.status+'</b> · '+(byNo.size||'—')+' sqft · AED '+(byNo.price?fmtN(parseFloat(byNo.price)):'—')+'. Say "find plot '+byNo.no+'" to open it.';
-    /* Second: partial match across all fields */
-    var matches = plots.filter(function(p){
-      var h = ((p.no||'')+' '+(p.dev||'')+' '+(p.type||'')+' '+(p.status||'')+' '+(p.ownerName||'')+' '+(p.notes||'')+' '+(p.city||'')+' '+String(p.price||'')).toLowerCase();
-      return h.indexOf(term) !== -1;
-    });
-    if(matches.length === 1){
-      var m=matches[0];
-      return 'Found: Plot <b>'+m.no+'</b> ('+m.dev+'): <b>'+m.status+'</b> · '+(m.size||'—')+' sqft · AED '+(m.price?fmtN(parseFloat(m.price)):'—')+'. Say "find plot '+m.no+'" to open it.';
-    }
-    if(matches.length > 1 && matches.length <= 8){
-      return '<b>'+matches.length+' plots</b> match "<b>'+esc(term)+'</b>":<br>'+
-        matches.map(function(m){ return '• '+m.no+' ('+m.dev+') — '+m.status+' · AED '+(m.price?fmtN(parseFloat(m.price)):'—'); }).join('<br>')+
-        '<br>Say "find plot [no]" to open one.';
-    }
-    if(matches.length > 8){
-      return '<b>'+matches.length+' plots</b> match "<b>'+esc(term)+'</b>". Try a more specific search or use the search bar above to filter on the map.';
-    }
-  }
 
   return 'Try:<br>• "open plot form"<br>• "fill plot number PLT-001"<br>• "set development Breza Hills"<br>• "show available plots"<br>• "how many plots?"<br>• "find plot PLT-001"<br>• Ask about prices, types, market insights';
 }
