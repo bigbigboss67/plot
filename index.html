@@ -2890,8 +2890,13 @@ window.printPlot=function(id){
   var price=parseFloat(p.price)||0,size=parseFloat(p.size)||0;
   var ppm=(size&&price)?'AED '+Math.round(price/size).toLocaleString()+' /sqft':'—';
   var totalM=price?(price/1000000).toFixed(2)+' M AED':'—';
-  var today=new Date().toLocaleDateString('en-GB',{year:'numeric',month:'long',day:'numeric'});
+  var _pl=_currentLang||'en'; // capture lang at print time
+  var _isRtl=_pl==='ar';
+  var _locStr=_isRtl?'ar-SA':'en-GB';
+  var today=new Date().toLocaleDateString(_locStr,{year:'numeric',month:'long',day:'numeric'});
   var reportId='RPT-'+String(p.id).slice(-6).toUpperCase();
+  // helper: translate with current print lang
+  var tp=function(k){ return (_TRANS[_pl]||_TRANS.en)[k]||(_TRANS.en)[k]||k; };
   var sbc=p.status==='Available'?'#059669':p.status==='Reserved'?'#d97706':'#dc2626';
   var sbg=p.status==='Available'?'rgba(16,185,129,0.1)':p.status==='Reserved'?'rgba(217,119,6,0.1)':'rgba(220,38,38,0.1)';
   var areaRows='';
@@ -2909,43 +2914,36 @@ window.printPlot=function(id){
 
   var photoHTML;
   if(hasImage){
-    /* Use the uploaded photo */
     photoHTML='<div style="position:relative;margin-bottom:14px;">'+
       '<img src="'+p.image+'" style="width:100%;height:190px;object-fit:cover;border-radius:10px;border:1px solid #e2e8f0;display:block;" alt="Plot Photo">'+
-      '<div style="position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,0.6);color:white;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px;">PLOT PHOTO</div>'+
+      '<div style="position:absolute;bottom:6px;'+(isApprox?'right':'left')+':6px;background:rgba(0,0,0,0.6);color:white;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px;">'+tp('prtPlotPhoto')+'</div>'+
     '</div>';
   } else if(hasGps){
-    /* No photo — use OpenStreetMap Static Map API (single <img>, loads instantly, prints cleanly) */
     var latS=pLat.toFixed(6),lngS=pLng.toFixed(6);
     var zoom=isApprox?13:16;
-    /* OSM staticmap.de: free, no key, returns a real PNG image */
     var osmUrl='https://staticmap.openstreetmap.de/staticmap.php?center='+latS+','+lngS+
       '&zoom='+zoom+'&size=500x200&markers='+latS+','+lngS+',red-pushpin';
-    /* Fallback: use a known OSM tile URL (single tile centred on location) as last resort */
     var tileZ=isApprox?13:16;
     var tileX=Math.floor((pLng+180)/360*Math.pow(2,tileZ));
     var latRad=pLat*Math.PI/180;
     var tileY=Math.floor((1-Math.log(Math.tan(latRad)+1/Math.cos(latRad))/Math.PI)/2*Math.pow(2,tileZ));
     var fallbackUrl='https://tile.openstreetmap.org/'+tileZ+'/'+tileX+'/'+tileY+'.png';
     photoHTML='<div style="position:relative;margin-bottom:14px;">'+
-      /* Primary: OSM static map PNG */
       '<img id="osmStaticMap" src="'+osmUrl+'" '+
         'style="width:100%;height:190px;object-fit:cover;border-radius:10px;border:1px solid #bae6fd;display:block;" '+
         'alt="Plot location on OpenStreetMap" '+
-        /* On error: try single OSM tile */
         'onerror="this.onerror=null;this.src=\''+fallbackUrl+'\';this.style.objectFit=\'cover\';">'+
       '<div style="position:absolute;bottom:6px;left:6px;background:rgba(15,23,42,0.78);color:white;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:0.5px;">'+
-        (isApprox?'&#9888; APPROX. LOCATION':'&#128205; OPENSTREETMAP')+
+        (isApprox?'&#9888; '+tp('prtApproxLoc'):'&#128205; '+tp('prtOsmMap'))+
       '</div>'+
       '<div style="position:absolute;top:6px;right:6px;background:rgba(255,255,255,0.92);color:#0369a1;font-size:8px;font-weight:700;padding:2px 7px;border-radius:4px;border:1px solid #bae6fd;">'+
         latS+', '+lngS+
       '</div>'+
     '</div>';
-    mapInitScript=''; /* no JS map needed */
+    mapInitScript='';
   } else {
-    /* No photo, no GPS */
     photoHTML='<div style="width:100%;height:190px;background:linear-gradient(135deg,#f1f5f9,#e2e8f0);border-radius:10px;margin-bottom:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#94a3b8;font-size:11px;border:1px solid #e2e8f0;">'+
-      '<div style="font-size:36px;margin-bottom:8px;">&#128247;</div><div>No Photo / No GPS</div>'+
+      '<div style="font-size:36px;margin-bottom:8px;">&#128247;</div><div>'+tp('prtNoPhoto')+'</div>'+
     '</div>';
   }
 
@@ -3004,50 +3002,52 @@ window.printPlot=function(id){
       'img{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}'+
     '}';
 
-  var html='<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Plot Report — '+esc(p.no)+'</title>'+
+  var _dirStyle=_isRtl?'direction:rtl;text-align:right;':'';
+  var html='<!DOCTYPE html><html lang="'+_pl+'"'+(+_isRtl?' dir="rtl"':'')+'>'+
+    '<head><meta charset="UTF-8"><title>'+tp('prtTitle')+' — '+esc(p.no)+'</title>'+
     mapInitScript+
-    '<style>'+css+'</style></head><body>'+
+    '<style>'+css+(_isRtl?'body,*{direction:rtl;}.foot{flex-direction:row-reverse;}.hdr{flex-direction:row-reverse;}.col-m{border-right:none;border-left:1px solid #f1f5f9;padding:20px 28px 20px 18px;}.col-s{padding:20px 16px 20px 28px;}':'')+'</style></head><body>'+
     '<div class="page">'+
       '<div class="hdr">'+
-        '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">XP HOMES</div><div class="logo-sb">Property Intelligence Platform</div></div></div></div>'+
-        '<div class="hdr-r"><div class="rpt-lbl">Report ID</div><div class="rpt-id">'+esc(reportId)+'</div><div class="rpt-dt">'+esc(today)+'</div></div>'+
+        '<div class="hdr-l"><div class="logo-r"><div class="logo-ic">&#9732;</div><div><div class="logo-nm">XP HOMES</div><div class="logo-sb">'+tp('prtPropIntel')+'</div></div></div></div>'+
+        '<div class="hdr-r"><div class="rpt-lbl">'+tp('prtReportId')+'</div><div class="rpt-id">'+esc(reportId)+'</div><div class="rpt-dt">'+esc(today)+'</div></div>'+
       '</div>'+
       '<div class="accent"></div>'+
       '<div class="tbar">'+
-        '<div><div class="pno">Plot '+esc(p.no)+'</div><div class="pdev">'+esc(p.dev||'—')+'</div>'+(p.type?'<div class="ptyp">'+esc(p.type)+'</div>':'')+'</div>'+
+        '<div><div class="pno">'+esc(p.no)+'</div><div class="pdev">'+esc(p.dev||'—')+'</div>'+(p.type?'<div class="ptyp">'+esc(p.type)+'</div>':'')+'</div>'+
         '<span class="sbadge">'+esc(p.status||'Unknown')+'</span>'+
       '</div>'+
       '<div class="body">'+
         '<div class="col-m">'+
-          '<div class="sec">Financial Summary</div>'+
+          '<div class="sec">'+tp('prtFinancialSummary')+'</div>'+
           '<div class="mgrid">'+
-            '<div class="mc mc-d"><div class="ml">Plot Size</div><div class="mv">'+(size?size.toLocaleString()+'<span style="font-size:10px;font-weight:600;color:#94a3b8;margin-left:2px;">sqft</span>':'—')+'</div></div>'+
-            '<div class="mc mc-g"><div class="ml">Asking Price</div><div class="mv mv-g" style="font-size:13px;">'+(price?'AED '+price.toLocaleString():'—')+'</div></div>'+
-            '<div class="mc mc-b"><div class="ml">Price / sqft</div><div class="mv mv-b" style="font-size:13px;">'+ppm+'</div></div>'+
-            '<div class="mc mc-p"><div class="ml">Total Value</div><div class="mv mv-p" style="font-size:15px;">'+totalM+'</div></div>'+
+            '<div class="mc mc-d"><div class="ml">'+tp('prtPlotSize')+'</div><div class="mv">'+(size?size.toLocaleString()+'<span style="font-size:10px;font-weight:600;color:#94a3b8;margin-left:2px;">sqft</span>':'—')+'</div></div>'+
+            '<div class="mc mc-g"><div class="ml">'+tp('prtAskingPrice')+'</div><div class="mv mv-g" style="font-size:13px;">'+(price?'AED '+price.toLocaleString():'—')+'</div></div>'+
+            '<div class="mc mc-b"><div class="ml">'+tp('prtPriceSqft')+'</div><div class="mv mv-b" style="font-size:13px;">'+ppm+'</div></div>'+
+            '<div class="mc mc-p"><div class="ml">'+tp('prtTotalValue')+'</div><div class="mv mv-p" style="font-size:15px;">'+totalM+'</div></div>'+
           '</div>'+
-          (areaRows?'<div class="sec">Area Metrics</div><table class="dtbl">'+areaRows+'</table>':'')+
-          ((p.lat&&p.lng)?'<div class="sec">GPS Location</div><div class="gbox"><b>Latitude:</b> '+esc(p.lat)+'<br><b>Longitude:</b> '+esc(p.lng)+(p.locationUrl?'<br><b>Maps:</b> <a href="'+esc(p.locationUrl)+'" style="color:#0369a1;">Open in Google Maps</a>':'')+'</div>':'')+
-          (p.notes?'<div class="sec">Notes</div><div class="nbox">'+esc(p.notes)+'</div>':'')+
+          (areaRows?'<div class="sec">'+tp('prtAreaMetrics')+'</div><table class="dtbl">'+areaRows+'</table>':'')+
+          ((p.lat&&p.lng)?'<div class="sec">'+tp('prtGpsLocation')+'</div><div class="gbox"><b>'+tp('prtLatitude')+':</b> '+esc(p.lat)+'<br><b>'+tp('prtLongitude')+':</b> '+esc(p.lng)+(p.locationUrl?'<br><b>'+tp('prtOpenMaps').split(' ')[0]+':</b> <a href="'+esc(p.locationUrl)+'" style="color:#0369a1;">'+tp('prtOpenMaps')+'</a>':'')+'</div>':'')+
+          (p.notes?'<div class="sec">'+tp('prtNotes')+'</div><div class="nbox">'+esc(p.notes)+'</div>':'')+
         '</div>'+
         '<div class="col-s">'+
           photoHTML+
-          '<div class="idc"><div class="idc-l">Plot Reference</div><div class="idc-v">'+esc(reportId)+'</div></div>'+
-          '<div class="sec" style="margin-top:0;">Property Details</div>'+
-          '<div class="irow"><span class="il">Status</span><span class="iv" style="color:'+sbc+'">'+esc(p.status||'—')+'</span></div>'+
-          '<div class="irow"><span class="il">Type</span><span class="iv">'+esc(p.type||'—')+'</span></div>'+
-          '<div class="irow"><span class="il">Development</span><span class="iv" style="font-size:9px;">'+esc(p.dev||'—')+'</span></div>'+
-          (p.videoUrl?'<div class="irow"><span class="il">Video Tour</span><span class="iv" style="color:#6366f1;">Available</span></div>':'')+
-          (hasGps?'<div class="irow"><span class="il">GPS</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+(isApprox?'<br><span style="color:#d97706;">approx.</span>':'')+'</span></div>':'')+
-          (!hasImage&&hasGps?'<div style="font-size:8px;color:#64748b;margin-top:8px;padding:5px 0;border-top:1px solid #f1f5f9;">Map: OpenStreetMap &bull; '+(isApprox?'Approximate location':'Exact GPS location')+'</div>':'')+
+          '<div class="idc"><div class="idc-l">'+tp('prtPlotRef')+'</div><div class="idc-v">'+esc(reportId)+'</div></div>'+
+          '<div class="sec" style="margin-top:0;">'+tp('prtPropertyDetails')+'</div>'+
+          '<div class="irow"><span class="il">'+tp('prtStatusLabel')+'</span><span class="iv" style="color:'+sbc+'">'+esc(p.status||'—')+'</span></div>'+
+          '<div class="irow"><span class="il">'+tp('prtTypeLabel')+'</span><span class="iv">'+esc(p.type||'—')+'</span></div>'+
+          '<div class="irow"><span class="il">'+tp('prtDevelopmentLabel')+'</span><span class="iv" style="font-size:9px;">'+esc(p.dev||'—')+'</span></div>'+
+          (p.videoUrl?'<div class="irow"><span class="il">'+tp('prtVideoTour')+'</span><span class="iv" style="color:#6366f1;">'+tp('prtVideoAvail')+'</span></div>':'')+
+          (hasGps?'<div class="irow"><span class="il">'+tp('prtGpsLabel')+'</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+(isApprox?'<br><span style="color:#d97706;">'+tp('prtApproxLabel')+'</span>':'')+'</span></div>':'')+
+          (!hasImage&&hasGps?'<div style="font-size:8px;color:#64748b;margin-top:8px;padding:5px 0;border-top:1px solid #f1f5f9;">'+tp('prtOsmCredit')+' &bull; '+(isApprox?tp('prtApproxLoc2'):tp('prtExactLoc'))+'</div>':'')+
         '</div>'+
       '</div>'+
       '<div class="foot">'+
-        '<div class="foot-l"><span class="conf">Confidential</span><br>For authorized use only. XP HOMES.</div>'+
-        '<div class="foot-r">Generated: '+esc(today)+'<br>ID: '+esc(reportId)+'</div>'+
+        '<div class="foot-l"><span class="conf">'+tp('prtConfidential')+'</span><br>'+tp('prtForAuth')+'</div>'+
+        '<div class="foot-r">'+tp('prtGenerated')+': '+esc(today)+'<br>ID: '+esc(reportId)+'</div>'+
       '</div>'+
     '</div>'+
-    '<button class="pbtn" onclick="window.print()">&#128424; Print / Save PDF</button></body></html>';
+    '<button class="pbtn" onclick="window.print()">'+tp('prtPrintBtn')+'</button></body></html>';
   // Use Blob URL to avoid popup blocker
   try{
     var blob=new Blob([html],{type:'text/html'});
@@ -3169,35 +3169,39 @@ function showUNIDOFeasibility(plotId){
   var landPsf=(!isNaN(price)&&!isNaN(size)&&size>0)?price/size:NaN;
   var gfaPsf=(!isNaN(price)&&!isNaN(gfa)&&gfa>0)?price/gfa:NaN;
   var score=_plotScore(p);
-  var verdict=score>=75?'Strong initial feasibility':score>=50?'Feasible with verification':'Needs more data before decision';
+  var _ul=_currentLang||'en';
+  var _isRtlU=_ul==='ar';
+  var tu=function(k){return (_TRANS[_ul]||_TRANS.en)[k]||(_TRANS.en)[k]||k;};
+  var verdict=score>=75?tu('unidoStrong'):score>=50?tu('unidoFeasible'):tu('unidoNeeds');
   var color=score>=75?'#22c55e':score>=50?'#fbbf24':'#ef4444';
   var missing=[];
-  if(isNaN(price)||price<=0)missing.push('asking price');
-  if(isNaN(size)||size<=0)missing.push('plot size');
-  if(!parseNum(p.gfa)&&!parseNum(p.bua))missing.push('GFA/BUA');
-  if(!p.locationUrl&&!parseNum(p.lat))missing.push('exact location');
-  if(!p.ownerContact)missing.push('owner/client contact');
+  if(isNaN(price)||price<=0)missing.push(tu('unidoMissPrice'));
+  if(isNaN(size)||size<=0)missing.push(tu('unidoMissSize'));
+  if(!parseNum(p.gfa)&&!parseNum(p.bua))missing.push(tu('unidoMissGfa'));
+  if(!p.locationUrl&&!parseNum(p.lat))missing.push(tu('unidoMissLoc'));
+  if(!p.ownerContact)missing.push(tu('unidoMissOwner'));
+  var _rtlAttr=_isRtlU?' dir="rtl" style="direction:rtl;text-align:right;"':'';
   var modal=document.createElement('div');var old=document.getElementById('unidoFeasModal');if(old)old.remove();modal.id='unidoFeasModal';
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:7200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
-  modal.innerHTML='<div style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:94%;max-width:560px;overflow:hidden;">'+
+  modal.innerHTML='<div'+_rtlAttr+' style="background:#1e293b;border:1px solid #334155;border-radius:18px;width:94%;max-width:560px;overflow:hidden;">'+
     '<div style="padding:18px 22px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">'+
-      '<div><div style="font-size:16px;font-weight:800;color:#f1f5f9;"><i class="fas fa-chart-line" style="color:#fbbf24;margin-right:7px;"></i>UNIDO Feasibility Result</div>'+
-      '<div style="font-size:11px;color:#64748b;margin-top:2px;">Immediate preliminary screen - Plot '+esc(p.no)+'</div></div>'+
+      '<div><div style="font-size:16px;font-weight:800;color:#f1f5f9;"><i class="fas fa-chart-line" style="color:#fbbf24;margin-right:7px;"></i>'+tu('unidoTitle')+'</div>'+
+      '<div style="font-size:11px;color:#64748b;margin-top:2px;">'+tu('unidoSub')+' — '+esc(p.no)+'</div></div>'+
       '<button onclick="document.getElementById(\'unidoFeasModal\').remove()" style="background:#334155;border:none;border-radius:7px;color:#94a3b8;width:30px;height:30px;cursor:pointer;font-size:17px;">&times;</button></div>'+
     '<div style="padding:18px 22px;">'+
       '<div style="display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:center;margin-bottom:14px;">'+
-        '<div style="height:92px;border-radius:12px;background:'+color+';color:#0f172a;display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:900;"><div style="font-size:30px;line-height:1;">'+score+'</div><div style="font-size:10px;letter-spacing:1px;">SCORE</div></div>'+
-        '<div><div style="font-size:17px;font-weight:900;color:'+color+';margin-bottom:6px;">'+verdict+'</div><div style="font-size:12px;color:#94a3b8;line-height:1.7;">This is an instant UNIDO-style pre-feasibility screen using the available plot, cost, location, and documentation signals. It is ready immediately and does not call any external service.</div></div>'+
+        '<div style="height:92px;border-radius:12px;background:'+color+';color:#0f172a;display:flex;align-items:center;justify-content:center;flex-direction:column;font-weight:900;"><div style="font-size:30px;line-height:1;">'+score+'</div><div style="font-size:10px;letter-spacing:1px;">'+tu('unidoScore')+'</div></div>'+
+        '<div><div style="font-size:17px;font-weight:900;color:'+color+';margin-bottom:6px;">'+verdict+'</div><div style="font-size:12px;color:#94a3b8;line-height:1.7;">'+tu('unidoDesc')+'</div></div>'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">'+
-        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Land Cost / sqft</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+(isNaN(landPsf)?'Need price/size':'AED '+Math.round(landPsf).toLocaleString())+'</div></div>'+
-        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Land Cost / GFA</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+(isNaN(gfaPsf)?'Need GFA/BUA':'AED '+Math.round(gfaPsf).toLocaleString())+'</div></div>'+
-        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Location Readiness</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+((parseNum(p.lat)&&parseNum(p.lng))?'GPS available':'Needs GPS')+'</div></div>'+
-        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">Commercial Status</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+esc(p.status||'Unknown')+'</div></div>'+
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+tu('unidoLandPsf')+'</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+(isNaN(landPsf)?tu('unidoNeedPS'):'AED '+Math.round(landPsf).toLocaleString())+'</div></div>'+
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+tu('unidoLandGfa')+'</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+(isNaN(gfaPsf)?tu('unidoNeedGFA'):'AED '+Math.round(gfaPsf).toLocaleString())+'</div></div>'+
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+tu('unidoLocReady')+'</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+((parseNum(p.lat)&&parseNum(p.lng))?tu('unidoGpsAvail'):tu('unidoNeedsGps'))+'</div></div>'+
+        '<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;"><div style="font-size:9px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:1px;">'+tu('unidoCommStatus')+'</div><div style="font-size:15px;font-weight:900;color:#e2e8f0;">'+esc(p.status||'Unknown')+'</div></div>'+
       '</div>'+
       '<div style="background:#0f172a;border-left:3px solid '+color+';border-radius:0 9px 9px 0;padding:11px 13px;font-size:12px;color:#cbd5e1;line-height:1.7;">'+
-        '<b style="color:#f1f5f9;">Next UNIDO checks:</b> market demand, technical concept, approvals/utilities, CAPEX/OPEX, revenue assumptions, financing, implementation timeline, and risk sensitivity.'+
-        (missing.length?'<br><b style="color:#fbbf24;">Missing now:</b> '+esc(missing.join(', '))+'.':'<br><b style="color:#22c55e;">Data readiness:</b> core inputs are present for a first screen.')+
+        '<b style="color:#f1f5f9;">'+tu('unidoNextChecks')+':</b> '+tu('unidoNextList')+
+        (missing.length?'<br><b style="color:#fbbf24;">'+tu('unidoMissing')+':</b> '+esc(missing.join(', '))+'.':'<br><b style="color:#22c55e;">'+tu('unidoDataReady')+':</b> '+tu('unidoDataReadyMsg'))+
       '</div>'+
     '</div></div>';
   document.body.appendChild(modal);
@@ -4382,7 +4386,37 @@ var _TRANS = {
     aiTitle:'XP HOMES AI', aiSub:'Property Intelligence Assistant',
     aiPlaceholder:'Ask about plots, prices, availability...',
     aiWelcome:'Hello! I\'m your XP HOMES AI. I can search plots, fill form fields, check prices and availability. Try "open plot form", "fill plot number PLT-001", or "how many available?". How can I help?',
-    voiceStart:'Listening...', voiceStop:'Voice search'
+    voiceStart:'Listening...', voiceStop:'Voice search',
+    /* print report */
+    prtReportId:'Report ID', prtTitle:'Plot Report', prtPropIntel:'Property Intelligence Platform',
+    prtPlotPhoto:'PLOT PHOTO', prtApproxLoc:'APPROX. LOCATION', prtOsmMap:'OPENSTREETMAP',
+    prtNoPhoto:'No Photo / No GPS',
+    prtFinancialSummary:'Financial Summary', prtPlotSize:'Plot Size', prtAskingPrice:'Asking Price',
+    prtPriceSqft:'Price / sqft', prtTotalValue:'Total Value',
+    prtAreaMetrics:'Area Metrics', prtGpsLocation:'GPS Location',
+    prtLatitude:'Latitude', prtLongitude:'Longitude', prtOpenMaps:'Open in Google Maps',
+    prtNotes:'Notes', prtPropertyDetails:'Property Details', prtPlotRef:'Plot Reference',
+    prtStatusLabel:'Status', prtTypeLabel:'Type', prtDevelopmentLabel:'Development',
+    prtVideoTour:'Video Tour', prtVideoAvail:'Available', prtGpsLabel:'GPS',
+    prtApproxLabel:'approx.', prtExactLoc:'Exact GPS location', prtApproxLoc2:'Approximate location',
+    prtOsmCredit:'Map: OpenStreetMap', prtConfidential:'Confidential',
+    prtForAuth:'For authorized use only. XP HOMES.',
+    prtGenerated:'Generated', prtPrintBtn:'🖶 Print / Save PDF',
+    /* unido */
+    unidoTitle:'UNIDO Feasibility Result', unidoSub:'Immediate preliminary screen',
+    unidoScore:'SCORE', unidoStrong:'Strong initial feasibility',
+    unidoFeasible:'Feasible with verification', unidoNeeds:'Needs more data before decision',
+    unidoDesc:'This is an instant UNIDO-style pre-feasibility screen using the available plot, cost, location, and documentation signals. Ready immediately — no external service called.',
+    unidoLandPsf:'Land Cost / sqft', unidoLandGfa:'Land Cost / GFA',
+    unidoLocReady:'Location Readiness', unidoCommStatus:'Commercial Status',
+    unidoGpsAvail:'GPS available', unidoNeedsGps:'Needs GPS',
+    unidoNeedPS:'Need price/size', unidoNeedGFA:'Need GFA/BUA',
+    unidoNextChecks:'Next UNIDO checks',
+    unidoNextList:'market demand, technical concept, approvals/utilities, CAPEX/OPEX, revenue assumptions, financing, implementation timeline, and risk sensitivity.',
+    unidoMissing:'Missing now', unidoDataReady:'Data readiness',
+    unidoDataReadyMsg:'core inputs are present for a first screen.',
+    unidoMissPrice:'asking price', unidoMissSize:'plot size',
+    unidoMissGfa:'GFA/BUA', unidoMissLoc:'exact location', unidoMissOwner:'owner/client contact'
   },
   ar: {
     searchPlaceholder:'البحث في القطع...', newPlot:'قطعة جديدة',
@@ -4419,7 +4453,35 @@ var _TRANS = {
     aiTitle:'مساعد XP HOMES', aiSub:'مساعد ذكاء عقاري',
     aiPlaceholder:'اسأل أو قل: "افتح نموذج قطعة"، "كم عدد المتاحة؟"',
     aiWelcome:'مرحباً! أنا مساعد XP HOMES. يمكنني البحث عن القطع وملء الحقول والإجابة على الأسئلة. كيف يمكنني مساعدتك؟',
-    voiceStart:'جارٍ الاستماع...', voiceStop:'البحث الصوتي'
+    voiceStart:'جارٍ الاستماع...', voiceStop:'البحث الصوتي',
+    prtReportId:'رقم التقرير', prtTitle:'تقرير القطعة', prtPropIntel:'منصة ذكاء العقارات',
+    prtPlotPhoto:'صورة القطعة', prtApproxLoc:'موقع تقريبي', prtOsmMap:'OpenStreetMap',
+    prtNoPhoto:'لا صورة / لا GPS',
+    prtFinancialSummary:'الملخص المالي', prtPlotSize:'مساحة القطعة', prtAskingPrice:'سعر الطلب',
+    prtPriceSqft:'السعر / قدم²', prtTotalValue:'القيمة الإجمالية',
+    prtAreaMetrics:'مقاييس المساحة', prtGpsLocation:'موقع GPS',
+    prtLatitude:'خط العرض', prtLongitude:'خط الطول', prtOpenMaps:'فتح في خرائط جوجل',
+    prtNotes:'ملاحظات', prtPropertyDetails:'تفاصيل العقار', prtPlotRef:'مرجع القطعة',
+    prtStatusLabel:'الحالة', prtTypeLabel:'النوع', prtDevelopmentLabel:'المشروع',
+    prtVideoTour:'جولة فيديو', prtVideoAvail:'متاح', prtGpsLabel:'GPS',
+    prtApproxLabel:'تقريبي', prtExactLoc:'موقع GPS دقيق', prtApproxLoc2:'موقع تقريبي',
+    prtOsmCredit:'الخريطة: OpenStreetMap', prtConfidential:'سري',
+    prtForAuth:'للاستخدام المصرح به فقط. XP HOMES.',
+    prtGenerated:'تاريخ الإنشاء', prtPrintBtn:'🖶 طباعة / حفظ PDF',
+    unidoTitle:'نتيجة جدوى UNIDO', unidoSub:'فحص أولي فوري',
+    unidoScore:'النتيجة', unidoStrong:'جدوى أولية قوية',
+    unidoFeasible:'قابل للتنفيذ مع التحقق', unidoNeeds:'يحتاج مزيداً من البيانات',
+    unidoDesc:'هذا فحص ما قبل الجدوى الفوري على طراز UNIDO باستخدام بيانات القطعة والتكلفة والموقع المتاحة. فوري ولا يستدعي خدمة خارجية.',
+    unidoLandPsf:'تكلفة الأرض / قدم²', unidoLandGfa:'تكلفة الأرض / GFA',
+    unidoLocReady:'جاهزية الموقع', unidoCommStatus:'الحالة التجارية',
+    unidoGpsAvail:'GPS متاح', unidoNeedsGps:'يحتاج GPS',
+    unidoNeedPS:'يحتاج سعر/مساحة', unidoNeedGFA:'يحتاج GFA/BUA',
+    unidoNextChecks:'الخطوات التالية لـ UNIDO',
+    unidoNextList:'الطلب السوقي، المفهوم التقني، التصاريح/المرافق، رأس المال/التشغيل، توقعات الإيرادات، التمويل، الجدول الزمني، وتحليل المخاطر.',
+    unidoMissing:'مفقود حاليًا', unidoDataReady:'جاهزية البيانات',
+    unidoDataReadyMsg:'البيانات الأساسية متوفرة للفحص الأول.',
+    unidoMissPrice:'سعر الطلب', unidoMissSize:'مساحة القطعة',
+    unidoMissGfa:'GFA/BUA', unidoMissLoc:'الموقع الدقيق', unidoMissOwner:'جهة اتصال المالك/العميل'
   },
   bs: {
     searchPlaceholder:'Pretraži parcele...', newPlot:'Nova Parcela',
@@ -4456,7 +4518,35 @@ var _TRANS = {
     aiTitle:'XP HOMES AI', aiSub:'Asistent za nekretnine',
     aiPlaceholder:'Pitajte ili recite: "otvori formu", "koliko slobodnih?"',
     aiWelcome:'Zdravo! Ja sam XP HOMES AI. Mogu pronaći parcele, popuniti polja i odgovoriti na pitanja. Kako mogu pomoći?',
-    voiceStart:'Slušam...', voiceStop:'Glasovna pretraga'
+    voiceStart:'Slušam...', voiceStop:'Glasovna pretraga',
+    prtReportId:'ID Izvještaja', prtTitle:'Izvještaj o Parceli', prtPropIntel:'Inteligencija Nekretnina',
+    prtPlotPhoto:'FOTO PARCELE', prtApproxLoc:'PRIBLIZNA LOKACIJA', prtOsmMap:'OPENSTREETMAP',
+    prtNoPhoto:'Nema Fotke / Nema GPS-a',
+    prtFinancialSummary:'Finansijski Sažetak', prtPlotSize:'Veličina Parcele', prtAskingPrice:'Tražena Cijena',
+    prtPriceSqft:'Cijena / sqft', prtTotalValue:'Ukupna Vrijednost',
+    prtAreaMetrics:'Metrički Podaci', prtGpsLocation:'GPS Lokacija',
+    prtLatitude:'Geografska Širina', prtLongitude:'Geografska Dužina', prtOpenMaps:'Otvori u Google Maps',
+    prtNotes:'Bilješke', prtPropertyDetails:'Detalji Nekretnine', prtPlotRef:'Referenca Parcele',
+    prtStatusLabel:'Status', prtTypeLabel:'Tip', prtDevelopmentLabel:'Projekt',
+    prtVideoTour:'Video Tura', prtVideoAvail:'Dostupno', prtGpsLabel:'GPS',
+    prtApproxLabel:'pribl.', prtExactLoc:'Tačna GPS lokacija', prtApproxLoc2:'Približna lokacija',
+    prtOsmCredit:'Mapa: OpenStreetMap', prtConfidential:'Povjerljivo',
+    prtForAuth:'Samo za ovlaštenu upotrebu. XP HOMES.',
+    prtGenerated:'Generirano', prtPrintBtn:'🖶 Štampaj / Spremi PDF',
+    unidoTitle:'UNIDO Rezultat Izvedivosti', unidoSub:'Trenutni preliminarni pregled',
+    unidoScore:'BODOVI', unidoStrong:'Jaka početna izvedivost',
+    unidoFeasible:'Izvedivo uz provjeru', unidoNeeds:'Treba više podataka prije odluke',
+    unidoDesc:'Ovo je trenutni UNIDO preliminarni pregled koristeći dostupne podatke parcele, troška, lokacije i dokumentacije. Odmah spreman, bez vanjskog servisa.',
+    unidoLandPsf:'Cijena Zemljišta / sqft', unidoLandGfa:'Cijena Zemljišta / GFA',
+    unidoLocReady:'Spremnost Lokacije', unidoCommStatus:'Komercijalni Status',
+    unidoGpsAvail:'GPS dostupan', unidoNeedsGps:'Treba GPS',
+    unidoNeedPS:'Treba cijenu/veličinu', unidoNeedGFA:'Treba GFA/BUA',
+    unidoNextChecks:'Sljedeći UNIDO koraci',
+    unidoNextList:'tržišna potražnja, tehnički koncept, dozvole/komunalije, CAPEX/OPEX, pretpostavke prihoda, finansiranje, vremenski okvir i osjetljivost na rizik.',
+    unidoMissing:'Nedostaje sada', unidoDataReady:'Spremnost podataka',
+    unidoDataReadyMsg:'ključni podaci su prisutni za prvi pregled.',
+    unidoMissPrice:'tražena cijena', unidoMissSize:'veličina parcele',
+    unidoMissGfa:'GFA/BUA', unidoMissLoc:'tačna lokacija', unidoMissOwner:'kontakt vlasnika/klijenta'
   },
   ru:{
     searchPlaceholder:'Поиск участков...', newPlot:'Новый участок',
@@ -4493,7 +4583,35 @@ var _TRANS = {
     aiTitle:'XP HOMES ИИ', aiSub:'Аналитик недвижимости',
     aiPlaceholder:'Спросите об участках, ценах, доступности...',
     aiWelcome:'Привет! Я ваш ИИ XP HOMES. Ищу участки, заполняю поля. Попробуйте: "открыть форму", "сколько доступных?".',
-    voiceStart:'Слушаю...', voiceStop:'Голосовой поиск'
+    voiceStart:'Слушаю...', voiceStop:'Голосовой поиск',
+    prtReportId:'ID Отчёта', prtTitle:'Отчёт об Участке', prtPropIntel:'Аналитика Недвижимости',
+    prtPlotPhoto:'ФОТО УЧАСТКА', prtApproxLoc:'ПРИБЛИЗ. МЕСТОПОЛОЖЕНИЕ', prtOsmMap:'OPENSTREETMAP',
+    prtNoPhoto:'Нет фото / Нет GPS',
+    prtFinancialSummary:'Финансовый Обзор', prtPlotSize:'Площадь Участка', prtAskingPrice:'Запрашиваемая Цена',
+    prtPriceSqft:'Цена / кв.фут', prtTotalValue:'Общая Стоимость',
+    prtAreaMetrics:'Метрики Площади', prtGpsLocation:'GPS Местоположение',
+    prtLatitude:'Широта', prtLongitude:'Долгота', prtOpenMaps:'Открыть в Google Maps',
+    prtNotes:'Заметки', prtPropertyDetails:'Детали Объекта', prtPlotRef:'Референс Участка',
+    prtStatusLabel:'Статус', prtTypeLabel:'Тип', prtDevelopmentLabel:'Проект',
+    prtVideoTour:'Видео-тур', prtVideoAvail:'Доступно', prtGpsLabel:'GPS',
+    prtApproxLabel:'прибл.', prtExactLoc:'Точное GPS местоположение', prtApproxLoc2:'Приблизительное местоположение',
+    prtOsmCredit:'Карта: OpenStreetMap', prtConfidential:'Конфиденциально',
+    prtForAuth:'Только для авторизованного использования. XP HOMES.',
+    prtGenerated:'Создано', prtPrintBtn:'🖶 Печать / Сохранить PDF',
+    unidoTitle:'Результат ТЭО UNIDO', unidoSub:'Немедленный предварительный анализ',
+    unidoScore:'БАЛЛ', unidoStrong:'Сильная начальная осуществимость',
+    unidoFeasible:'Осуществимо с проверкой', unidoNeeds:'Нужно больше данных перед решением',
+    unidoDesc:'Мгновенный предварительный анализ в стиле UNIDO с использованием доступных данных участка, стоимости и местоположения. Готов сразу, без внешнего сервиса.',
+    unidoLandPsf:'Стоимость земли / кв.фут', unidoLandGfa:'Стоимость земли / GFA',
+    unidoLocReady:'Готовность местоположения', unidoCommStatus:'Коммерческий статус',
+    unidoGpsAvail:'GPS доступен', unidoNeedsGps:'Нужен GPS',
+    unidoNeedPS:'Нужна цена/площадь', unidoNeedGFA:'Нужен GFA/BUA',
+    unidoNextChecks:'Следующие проверки UNIDO',
+    unidoNextList:'рыночный спрос, технический концепт, разрешения/коммуникации, CAPEX/OPEX, допущения по доходам, финансирование, сроки реализации и анализ рисков.',
+    unidoMissing:'Отсутствует сейчас', unidoDataReady:'Готовность данных',
+    unidoDataReadyMsg:'ключевые данные присутствуют для первого анализа.',
+    unidoMissPrice:'запрашиваемая цена', unidoMissSize:'площадь участка',
+    unidoMissGfa:'GFA/BUA', unidoMissLoc:'точное местоположение', unidoMissOwner:'контакт владельца/клиента'
   }
 };
 
