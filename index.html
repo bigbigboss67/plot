@@ -2387,10 +2387,12 @@ function selectPlot(id){
     var card=document.getElementById('plotCard');
   card.innerHTML='<div class="pc-inner">'+html+'</div>';
   card.classList.add('show');
-  /* Resize Leaflet after sidebar opens (transition ~280ms) */
-  setTimeout(function(){try{map.invalidateSize({animate:false});}catch(e){}},300);
+  /* Resize Leaflet after sidebar opens, then center on pin — no animation, no zoom change */
   var la=parseNum(p.lat),ln=parseNum(p.lng);
-  if(map&&!isNaN(la)&&!isNaN(ln)&&la!==0)setTimeout(function(){map.flyTo([la,ln],18,{duration:1.2});},310);
+  setTimeout(function(){
+    try{map.invalidateSize({animate:false});}catch(e){}
+    if(map&&!isNaN(la)&&!isNaN(ln)&&la!==0) map.panTo([la,ln],{animate:false});
+  },320);
 }
 function closeCard(){
   var c=document.getElementById('plotCard');
