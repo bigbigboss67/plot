@@ -1745,44 +1745,25 @@ function makePopupHTML(p){
   var price=parseNum(p.price),size=parseNum(p.size);
   var szOk=!isNaN(size)&&size>0,prOk=!isNaN(price)&&price>0;
   var pid=p.id;
-  var isApprox=(p._gpsMethod==='city'||p._gpsMethod==='default');
-  /* Format price as M for compactness */
   var priceStr=prOk?(price>=1000000?(price/1000000).toFixed(2)+'M':fmtN(price)):'—';
-  /* Price/sqft */
   var ppsfNum=(szOk&&prOk)?(price/size):0;
   var ppsfStr=ppsfNum>0?Math.round(ppsfNum).toString():'—';
-  /* Status colors */
   var sIsAv=p.status==='Available',sIsRs=p.status==='Reserved',sIsSl=p.status==='Sold';
-  var badgeBg=sIsAv?'#14532d':sIsRs?'#78350f':sIsSl?'#7f1d1d':'#1e293b';
-  var badgeCol=sIsAv?'#4ade80':sIsRs?'#fbbf24':sIsSl?'#f87171':'#94a3b8';
   var valClass=sIsAv?'em':sIsRs?'am':sIsSl?'cr':'';
-  /* Photo */
-  var photoHtml=p.photo
-    ?'<img src="'+esc(p.photo)+'" alt="" onerror="this.parentNode.innerHTML=\'<i class=\\\"fas fa-image pp-photo-icon\\\"></i>\'">'
-    :'<i class="fas fa-image pp-photo-icon"></i>';
-  /* WA href */
   var phone=(p.phone||p.ownerContact||'').replace(/\D/g,'');
-  var waHref=phone?'onclick="window.open(\'https://wa.me/'+phone+'\',\'_blank\');return false;"':'onclick="return false;" style="opacity:0.5;cursor:not-allowed;"';
-  /* Share */
+  var waHref=phone?'onclick="window.open(\'https://wa.me/'+phone+'\',\'_blank\');return false;"':'onclick="return false;" style="opacity:0.4;cursor:not-allowed;"';
   var shareHref='onclick="(navigator.clipboard||{writeText:function(){}}).writeText(window.location.origin+window.location.pathname+\'?plot='+pid+'\').then(function(){showToastNotification(\'Link copied!\',\'success\');}).catch(function(){});return false;"';
   return (
     '<div style="width:280px;font-family:Inter,sans-serif;">'+
-    /* Top bar: status badge + close */
-    '<div class="pp-topbar">'+
-      '<span class="pp-badge" style="background:'+badgeBg+';color:'+badgeCol+';">'+esc(p.status||'Unknown')+'</span>'+
+    /* Compact header: plot number + dev + close */
+    '<div class="pp-topbar" style="padding:10px 12px 6px;">'+
+      '<div style="display:flex;flex-direction:column;line-height:1.2;">'+
+        '<span class="pp-num" style="font-size:15px;">'+esc(p.no)+'</span>'+
+        (p.dev?'<span style="font-size:10px;color:#475569;margin-top:1px;">'+esc(p.dev)+'</span>':'')+
+      '</div>'+
       '<button class="pp-close" onclick="if(map)map.closePopup();" title="Close">&times;</button>'+
     '</div>'+
-    /* Title */
-    '<div class="pp-title">'+
-      '<span class="pp-num">'+esc(p.no)+'</span>'+
-      (p.dev?'<span class="pp-sep">—</span><span class="pp-dev-inline">'+esc(p.dev)+'</span>':'')+
-      (p.type?'<div style="font-size:10px;color:#4e6380;margin-top:2px;font-style:italic;">'+esc(p.type)+'</div>':'')+
-    '</div>'+
-    /* Photo */
-    '<div class="pp-photo">'+photoHtml+'</div>'+
-    /* Approx GPS */
-    (isApprox?'<div class="pp-approx"><i class="fas fa-exclamation-triangle"></i> Approximate location</div>':'')+
-    /* Metrics: PRICE | SQFT | AED/SQ */
+    /* Metrics: PRICE | SQFT | AED/SQ — exactly as screenshot */
     '<div class="pp-metrics">'+
       '<div class="pp-m">'+
         '<div class="pp-m-lbl">Price</div>'+
@@ -1854,19 +1835,17 @@ function addPlotMarkers(){
       var isApprox=(p._gpsMethod==='city'||p._gpsMethod==='default');
       if(isApprox)approxCount++;
       var m=L.marker([lat,lng],{icon:makeIcon(color,p.no,isApprox)});
-      /* Click → close popup, open sidebar details. No popup on click to avoid duplication. */
+      /* Bind full popup card — used by both hover and click */
+      m.bindPopup(makePopupHTML(p),{maxWidth:300,className:'aiplot-popup',closeButton:false,autoClose:false,closeOnClick:false,offset:[0,-8]});
+      /* Click → open/keep popup at pin, NO map pan, NO sidebar — other pins stay visible */
       m.on('click',function(e){
         L.DomEvent.stopPropagation(e);
-        if(map)map.closePopup();
-        selectPlot(p.id);
+        if(m.isPopupOpen()){ m.closePopup(); }
+        else { map.closePopup(); m.openPopup(); }
       });
-      /* Hover → show compact dark popup preview */
-      m.bindPopup(makePopupHTML(p),{maxWidth:300,className:'aiplot-popup',closeButton:false,autoClose:false,closeOnClick:false,offset:[0,-8]});
+      /* Hover → same popup (only opens if not already open) */
       m.on('mouseover',function(){
-        if(!m.isPopupOpen()){
-          map.closePopup();
-          m.openPopup();
-        }
+        if(!m.isPopupOpen()){ map.closePopup(); m.openPopup(); }
       });
       markerCluster.addLayer(m);
       added++;
@@ -2387,12 +2366,17 @@ function selectPlot(id){
     var card=document.getElementById('plotCard');
   card.innerHTML='<div class="pc-inner">'+html+'</div>';
   card.classList.add('show');
-  /* Resize Leaflet after sidebar opens, then center on pin — no animation, no zoom change */
+  /* Resize Leaflet after sidebar CSS transition (280ms), then snap pin to center in same paint frame */
   var la=parseNum(p.lat),ln=parseNum(p.lng);
   setTimeout(function(){
-    try{map.invalidateSize({animate:false});}catch(e){}
-    if(map&&!isNaN(la)&&!isNaN(ln)&&la!==0) map.panTo([la,ln],{animate:false});
-  },320);
+    try{ map.invalidateSize({animate:false}); }catch(e){}
+    /* rAF ensures panTo fires after Leaflet's invalidateSize repaint — no flicker */
+    if(map&&!isNaN(la)&&!isNaN(ln)&&la!==0){
+      requestAnimationFrame(function(){
+        map.setView([la,ln], map.getZoom(), {animate:false});
+      });
+    }
+  },300);
 }
 function closeCard(){
   var c=document.getElementById('plotCard');
@@ -5070,6 +5054,59 @@ function _hideTyping(){ var t=document.getElementById('chatTyping'); if(t)t.remo
 /* ── Gemini API key (optional — set to enable AI market insights) ── */
 var _GEMINI_API_KEY = ''; // e.g. 'AIzaSy...'  Get free key: aistudio.google.com
 
+/* Build a specific search topic from the user's message + local plot data context */
+function _buildInsightTopic(msg){
+  var ql = msg.toLowerCase();
+
+  /* 1. Specific plot referenced — use that plot's actual location/dev data */
+  var plotRef = msg.match(/\b([A-Za-z]{0,5}-?\d{2,6})\b/);
+  if(plotRef && typeof plots !== 'undefined'){
+    var pno = plotRef[1].toUpperCase();
+    var fp = plots.find(function(p){ return p.no && p.no.toUpperCase() === pno; });
+    if(fp){
+      var parts=[];
+      if(fp.dev)   parts.push(fp.dev);
+      if(fp.city)  parts.push(fp.city);
+      if(fp.emirate) parts.push(fp.emirate);
+      if(fp.type)  parts.push(fp.type+' property');
+      parts.push('real estate');
+      return parts.join(' ');
+    }
+  }
+
+  /* 2. Development name from portal data appears in query */
+  if(typeof plots !== 'undefined' && plots.length){
+    var devs = [];
+    plots.forEach(function(p){ if(p.dev && devs.indexOf(p.dev)===-1) devs.push(p.dev); });
+    for(var i=0;i<devs.length;i++){
+      if(devs[i] && ql.indexOf(devs[i].toLowerCase())!==-1){
+        var devPlots = plots.filter(function(p){return p.dev===devs[i];});
+        var dc = devPlots[0]&&(devPlots[0].city||devPlots[0].emirate)||'';
+        return devs[i]+(dc?' '+dc:'')+' real estate development';
+      }
+    }
+  }
+
+  /* 3. Known location keywords */
+  var locMatch = ql.match(/\b(dubai|abu dhabi|sharjah|ajman|ras al[- ]khaimah|fujairah|umm al quwain|bosnia|sarajevo|breza|mostar|tuzla)\b/i);
+  if(locMatch) return locMatch[0]+' real estate property market';
+
+  /* 4. Strip command words — use the meaningful remainder */
+  var stripped = msg
+    .replace(/\b(show|find|search|open|fill|set|map view|table view|how many|count|tell me about|info on|what is|about|get|list)\b/gi,'')
+    .replace(/\bplots?\b/gi,'').trim();
+  if(stripped.length > 2) return stripped+' real estate market';
+
+  /* 5. Generic fallback — use most common city in portal data */
+  if(typeof plots !== 'undefined' && plots.length){
+    var cityCount={};
+    plots.forEach(function(p){ var c=p.city||p.emirate; if(c) cityCount[c]=(cityCount[c]||0)+1; });
+    var topCity = Object.keys(cityCount).sort(function(a,b){return cityCount[b]-cityCount[a];})[0];
+    if(topCity) return topCity+' real estate market trends';
+  }
+  return 'real estate property market investment trends';
+}
+
 function _sendChat(){
   var inp=document.getElementById('aiChatInput');
   var msg=(inp?inp.value:'').trim();
@@ -5081,23 +5118,27 @@ function _sendChat(){
   /* Step 1: Always answer from local portal data immediately */
   var localAnswer;
   try { localAnswer = _aiReply(msg); } catch(e){ localAnswer = 'Try: "open plot form", "how many plots?", "show available plots", "find plot [number]"'; }
-  var isGenericFallback = localAnswer.startsWith('Try:');
-  var wantsWebInsight = /price.*trend|market|invest|forecast|predict|future|value|worth|growth|demand|appreciat|rental|yield|return|economy|inflation|interest rate|location|neighbour|infrastr|transport/i.test(msg);
+
+  /* Step 2: Build specific insight topic from actual data context */
+  var insightTopic = _buildInsightTopic(msg);
+
+  /* Skip web insight only for pure UI commands (form fill, view switch, etc.) */
+  var isPureCommand = /^(open (new )?plot form|fill (plot |field )|set (status|price|size|development)|map view|table view|switch to|show (available|reserved|sold) plots)/i.test(msg.trim());
 
   /* Always show local answer within ~700ms — never block on network */
   setTimeout(function(){
     _hideTyping();
     _addChatMsg('ai', localAnswer);
 
-    /* Then optionally enrich with web insight (fire-and-forget, appends when ready) */
-    if(wantsWebInsight || isGenericFallback){
-      _fetchWebInsight(msg, function(webInsight){
+    /* Fire-and-forget web insight — appends to the just-shown bubble when ready */
+    if(!isPureCommand){
+      _fetchWebInsight(insightTopic, function(webInsight){
         if(!webInsight) return;
         var msgEl = document.getElementById('aiChatMessages');
         if(!msgEl) return;
         var last = msgEl.querySelector('.chat-msg.ai:last-of-type');
         if(last){
-          last.innerHTML += '<br><br><span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;">🌐 MARKET INSIGHT</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
+          last.innerHTML += '<br><br><span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;">🌐 INSIGHT</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
           msgEl.scrollTop = msgEl.scrollHeight;
         }
       });
@@ -5105,17 +5146,16 @@ function _sendChat(){
   }, 600 + Math.random()*300);
 }
 
-/* Fetch web insight — Gemini if key set, else Wikipedia fallback */
-function _fetchWebInsight(query, callback){
-  var topic = query.replace(/show|find|open|fill|set|map view|table view|how many|count/gi,'').trim();
+/* Fetch web insight — receives already-specific topic, Gemini if key set else Wikipedia */
+function _fetchWebInsight(topic, callback){
   if(!topic || topic.length < 3){ callback(''); return; }
   /* 5s hard timeout — never blocks the chat */
   var _done = false;
   var _t = setTimeout(function(){ if(!_done){_done=true; callback('');} }, 5000);
   function _cb(v){ clearTimeout(_t); if(!_done){_done=true; callback(v);} }
-  if(_GEMINI_API_KEY){ _callGemini(query, _cb); return; }
+  if(_GEMINI_API_KEY){ _callGemini(topic, _cb); return; }
   /* Wikipedia free API — no key needed, CORS-enabled */
-  var q = encodeURIComponent(topic + ' real estate property market');
+  var q = encodeURIComponent(topic);
   fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch='+q+'&format=json&origin=*&srlimit=1&utf8=1')
     .then(function(r){ return r.json(); })
     .then(function(data){
@@ -5242,6 +5282,76 @@ function _aiReply(q){
       setTimeout(function(){ if(typeof selectPlot==='function') selectPlot(found.id); },300);
       return '✅ Found Plot <b>'+found.no+'</b> — '+found.dev+'. Status: <b>'+found.status+'</b>, Price: <b>AED '+fmtN(parseFloat(found.price))+'</b>. Opening it now.';
     } else return 'Could not find plot <b>'+pno+'</b>. Check the plot number and try again.';
+  }
+
+  /* ── AREA FILTER — map/table shows ONLY plots in the named area ── */
+  var _areaMatch = q.match(/(?:plots?|show|find|filter|only|in|from|around|near)\s+(?:in\s+|from\s+|around\s+|near\s+)?([a-zA-Z؀-ۿ][a-zA-Z؀-ۿ\s\-']{2,}?)(?:\s+plots?|\s+area|\s+only|\s+properties)?$/i);
+  var _areaCmd  = q.match(/^(?:show|find|filter|search|plots?|display)\s+(?:plots?\s+)?(?:in|from|around|near|at)\s+(.+)/i)
+                ||q.match(/^(.+?)\s+(?:plots?|area|properties|listings?)(?:\s+only|\s+please)?$/i);
+  var _areaTerm = (_areaCmd&&_areaCmd[1])||(_areaMatch&&_areaMatch[1])||null;
+  /* Only treat as area search if query explicitly targets a location (has "in/from/near" or ends with known field values) */
+  var _hasAreaKeyword = /\b(in|from|near|around|area|only|filter)\b/i.test(q);
+  if(_areaTerm && _hasAreaKeyword && typeof plots!=='undefined' && plots.length){
+    var _at = _areaTerm.trim().toLowerCase();
+    /* Skip if term looks like a command word, not a location */
+    var _cmdWords = /^(available|reserved|sold|all|plot|form|map|table|price|type|size|sync|help|count|total|me|us|the)$/i;
+    if(_at.length >= 2 && !_cmdWords.test(_at)){
+      var _areaFiltered = plots.filter(function(p){
+        var hay = ((p.city||'')+' '+(p.emirate||'')+' '+(p.dev||'')+' '+(p.country||'')+' '+(p.notes||'')).toLowerCase();
+        return hay.indexOf(_at) !== -1;
+      });
+      if(_areaFiltered.length > 0){
+        /* Apply the area filter to the live map/table */
+        filteredPlots = _areaFiltered.slice();
+        if(typeof addPlotMarkers==='function') addPlotMarkers();
+        if(currentView==='table'&&typeof populateTable==='function') populateTable();
+        /* Fly map to show the filtered results */
+        setTimeout(function(){
+          try{
+            if(map&&markerCluster){
+              var b=markerCluster.getBounds();
+              if(b&&b.isValid()) map.fitBounds(b,{padding:[40,40],maxZoom:15,animate:true});
+            }
+          }catch(e){}
+        },400);
+        var _avN=_areaFiltered.filter(function(p){return p.status==='Available';}).length;
+        var _rsN=_areaFiltered.filter(function(p){return p.status==='Reserved';}).length;
+        var _slN=_areaFiltered.filter(function(p){return p.status==='Sold';}).length;
+        var _devs=[]; _areaFiltered.forEach(function(p){if(p.dev&&_devs.indexOf(p.dev)===-1)_devs.push(p.dev);});
+        return '📍 Showing <b>'+_areaFiltered.length+' plots</b> in <b>'+esc(_areaTerm.trim())+'</b>'
+          +(_devs.length?'<br><span style="font-size:10px;color:#64748b;">Developments: '+_devs.slice(0,4).map(function(d){return esc(d);}).join(', ')+(_devs.length>4?' +'+(_devs.length-4)+' more':'')+'</span>':'')
+          +'<br>'+_avN+' available · '+_rsN+' reserved · '+_slN+' sold'
+          +'<br><span style="font-size:9px;color:#475569;">Map filtered to this area. Say "show all plots" or "clear filter" to reset.</span>';
+      } else {
+        /* 0 results — reset filter to all, ask for alternative */
+        filteredPlots = plots.slice();
+        if(typeof addPlotMarkers==='function') addPlotMarkers();
+        if(currentView==='table'&&typeof populateTable==='function') populateTable();
+        /* Build list of areas that DO have plots */
+        var _knownAreas=[];
+        plots.forEach(function(p){
+          [p.city,p.emirate,p.dev].forEach(function(v){if(v&&_knownAreas.indexOf(v)===-1)_knownAreas.push(v);});
+        });
+        _knownAreas=_knownAreas.filter(Boolean).slice(0,6);
+        return '🔍 No plots found in <b>'+esc(_areaTerm.trim())+'</b>.<br>'
+          +'<span style="font-size:10px;color:#64748b;">Map reset to show all plots.</span>'
+          +(_knownAreas.length
+            ? '<br><br>Available areas in your data:<br>'
+              +_knownAreas.map(function(a){return '• <b>'+esc(a)+'</b>';}).join('<br>')
+              +'<br><br>Say "show plots in [area name]" to filter.'
+            : '<br>No areas found in your data yet. Add plots with location info first.');
+      }
+    }
+  }
+
+  /* "show all" / "clear filter" → reset to full list */
+  if(/\b(show all|clear filter|reset filter|all plots|remove filter)\b/i.test(ql)){
+    filteredPlots = plots.slice();
+    if(typeof addPlotMarkers==='function') addPlotMarkers();
+    if(currentView==='table'&&typeof populateTable==='function') populateTable();
+    var _fs=document.getElementById('filterStatus'),_ft=document.getElementById('filterType'),_si=document.getElementById('searchInput');
+    if(_fs)_fs.value='';if(_ft)_ft.value='';if(_si)_si.value='';
+    return '✅ Filter cleared — showing all <b>'+plots.length+' plots</b>.';
   }
 
   /* ── SMART DATA SEARCH (runs before generic keyword patterns) ── */
