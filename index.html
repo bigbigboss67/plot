@@ -782,7 +782,7 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
       <input class="fi" type="number" id="filterMaxGfa" placeholder="Max" oninput="debounceSearch()" style="width:68px;" title="Max GFA">
       <div style="width:1px;height:22px;background:#102040;flex-shrink:0;"></div>
       <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
-      <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;">
+      <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')geocodeAddress()">
       <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
       <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
@@ -887,11 +887,15 @@ function saveToLocalStorage(){
   try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}
   try{if(currentUser)localStorage.setItem('aiplot_user',JSON.stringify(currentUser));}catch(e){}
   if(_syncActive && _fbRoomRef && typeof _fbRoomRef.child === 'function'){
-    plots.forEach(function(p){
-      var sp = JSON.parse(JSON.stringify(p));
-      if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
-      _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
-    });
+    if(_isAdminUser()){
+      plots.forEach(function(p){
+        var sp = JSON.parse(JSON.stringify(p));
+        if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
+        _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
+      });
+    } else {
+      _warnLocalOnly();
+    }
   }
 }
 function loadFromLocalStorage(){
@@ -935,6 +939,15 @@ function unlockOwner(pid){
   else showToastNotification('Incorrect code','error');
 }
 function lockOwner(){_ownerUnlocked=false;showToastNotification('<i class="fas fa-lock"></i> Owner info locked','info');}
+
+/* ── Privilege helpers ─────────────────────────────────── */
+function _isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
+var _localEditWarnTs = 0;
+function _warnLocalOnly(){
+  if(Date.now() - _localEditWarnTs < 9000) return; /* throttle: max 1 toast / 9s */
+  _localEditWarnTs = Date.now();
+  showToastNotification('<i class="fas fa-user-lock"></i> Local edit only — log in as <b>Admin</b> to sync changes to others','info');
+}
 
 /* -- Google Maps URL parser (full URLs) -- */
 function extractLatLngFromUrl(url){
@@ -2386,7 +2399,7 @@ function closeCard(){
   setTimeout(function(){try{map.invalidateSize({animate:false});}catch(e){}},300);
 }
 function changePlotStatusFromCard(id,status){var p=plots.find(function(x){return String(x.id)===String(id);});if(!p)return;p.status=status;saveToLocalStorage();addPlotMarkers();updateLegendCounts();if(currentView==='table')populateTable();showToastNotification('Status updated to '+status,'success');selectPlot(id);}
-function deletePlot(id){if(!confirm('Delete this plot?'))return;plots=plots.filter(function(p){return p.id!==id;});filteredPlots=filteredPlots.filter(function(p){return p.id!==id;});saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeCard();showToastNotification('Plot deleted.','success');if(_syncActive && _fbRoomRef && typeof _fbRoomRef.child === 'function') _fbRoomRef.child(String(id).replace(/\./g, '_')).remove();}
+function deletePlot(id){if(!confirm('Delete this plot?'))return;plots=plots.filter(function(p){return p.id!==id;});filteredPlots=filteredPlots.filter(function(p){return p.id!==id;});saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();closeCard();showToastNotification('Plot deleted.','success');if(_syncActive && _fbRoomRef && typeof _fbRoomRef.child === 'function'){if(_isAdminUser())_fbRoomRef.child(String(id).replace(/\./g, '_')).remove();else _warnLocalOnly();}}
 
 window.openPlotModal=function(id){
   var modal=document.getElementById('plotModal');modal.classList.remove('hidden');
@@ -3274,7 +3287,18 @@ function toggleProximityAmenities(){
   proximityActive=true;
   showToastNotification('Amenities shown around current map area.','success');
 }
-function geocodeAddress(){var addr=(document.getElementById('geocodeInput').value||'').trim();if(!addr){showToastNotification('Enter an address.','error');return;}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(addr)).then(function(r){return r.json();}).then(function(d){if(!d||!d.length){showToastNotification('Address not found.','error');return;}map.flyTo([parseFloat(d[0].lat),parseFloat(d[0].lon)],14,{duration:1.5});L.popup().setLatLng([parseFloat(d[0].lat),parseFloat(d[0].lon)]).setContent('<b>'+esc(d[0].display_name)+'</b>').openOn(map);}).catch(function(){showToastNotification('Geocoding failed.','error');});}
+function geocodeAddress(){
+  var addr=(document.getElementById('geocodeInput').value||'').trim();
+  if(!addr){showToastNotification('Enter an address or place name.','error');return;}
+  showToastNotification('<i class="fas fa-spinner fa-spin"></i> Searching for <b>'+esc(addr)+'</b>…','info');
+  /* Use existing geocodeByAddress() — has timeout + proper headers */
+  geocodeByAddress(addr).then(function(gps){
+    if(!gps){showToastNotification('Address not found. Try a city name or landmark.','error');return;}
+    if(map){map.flyTo([gps.lat,gps.lng],14,{duration:1.5});}
+    L.popup().setLatLng([gps.lat,gps.lng]).setContent('<b>'+esc(addr)+'</b><br><span style="font-size:11px;color:#64748b;">'+gps.lat.toFixed(5)+', '+gps.lng.toFixed(5)+'</span>').openOn(map);
+    showToastNotification('<i class="fas fa-map-marker-alt"></i> Jumped to <b>'+esc(addr)+'</b>','success');
+  }).catch(function(){showToastNotification('Search failed — check connection and try again.','error');});
+}
 
 function showCRMModal(){showToastNotification('CRM coming soon!','info');}
 function _downloadICS(title,date,details,filename){
@@ -3573,27 +3597,28 @@ function _plotsForSync(arr){
 
 function _setSyncStatus(s){
   _syncStatus=s;
-  /* Update icon button */
   var btn=document.querySelector('#topbar button[title^="Sync"]');
-  if(btn){
-    if(s==='live'){btn.style.color='#34d399';btn.title='Sync • Live';}
-    else if(s==='connecting'){btn.style.color='#fbbf24';btn.title='Sync • Connecting…';}
-    else if(s==='error'){btn.style.color='#ef4444';btn.title='Sync • Error — click to retry';}
-    else{btn.style.color='';btn.title='Sync';}
-  }
-  /* Update persistent badge */
+  /* Update persistent badge (also updates btn inside each branch) */
   var badge=document.getElementById('syncBadge');
   if(!badge)return;
   if(s==='live'){
+    if(btn){btn.style.color='#34d399';btn.title='Sync • Live (Admin)';}
     badge.style.cssText='display:inline-flex;font-size:9px;font-weight:800;border-radius:20px;padding:3px 9px;letter-spacing:.6px;align-items:center;cursor:pointer;gap:4px;margin-left:-2px;background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.28);';
     badge.innerHTML='<span style="width:5px;height:5px;background:#34d399;border-radius:50%;flex-shrink:0;animation:pulse 1.2s infinite;display:inline-block;"></span>LIVE · '+esc(_syncRoom);
+  } else if(s==='viewer'){
+    if(btn){btn.style.color='#818cf8';btn.title='Sync • View Only';}
+    badge.style.cssText='display:inline-flex;font-size:9px;font-weight:800;border-radius:20px;padding:3px 9px;letter-spacing:.6px;align-items:center;cursor:pointer;gap:4px;margin-left:-2px;background:rgba(129,140,248,0.1);color:#818cf8;border:1px solid rgba(129,140,248,0.28);';
+    badge.innerHTML='<span style="width:5px;height:5px;background:#818cf8;border-radius:50%;flex-shrink:0;animation:pulse 1.2s infinite;display:inline-block;"></span>VIEWING · '+esc(_syncRoom);
   } else if(s==='connecting'){
+    if(btn){btn.style.color='#fbbf24';btn.title='Sync • Connecting…';}
     badge.style.cssText='display:inline-flex;font-size:9px;font-weight:800;border-radius:20px;padding:3px 9px;letter-spacing:.6px;align-items:center;cursor:pointer;gap:4px;margin-left:-2px;background:rgba(251,191,36,0.1);color:#fbbf24;border:1px solid rgba(251,191,36,0.28);';
     badge.innerHTML='<span style="width:5px;height:5px;background:#fbbf24;border-radius:50%;flex-shrink:0;display:inline-block;"></span>CONNECTING…';
   } else if(s==='error'){
+    if(btn){btn.style.color='#ef4444';btn.title='Sync • Error — click to retry';}
     badge.style.cssText='display:inline-flex;font-size:9px;font-weight:800;border-radius:20px;padding:3px 9px;letter-spacing:.6px;align-items:center;cursor:pointer;gap:4px;margin-left:-2px;background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.28);';
     badge.innerHTML='<span style="width:5px;height:5px;background:#ef4444;border-radius:50%;flex-shrink:0;display:inline-block;"></span>SYNC ERROR';
   } else {
+    if(btn){btn.style.color='';btn.title='Sync';}
     badge.style.display='none';
   }
 }
@@ -3633,30 +3658,35 @@ function connectSync(autoRoom){
   _fbRoomRef = _fbDb.ref('sync_rooms/' + room + '/plots');
   
   _fbRoomRef.once('value').then(function(snapshot){
-    _setSyncStatus('live');
+    var adminMode = _isAdminUser();
+    _setSyncStatus(adminMode ? 'live' : 'viewer');
     var data = snapshot.val();
     if(!data){
-      if(plots.length > 0){
+      if(adminMode && plots.length > 0){
+        /* Admin only: seed empty room with local plots */
         plots.forEach(function(p){
           var sp = JSON.parse(JSON.stringify(p));
           if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
           _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
         });
       }
-      showToastNotification('<i class="fas fa-check-circle"></i> Joined empty room <b>'+esc(_syncRoom)+'</b>','success');
+      showToastNotification('<i class="fas fa-check-circle"></i> Joined empty room <b>'+esc(_syncRoom)+'</b>'+(adminMode?'':' <span style="color:#818cf8">(view only)</span>'),'success');
     } else {
-      var toPush = [];
-      plots.forEach(function(p){
-        if(!data[String(p.id).replace(/\./g, '_')]) toPush.push(p);
-      });
-      if(toPush.length > 0){
-        toPush.forEach(function(p){
-          var sp = JSON.parse(JSON.stringify(p));
-          if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
-          _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
+      if(adminMode){
+        /* Admin: push any local plots not yet in Firebase */
+        var toPush = [];
+        plots.forEach(function(p){
+          if(!data[String(p.id).replace(/\./g, '_')]) toPush.push(p);
         });
+        if(toPush.length > 0){
+          toPush.forEach(function(p){
+            var sp = JSON.parse(JSON.stringify(p));
+            if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
+            _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
+          });
+        }
       }
-      showToastNotification('<i class="fas fa-check-circle"></i> Joined room <b>'+esc(_syncRoom)+'</b>','success');
+      showToastNotification('<i class="fas fa-check-circle"></i> Joined room <b>'+esc(_syncRoom)+'</b>'+(adminMode?' <span style="color:#34d399">(admin · sync on)</span>':' <span style="color:#818cf8">(view only)</span>'),'success');
     }
 
     _fbRoomRef.on('child_added', function(snap){
@@ -5034,33 +5064,41 @@ function _sendChat(){
   _addChatMsg('user', msg);
   _showTyping();
 
-  /* Step 1: Always answer from local portal data first */
+  /* Step 1: Always answer from local portal data immediately */
   var localAnswer = _aiReply(msg);
   var isGenericFallback = localAnswer.startsWith('Try:');
+  var wantsWebInsight = /price.*trend|market|invest|forecast|predict|future|value|worth|growth|demand|appreciat|rental|yield|return|economy|inflation|interest rate|location|neighbour|infrastr|transport/i.test(msg);
 
-  /* Step 2: Decide if web insight is useful */
-  var wantsWebInsight = /price.*trend|market|invest|forecast|predict|future|value|worth|growth|demand|appreciat|rental|yield|return|economy|inflation|interest rate|location|neighbour|infrastr|transport|develop/i.test(msg);
+  /* Always show local answer within ~700ms — never block on network */
+  setTimeout(function(){
+    _hideTyping();
+    _addChatMsg('ai', localAnswer);
 
-  if(wantsWebInsight || isGenericFallback){
-    _fetchWebInsight(msg, function(webInsight){
-      _hideTyping();
-      var reply = isGenericFallback ? '' : localAnswer;
-      if(webInsight){
-        if(reply) reply += '<br><br>';
-        reply += '<span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;text-transform:uppercase;">🌐 Market Insight</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
-      }
-      _addChatMsg('ai', reply || localAnswer);
-    });
-  } else {
-    setTimeout(function(){ _hideTyping(); _addChatMsg('ai', localAnswer); }, 700 + Math.random()*500);
-  }
+    /* Then optionally enrich with web insight (fire-and-forget, appends when ready) */
+    if(wantsWebInsight || isGenericFallback){
+      _fetchWebInsight(msg, function(webInsight){
+        if(!webInsight) return;
+        var msgEl = document.getElementById('aiChatMessages');
+        if(!msgEl) return;
+        var last = msgEl.querySelector('.chat-msg.ai:last-of-type');
+        if(last){
+          last.innerHTML += '<br><br><span style="font-size:9px;color:#6366f1;font-weight:800;letter-spacing:.5px;">🌐 MARKET INSIGHT</span><br><span style="color:#94a3b8;font-size:11px;">'+webInsight+'</span>';
+          msgEl.scrollTop = msgEl.scrollHeight;
+        }
+      });
+    }
+  }, 600 + Math.random()*300);
 }
 
 /* Fetch web insight — Gemini if key set, else Wikipedia fallback */
 function _fetchWebInsight(query, callback){
   var topic = query.replace(/show|find|open|fill|set|map view|table view|how many|count/gi,'').trim();
   if(!topic || topic.length < 3){ callback(''); return; }
-  if(_GEMINI_API_KEY){ _callGemini(query, callback); return; }
+  /* 5s hard timeout — never blocks the chat */
+  var _done = false;
+  var _t = setTimeout(function(){ if(!_done){_done=true; callback('');} }, 5000);
+  function _cb(v){ clearTimeout(_t); if(!_done){_done=true; callback(v);} }
+  if(_GEMINI_API_KEY){ _callGemini(query, _cb); return; }
   /* Wikipedia free API — no key needed, CORS-enabled */
   var q = encodeURIComponent(topic + ' real estate property market');
   fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch='+q+'&format=json&origin=*&srlimit=1&utf8=1')
@@ -5069,10 +5107,10 @@ function _fetchWebInsight(query, callback){
       var first = data.query&&data.query.search&&data.query.search[0];
       if(first&&first.snippet){
         var text = first.snippet.replace(/<[^>]+>/g,'').replace(/&quot;/g,'"').trim();
-        callback(text.length>220 ? text.substring(0,220)+'…' : text);
-      } else { callback(''); }
+        _cb(text.length>220 ? text.substring(0,220)+'…' : text);
+      } else { _cb(''); }
     })
-    .catch(function(){ callback(''); });
+    .catch(function(){ _cb(''); });
 }
 
 /* Gemini 1.5 Flash call — enriches replies with real AI */
