@@ -1943,14 +1943,14 @@ function addPlotMarkers(){
         var ctrlHtml = '<div style="background:#0a0f1a; padding:4px; text-align:center; font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif; min-width:160px;">' +
             '<div style="color:#38bdf8; margin:0 0 10px 0; font-size:12px; font-weight:700;">3D Model Controls</div>' +
             '<div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:10px;">' +
-              '<button onclick="window.scaleConcept('+p.id+', 1.1)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➕ Scale Up</button>' +
-              '<button onclick="window.scaleConcept('+p.id+', 0.9)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➖ Scale Down</button>' +
+              '<button onclick="window.scaleConcept(\''+p.id+'\', 1.1)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➕ Scale Up</button>' +
+              '<button onclick="window.scaleConcept(\''+p.id+'\', 0.9)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➖ Scale Down</button>' +
             '</div>' +
-            '<button onclick="show3DConcept('+p.id+'); map.closePopup();" style="width:100%; padding:6px; background:linear-gradient(135deg,#4f46e5,#6366f1); color:white; border-radius:5px; border:none; margin-bottom:5px; cursor:pointer; font-size:11px; font-weight:bold;">🛠 Open 3D Studio</button>' +
+            '<button onclick="show3DConcept(\''+p.id+'\'); map.closePopup();" style="width:100%; padding:6px; background:linear-gradient(135deg,#4f46e5,#6366f1); color:white; border-radius:5px; border:none; margin-bottom:5px; cursor:pointer; font-size:11px; font-weight:bold;">🛠 Open 3D Studio</button>' +
             '<div style="display:flex; gap:6px; margin-bottom:5px;">' +
-              '<button onclick="show3DConcept('+p.id+', true); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">🎥 Drone</button>' +
-              '<button onclick="window.startRelocate('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">📍 Relocate</button>' +
-              '<button onclick="window.deleteConcept('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:5px; cursor:pointer; font-size:11px; font-weight:bold;">🗑 Remove</button>' +
+              '<button onclick="show3DConcept(\''+p.id+'\', true); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">🎥 Drone</button>' +
+              '<button onclick="window.startRelocate(\''+p.id+'\'); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">📍 Relocate</button>' +
+              '<button onclick="window.deleteConcept(\''+p.id+'\'); map.closePopup();" style="flex:1; padding:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:5px; cursor:pointer; font-size:11px; font-weight:bold;">🗑 Remove</button>' +
             '</div>' +
           '</div>';
         overlay.bindPopup(ctrlHtml, {className: 'aiplot-popup', closeButton: true});
@@ -2079,22 +2079,6 @@ function _updateNoGpsOverlay(){
     }
   }else{
     overlay.style.display='none';
-    /* If some are approximate, show a dismissible banner instead */
-    if(approxOnly>0){
-      var existing=document.getElementById('approxGpsBanner');
-      if(!existing){
-        var banner=document.createElement('div');
-        banner.id='approxGpsBanner';
-        banner.style.cssText='position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:900;background:#1e293b;border:1px solid #fbbf24;border-radius:8px;padding:8px 14px;font-size:12px;color:#fbbf24;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,0.4);white-space:nowrap;';
-        banner.innerHTML='<i class="fas fa-exclamation-triangle"></i> <span><b>'+approxOnly+'</b> plots show at approximate city location (<i class="fas fa-exclamation-triangle" style="margin-right:4px;"></i> dashed pin)</span>'+
-          '<button onclick="resolveMapsUrls()" style="background:#fbbf24;color:#0f172a;border:none;border-radius:5px;padding:3px 8px;font-size:10px;font-weight:700;cursor:pointer;margin-left:4px;white-space:nowrap;"><i class="fas fa-globe"></i> Improve</button>'+
-          '<button onclick="document.getElementById(\'approxGpsBanner\').remove()" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:14px;padding:0 2px;">&times;</button>';
-        var mw=document.getElementById('mapWrap');
-        if(mw)mw.style.position='relative';
-        var mc=document.getElementById('mapContainer')||mw;
-        if(mc)mc.appendChild(banner);
-      }
-    }
   }
 }
 
@@ -4035,6 +4019,7 @@ function show3DConcept(id, autoRecord){
 
 function _dsOpen(p, autoRecord){
   window._dsAutoRecordPending = autoRecord;
+  window._dsBackgroundRecording = autoRecord;
   var old=document.getElementById('concept3dModal');if(old){_dsCleanup();old.remove();}
   _dsIsNight=false;_dsRefImage=null;
   if(!document.getElementById('_ds_css')){
@@ -4074,6 +4059,12 @@ function _dsOpen(p, autoRecord){
   var pid=String(p.id||'');
   var modal=document.createElement('div');modal.id='concept3dModal';
   modal.style.cssText='position:absolute;top:40px;bottom:40px;left:40px;right:40px;z-index:9500;background:#080b10;border-radius:16px;box-shadow:0 20px 80px rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.1);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:auto;';
+  if(autoRecord){
+    modal.style.opacity='0';
+    modal.style.pointerEvents='none';
+    modal.style.zIndex='-9999';
+    showToastNotification('🎥 Recording drone video in background...', 'info');
+  }
   var pW=Math.min(200,Math.max(10,pSide)),pD=Math.min(200,Math.max(10,pSide));
   modal.innerHTML=
     '<div style="position:absolute;top:0;left:0;right:0;z-index:20;height:48px;background:rgba(8,11,16,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;padding:0 14px;">'+
@@ -4690,6 +4681,11 @@ function _dsRecordVideo(){
       a.click();
       setTimeout(function(){ document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
       if(btn) btn.innerHTML = '🎥 Drone Video';
+      if(window._dsBackgroundRecording) {
+        window._dsBackgroundRecording = false;
+        _close3DModal();
+        showToastNotification('✅ Drone video ready!', 'success');
+      }
     };
     
     _dsVidRecorder.start();
