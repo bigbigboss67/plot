@@ -848,7 +848,7 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
       <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
       <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')geocodeAddress()">
       <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
-      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="topo">Topo</option><option value="terrain">🏔 Terrain</option><option value="2gis" selected>🗺️ 2GIS Map</option></select>
+      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="google">🌍 Google Maps</option><option value="2gis" selected>🗺️ 2GIS Map</option></select>
       <button class="fbtn" id="blockGridBtn" onclick="toggleBlockGrid()" title="Block Grid Overlay"><i class="fas fa-th"></i> Blocks</button>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
       <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export</button>
@@ -1948,11 +1948,13 @@ function addPlotMarkers(){
             '</div>' +
             '<button onclick="show3DConcept('+p.id+'); map.closePopup();" style="width:100%; padding:6px; background:linear-gradient(135deg,#4f46e5,#6366f1); color:white; border-radius:5px; border:none; margin-bottom:5px; cursor:pointer; font-size:11px; font-weight:bold;">🛠 Open 3D Studio</button>' +
             '<div style="display:flex; gap:6px; margin-bottom:5px;">' +
+              '<button onclick="show3DConcept('+p.id+', true); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">🎥 Drone</button>' +
               '<button onclick="window.startRelocate('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">📍 Relocate</button>' +
               '<button onclick="window.deleteConcept('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:5px; cursor:pointer; font-size:11px; font-weight:bold;">🗑 Remove</button>' +
             '</div>' +
           '</div>';
         overlay.bindPopup(ctrlHtml, {className: 'aiplot-popup', closeButton: true});
+        overlay._plotId = p.id;
         overlay.addTo(map);
         _conceptOverlays.push(overlay);
       }
@@ -2171,8 +2173,9 @@ function setMapStyle(style){
     carto:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    terrain:'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png'
+    google:'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    terrain:'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png',
+    '2gis':'https://tile2.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1.5&r=g'
   };
   if(style==='2gis'){
     L.tileLayer('https://tile1.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1', {attribution:'© <a href="https://2gis.com">2GIS</a>', maxZoom:21, maxNativeZoom:18}).addTo(map);
@@ -2182,7 +2185,7 @@ function setMapStyle(style){
     /* Auto-enable block grid with terrain */
     _enableBlockGrid();
   } else {
-    L.tileLayer(u[style]||u.osm,{attribution:'',maxZoom:20}).addTo(map);
+    L.tileLayer(u[style]||u.osm,{attribution:'',maxZoom:22,maxNativeZoom:19}).addTo(map);
   }
   map.addLayer(markerCluster);
 }
@@ -2407,7 +2410,40 @@ window.scaleConcept = function(id, factor) {
   if(!p) return;
   p.conceptScale = (parseFloat(p.conceptScale) || 1.0) * factor;
   saveToLocalStorage();
-  addPlotMarkers();
+  var overlay = _conceptOverlays.find(function(o){ return String(o._plotId) === String(id); });
+  if(overlay) {
+    var lat = parseFloat(p.lat), lng = parseFloat(p.lng);
+    var sSq = parseFloat(p.size);
+    if(isNaN(sSq) || sSq <= 0) sSq = 10000;
+    var plotWidthMeters = Math.sqrt(sSq * 0.092903);
+    var aspect = parseFloat(p.conceptAspect) || (16/9);
+    var camRadius = parseFloat(p.conceptCamRadius) || (plotWidthMeters * 3);
+    var bw = parseFloat(p.conceptBw) || (plotWidthMeters * 0.9);
+    var visibleWidthMeters = 2 * camRadius * 0.4142 * aspect;
+    var buildingFraction = bw / visibleWidthMeters;
+    if(buildingFraction < 0.05) buildingFraction = 0.05;
+    if(buildingFraction > 0.95) buildingFraction = 0.95;
+    var imgWidthMeters = (plotWidthMeters / buildingFraction) * 5.0 * p.conceptScale;
+    var imgHeightMeters = imgWidthMeters / aspect;
+    var latScale = 1 / 111320;
+    var bH = p.conceptCamRadius ? (p.conceptCamRadius / 1.5) : (plotWidthMeters*3);
+    var targetY = bH * 0.35;
+    var visH = 2 * camRadius * 0.4142;
+    var bottomY = targetY - (visH / 2);
+    var baseOffsetMeters = -bottomY; 
+    var baseFraction = baseOffsetMeters / visH;
+    if(baseFraction < 0.05) baseFraction = 0.15;
+    if(baseFraction > 0.5) baseFraction = 0.15;
+    var botOffset = imgHeightMeters * baseFraction;
+    var topOffset = imgHeightMeters * (1 - baseFraction);
+    var botLat = lat - (botOffset * latScale); 
+    var topLat = lat + (topOffset * latScale); 
+    var lngScale = latScale / Math.cos(lat*Math.PI/180);
+    var halfW = (imgWidthMeters / 2) * lngScale; 
+    overlay.setBounds([[botLat, lng-halfW],[topLat, lng+halfW]]);
+  } else {
+    addPlotMarkers();
+  }
 };
 
 window.startRelocate = function(id) {
@@ -3992,12 +4028,13 @@ var _STYLE_MULT={modern:1.0,arabic:1.15,glass:1.2,mediterranean:0.95,futuristic:
 var _TYPE_LABELS={villa:'Luxury Villa',tower:'Residential Tower',commercial:'Commercial Block',mixed:'Mixed-Use Development',compound:'Residential Compound'};
 var _STYLE_LABELS={modern:'Modern Minimalist',arabic:'Neo-Arabic',glass:'Glass Curtain',mediterranean:'Mediterranean',futuristic:'Futuristic'};
 
-function show3DConcept(id){
+function show3DConcept(id, autoRecord){
   var p=plots.find(function(x){return String(x.id)===String(id);});if(!p)return;
-  _dsOpen(p);
+  _dsOpen(p, autoRecord);
 }
 
-function _dsOpen(p){
+function _dsOpen(p, autoRecord){
+  window._dsAutoRecordPending = autoRecord;
   var old=document.getElementById('concept3dModal');if(old){_dsCleanup();old.remove();}
   _dsIsNight=false;_dsRefImage=null;
   if(!document.getElementById('_ds_css')){
@@ -4029,8 +4066,8 @@ function _dsOpen(p){
       +'.ds-imgdrop:hover{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,0.04)}';
     document.head.appendChild(st);
   }
-  var pArea=parseFloat(p.size)||400,pSide=Math.round(Math.sqrt(pArea));
-  var gfa=parseFloat(p.gfa||p.bua)||0;
+  var pArea=Math.round((parseFloat(p.size)||4305) * 0.092903),pSide=Math.round(Math.sqrt(pArea));
+  var gfa=Math.round((parseFloat(p.gfa||p.bua)||0) * 0.092903);
   var defFloors=gfa>0&&pArea>0?Math.max(1,Math.round(gfa/pArea)):8;
   var defType=(p.type||p.plotType||'').toLowerCase();
   var defBT=defType.indexOf('commercial')>=0?'commercial':defType.indexOf('mixed')>=0?'mixed':defFloors>8?'tower':'villa';
@@ -4113,7 +4150,8 @@ function _dsOpen(p){
       '<button onclick="_dsClearImage()" id="dsImgClear" style="width:100%;margin-top:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#3e5570;padding:4px;font-size:9px;cursor:pointer;display:none;">✕ Clear</button>'+
       '<button onclick="_dsAssignToPlotUI()" id="dsImgAssign" style="width:100%;margin-top:5px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.3);border-radius:6px;color:#00e5ff;padding:6px;font-size:10px;font-weight:700;cursor:pointer;display:none;letter-spacing:.3px;">📌 Assign to Plot</button>'+
     '</div>'+
-    '<div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:20;animation:dsFadeUp .5s ease .2s both;">'+
+    '<div style="position:absolute;bottom:20px;right:20px;z-index:25;display:flex;gap:12px;">'+
+      '<button class="ds-gen" id="dsVidBtn" onclick="_dsRecordVideo()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);display:none;">🎥 Drone Video</button>'+
       '<button class="ds-gen" onclick="_dsGenerate()">⚙ Generate Design</button>'+
     '</div>'+
     '<div id="dsLoad" style="position:absolute;inset:0;top:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#080b10;z-index:10;">'+
@@ -4126,7 +4164,16 @@ function _dsOpen(p){
   _dsLoadLib(function(){
     var ld=document.getElementById('dsLoad');if(ld)ld.style.display='none';
     _dsInitScene();
-    /* Bloom composer — must run AFTER THREE + postprocessing loaded + scene init */
+    var vbtn=document.getElementById('dsVidBtn');if(vbtn)vbtn.style.display='block';
+    
+    if(window._dsAutoRecordPending) {
+      window._dsAutoRecordPending = false;
+      setTimeout(function(){
+        _dsGenerate();
+        setTimeout(_dsRecordVideo, 500);
+      }, 200);
+    }
+    
     if(window.THREE&&window.THREE.EffectComposer&&_dsRenderer&&_dsScene&&_dsCamera){
       _dsComposer=new THREE.EffectComposer(_dsRenderer);
       _dsComposer.addPass(new THREE.RenderPass(_dsScene,_dsCamera));
@@ -4273,7 +4320,16 @@ function _dsInitScene(){
     if(now-lastF<33)return;lastF=now;
     _dsAnimTime+=0.016;
     if(_dsIsAnimating&&_dsBuildingGroup){_dsCurrentScale+=(_dsTargetScale-_dsCurrentScale)*0.08;if(Math.abs(_dsCurrentScale-_dsTargetScale)<0.005){_dsCurrentScale=_dsTargetScale;_dsIsAnimating=false;}_dsBuildingGroup.scale.set(_dsCurrentScale,_dsCurrentScale,_dsCurrentScale);}
-    if(_dsAutoRotate&&!_dsCamIsDrag&&!_dsFPMode){_dsCamTheta+=0.004;_dsUpdateCam();}
+    if(typeof _dsVidRecording !== 'undefined' && _dsVidRecording) {
+      var elap = Date.now() - _dsVidAnimStart;
+      if(elap > 6000) {
+        _dsVidRecording = false;
+        if(typeof _dsVidRecorder !== 'undefined' && _dsVidRecorder) _dsVidRecorder.stop();
+      } else {
+        _dsCamTheta = _dsVidOrigTheta + (elap / 6000) * Math.PI * 2;
+        _dsUpdateCam();
+      }
+    } else if(_dsAutoRotate&&!_dsCamIsDrag&&!_dsFPMode){_dsCamTheta+=0.004;_dsUpdateCam();}
     if(_dsFPMode&&_dsCamera){
       var mv=new THREE.Vector3();
       if(_dsFPKeys['KeyW']||_dsFPKeys['ArrowUp'])mv.z-=_dsFPSpeed;
@@ -4601,6 +4657,49 @@ function _dsDayNight(){
       if(obj.isLight&&obj.userData.isWindowLight){obj.intensity=0;obj.visible=false;}
     });
   }
+  var btnNight=document.getElementById('dsBtnNight');
+  if(btnNight)btnNight.classList.toggle('act',_dsIsNight);
+}
+
+var _dsVidRecording = false;
+var _dsVidChunks = [];
+var _dsVidRecorder = null;
+var _dsVidAnimStart = 0;
+var _dsVidOrigTheta = 0;
+
+function _dsRecordVideo(){
+  if(!_dsRenderer || !_dsScene || !_dsCamera) return;
+  if(_dsVidRecording) return;
+  
+  var btn = document.getElementById('dsVidBtn');
+  if(btn) btn.innerHTML = '⏳ Recording...';
+  
+  try {
+    var stream = _dsRenderer.domElement.captureStream(30);
+    _dsVidRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    _dsVidChunks = [];
+    _dsVidRecorder.ondataavailable = function(e) { if(e.data.size) _dsVidChunks.push(e.data); };
+    _dsVidRecorder.onstop = function() {
+      var blob = new Blob(_dsVidChunks, { type: 'video/webm' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'drone_concept.webm';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+      if(btn) btn.innerHTML = '🎥 Drone Video';
+    };
+    
+    _dsVidRecorder.start();
+    _dsVidRecording = true;
+    _dsVidAnimStart = Date.now();
+    _dsVidOrigTheta = _dsCamTheta;
+  } catch(e) {
+    if(btn) btn.innerHTML = 'Error (Browser Not Supported)';
+    console.error(e);
+  }
 }
 
 function _dsCapture(){if(!_dsRenderer||!_dsScene||!_dsCamera)return;_dsRenderer.render(_dsScene,_dsCamera);var a=document.createElement('a');a.download='design-studio-'+Date.now()+'.png';a.href=_dsRenderer.domElement.toDataURL('image/png');a.click();}
@@ -4647,7 +4746,7 @@ function _dsApplyImageToModel(src){
         if(_dsScene._skyObjects) {
           _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
         }
-        if(_dsEnvGroup) { _dsEnvGroup.visible = true; }
+        if(_dsEnvGroup) _dsEnvGroup.visible = true;
         _dsRefImage=dataUrl;
         var thumb=document.getElementById('dsImgThumb');
         if(thumb) thumb.src=dataUrl;
