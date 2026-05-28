@@ -856,21 +856,6 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
     <div id="content">
       <div id="mapWrap">
         <div id="map"></div>
-        <!-- Floating Glass KPI Bar -->
-        <div id="glassKpiBar" style="position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:800;pointer-events:none;white-space:nowrap;">
-          <div class="glass kpi-pill avail-pill" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:40px;font-size:12px;font-weight:700;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#34d399;">
-            <i class="fas fa-check-circle"></i><div><div style="font-size:9px;opacity:.7;">AVAILABLE</div><div id="glKpiAvail" style="font-size:18px;font-weight:900;">&mdash;</div></div>
-          </div>
-          <div class="glass kpi-pill" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:40px;font-size:12px;font-weight:700;background:rgba(124,109,250,0.12);border:1px solid rgba(124,109,250,0.25);color:#a78bfa;">
-            <i class="fas fa-layer-group"></i><div><div style="font-size:9px;opacity:.7;">TOTAL</div><div id="glKpiTotal" style="font-size:18px;font-weight:900;">&mdash;</div></div>
-          </div>
-          <div class="glass kpi-pill" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:40px;font-size:12px;font-weight:700;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);color:#f59e0b;">
-            <i class="fas fa-clock"></i><div><div style="font-size:9px;opacity:.7;">RESERVED</div><div id="glKpiRes" style="font-size:18px;font-weight:900;">&mdash;</div></div>
-          </div>
-          <div class="glass kpi-pill" style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:40px;font-size:12px;font-weight:700;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#f87171;">
-            <i class="fas fa-handshake"></i><div><div style="font-size:9px;opacity:.7;">SOLD</div><div id="glKpiSold" style="font-size:18px;font-weight:900;">&mdash;</div></div>
-          </div>
-        </div>
         <!-- No-GPS overlay shown when all plots lack coordinates -->
         <div id="mapNoGps" style="display:none;position:absolute;inset:0;z-index:800;pointer-events:none;align-items:center;justify-content:center;">
           <div style="background:rgba(4,8,15,0.92);border:1px solid #102040;border-radius:16px;padding:28px 36px;text-align:center;pointer-events:all;max-width:340px;box-shadow:0 16px 48px rgba(0,0,0,0.6);">
@@ -927,7 +912,7 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser={name:'Guest',role:'guest'},searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[],_conceptOverlays=[];
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser={name:'Guest',role:'guest'},searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=false,_popupCloseTimer=null,_crmFollowups=[],_conceptOverlays=[];
 /* -- Map Globals Removed -- */
 /* -- Live Sync globals (MQTT over WebSocket) -- */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
@@ -1559,7 +1544,6 @@ function resolveMapsUrls(){
   function next(){
     if(idx>=toResolve.length){
       _resolving=false;
-      _autoFitMap=true;
       saveToLocalStorage();addPlotMarkers();populateTable();updateLegendCounts();
       var precise=byUrl+byLookup+byGeo;
       var msg='<i class="fas fa-map-marker-alt"></i> '+precise+' plots precisely located';
@@ -1571,11 +1555,6 @@ function resolveMapsUrls(){
       if(byCity)msg+=', '+byCity+' at city center';
       if(byDefault)msg+=', '+byDefault+' at UAE default';
       showToastNotification(msg,precise>0?'success':'info');
-      /* Fit to all markers */
-      try{
-        var bounds=markerCluster.getBounds();
-        if(bounds&&bounds.isValid())map.fitBounds(bounds,{padding:[40,40],maxZoom:13,animate:true});
-      }catch(e){}
       return;
     }
     var p=toResolve[idx++];
@@ -1810,12 +1789,8 @@ function makeIcon(color,label,approx){
 }
 
 function makeConceptIcon(p){
-  var html=
-    '<div style="position:relative;width:24px;height:24px;">'+
-      '<div style="width:12px;height:12px;background:#00e5ff;border:2px solid #040c16;border-radius:50%;box-shadow:0 0 8px rgba(0,229,255,0.8);position:absolute;bottom:0;left:6px;"></div>'+
-      '<div style="position:absolute;bottom:16px;left:12px;transform:translateX(-50%);background:rgba(0,229,255,0.9);color:#040c16;font-size:10px;font-weight:900;font-family:Arial,sans-serif;padding:2px 5px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;">#'+(p.no||p.id)+'</div>'+
-    '</div>';
-  return L.divIcon({className:'',html:html,iconSize:[24,24],iconAnchor:[12,24],popupAnchor:[0,-28]});
+  /* Crosshair anchor to allow dragging the 3D model */
+  return L.divIcon({className:'',html:'<div style="width:16px;height:16px;background:rgba(56,189,248,0.8);border:2px solid #fff;border-radius:50%;cursor:grab;box-shadow:0 2px 4px rgba(0,0,0,0.5); display:flex;align-items:center;justify-content:center;"><i class="fas fa-arrows-alt" style="font-size:8px;color:#fff;"></i></div>',iconSize:[16,16],iconAnchor:[8,8],popupAnchor:[0,-8]});
 }
 
 function makePopupHTML(p){
@@ -1923,18 +1898,61 @@ function addPlotMarkers(){
       
       var overlay = null;
       if(hasConcept){
+        var sizeSqft = parseFloat(p.size);
+        if(isNaN(sizeSqft) || sizeSqft <= 0) sizeSqft = 10000; /* Fallback to 10k sqft if unknown */
+        
+        /* Calculate actual physical plot width in meters */
+        var plotWidthMeters = Math.sqrt(sizeSqft * 0.092903);
+        
+        /* The 3D building occupies roughly 40-50% of the generated image width. 
+           So to make the building match the plot width, the total image must be ~2.2x the plot width */
+        var aspect = parseFloat(p.conceptAspect) || (16/9);
+        var camRadius = parseFloat(p.conceptCamRadius) || (plotWidthMeters * 3);
+        var bw = parseFloat(p.conceptBw) || (plotWidthMeters * 0.9);
+        
+        var visibleWidthMeters = 2 * camRadius * 0.4142 * aspect;
+        var buildingFraction = bw / visibleWidthMeters;
+        if(buildingFraction < 0.05) buildingFraction = 0.05;
+        if(buildingFraction > 0.95) buildingFraction = 0.95;
+        
+        var imgWidthMeters = (plotWidthMeters / buildingFraction) * 5.0 * (p.conceptScale||1.0);
+        var imgHeightMeters = imgWidthMeters / aspect;
+        
         var latScale = 1 / 111320;
-        /* ~100m total height, base offset 15m south so coordinate rests near bottom of image */
-        var botLat = lat - (15 * latScale); 
-        var topLat = lat + (85 * latScale); 
+        
+        var bH = p.conceptCamRadius ? (p.conceptCamRadius / 1.5) : (plotWidthMeters*3); 
+        var targetY = bH * 0.35;
+        var visH = 2 * camRadius * 0.4142;
+        var bottomY = targetY - (visH / 2);
+        var baseOffsetMeters = -bottomY; 
+        var baseFraction = baseOffsetMeters / visH;
+        if(baseFraction < 0.05) baseFraction = 0.15;
+        if(baseFraction > 0.5) baseFraction = 0.15;
+        
+        var botOffset = imgHeightMeters * baseFraction;
+        var topOffset = imgHeightMeters * (1 - baseFraction);
+        
+        var botLat = lat - (botOffset * latScale); 
+        var topLat = lat + (topOffset * latScale); 
+        
         var lngScale = latScale / Math.cos(lat*Math.PI/180);
-        var halfW = 88 * lngScale; /* ~176m wide footprint for 16:9 aspect ratio */
+        var halfW = (imgWidthMeters / 2) * lngScale; 
+        
         var bounds = [[botLat, lng-halfW],[topLat, lng+halfW]];
         overlay = L.imageOverlay(p.conceptImage, bounds, {className:'ai-concept-overlay', interactive:true});
-        overlay.on('click', function(e){
-            L.DomEvent.stopPropagation(e);
-            if(m.isPopupOpen()){ m.closePopup(); } else { map.closePopup(); m.openPopup(); }
-        });
+        var ctrlHtml = '<div style="background:#0a0f1a; padding:4px; text-align:center; font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif; min-width:160px;">' +
+            '<div style="color:#38bdf8; margin:0 0 10px 0; font-size:12px; font-weight:700;">3D Model Controls</div>' +
+            '<div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:10px;">' +
+              '<button onclick="window.scaleConcept('+p.id+', 1.1)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➕ Scale Up</button>' +
+              '<button onclick="window.scaleConcept('+p.id+', 0.9)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➖ Scale Down</button>' +
+            '</div>' +
+            '<button onclick="show3DConcept('+p.id+'); map.closePopup();" style="width:100%; padding:6px; background:linear-gradient(135deg,#4f46e5,#6366f1); color:white; border-radius:5px; border:none; margin-bottom:5px; cursor:pointer; font-size:11px; font-weight:bold;">🛠 Open 3D Studio</button>' +
+            '<div style="display:flex; gap:6px; margin-bottom:5px;">' +
+              '<button onclick="window.startRelocate('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px; font-weight:bold;">📍 Relocate</button>' +
+              '<button onclick="window.deleteConcept('+p.id+'); map.closePopup();" style="flex:1; padding:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#ef4444; border-radius:5px; cursor:pointer; font-size:11px; font-weight:bold;">🗑 Remove</button>' +
+            '</div>' +
+          '</div>';
+        overlay.bindPopup(ctrlHtml, {className: 'aiplot-popup', closeButton: true});
         overlay.addTo(map);
         _conceptOverlays.push(overlay);
       }
@@ -1944,10 +1962,37 @@ function addPlotMarkers(){
          if(overlay) {
             var nLatLng = e.latlng;
             var lS = 1 / 111320;
-            var bL = nLatLng.lat - (15 * lS);
-            var tL = nLatLng.lat + (85 * lS);
+            var sSq = parseFloat(p.size);
+            if(isNaN(sSq) || sSq <= 0) sSq = 10000;
+            var pW = Math.sqrt(sSq * 0.092903);
+            
+            var aspect = parseFloat(p.conceptAspect) || (16/9);
+            var camRadius = parseFloat(p.conceptCamRadius) || (pW * 3);
+            var bw = parseFloat(p.conceptBw) || (pW * 0.9);
+            var visibleWidthMeters = 2 * camRadius * 0.4142 * aspect;
+            var buildingFraction = bw / visibleWidthMeters;
+            if(buildingFraction < 0.05) buildingFraction = 0.05;
+            if(buildingFraction > 0.95) buildingFraction = 0.95;
+            
+            var iW = (pW / buildingFraction) * 5.0 * (p.conceptScale||1.0);
+            var iH = iW / aspect;
+            
+            var bH = p.conceptCamRadius ? (p.conceptCamRadius / 1.5) : (pW*3);
+            var targetY = bH * 0.35;
+            var visH = 2 * camRadius * 0.4142;
+            var bottomY = targetY - (visH / 2);
+            var baseOffsetMeters = -bottomY; 
+            var baseFraction = baseOffsetMeters / visH;
+            if(baseFraction < 0.05) baseFraction = 0.15;
+            if(baseFraction > 0.5) baseFraction = 0.15;
+            
+            var bO = iH * baseFraction;
+            var tO = iH * (1 - baseFraction);
+            
+            var bL = nLatLng.lat - (bO * lS);
+            var tL = nLatLng.lat + (tO * lS);
             var lnS = lS / Math.cos(nLatLng.lat*Math.PI/180);
-            var hW = 88 * lnS;
+            var hW = (iW / 2) * lnS;
             overlay.setBounds([[bL, nLatLng.lng-hW], [tL, nLatLng.lng+hW]]);
          }
       });
@@ -2083,6 +2128,18 @@ function cancelSetOnMapMode(){
 function _initSetOnMapClick(){
   if(!map)return;
   map.on('click',function(e){
+    if(window._relocatingPlotId){
+      var id=window._relocatingPlotId;
+      window._relocatingPlotId=null;
+      document.getElementById('map').style.cursor='';
+      var p=plots.find(function(x){return String(x.id)===String(id);});
+      if(p){
+        p.lat=e.latlng.lat.toFixed(6);p.lng=e.latlng.lng.toFixed(6);p._gpsMethod='manual';
+        saveToLocalStorage();addPlotMarkers();if(typeof currentView!=='undefined'&&currentView==='table')populateTable();
+        showToastNotification('Model relocated successfully.','success');
+      }
+      return;
+    }
     if(!_setOnMapPlotId)return;
     var lat=e.latlng.lat.toFixed(6),lng=e.latlng.lng.toFixed(6);
     var p=plots.find(function(x){return x.id===_setOnMapPlotId;});
@@ -2345,12 +2402,34 @@ function toggleSelection(id,checked){if(checked)selectedIds.add(id);else selecte
 function toggleSelectAll(checked){if(checked)filteredPlots.forEach(function(p){selectedIds.add(p.id);});else selectedIds.clear();populateTable();var c=selectedIds.size;var sc=document.getElementById('selectionCount');if(sc)sc.textContent=c>0?c+' selected':'';var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
 function bulkDelete(){if(!selectedIds.size)return;if(!confirm('Delete '+selectedIds.size+' plots?'))return;var toDel=Array.from(selectedIds);plots=plots.filter(function(p){return!selectedIds.has(p.id);});selectedIds.clear();filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();showToastNotification('Plots deleted.','success');if(_syncActive && _fbRoomRef && typeof _fbRoomRef.child === 'function') toDel.forEach(function(id){_fbRoomRef.child(String(id).replace(/\./g, '_')).remove();});}
 function bulkExport(){downloadCSV(plots.filter(function(p){return selectedIds.has(p.id);}),'selected_plots.csv');}
+window.scaleConcept = function(id, factor) {
+  var p=plots.find(function(x){return String(x.id)===String(id);});
+  if(!p) return;
+  p.conceptScale = (parseFloat(p.conceptScale) || 1.0) * factor;
+  saveToLocalStorage();
+  addPlotMarkers();
+};
+
+window.startRelocate = function(id) {
+  var p=plots.find(function(x){return String(x.id)===String(id);});
+  if(!p) return;
+  setTimeout(function(){
+    window._relocatingPlotId = id;
+    var mapEl = document.getElementById('map');
+    if(mapEl) mapEl.style.cursor = 'crosshair';
+  }, 100);
+  showToastNotification('Click anywhere on the map to relocate plot #' + (p.no||id), 'info');
+};
 
 window.deleteConcept = function(id) {
   if(!confirm('Remove 3D concept design from this plot?')) return;
   var p=plots.find(function(x){return String(x.id)===String(id);});
   if(!p) return;
   p.conceptImage = null;
+  p.conceptAspect = null;
+  p.conceptCamRadius = null;
+  p.conceptBw = null;
+  p.conceptScale = null;
   saveToLocalStorage();
   addPlotMarkers();
   if(typeof currentView!=='undefined' && currentView==='table') populateTable();
@@ -3944,7 +4023,7 @@ function _dsOpen(p){
       +'.ds-hbtn:hover,.ds-hbtn.act{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,0.06)}'
       +'.ds-gen{background:linear-gradient(135deg,#00e5ff,#00b8d4);color:#080b10;border:none;padding:11px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .2s}'
       +'.ds-gen:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,229,255,0.22)}'
-      +'.ds-imgpanel{position:absolute;bottom:68px;right:12px;width:178px;background:rgba(8,11,16,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;z-index:18;display:none}'
+      +'.ds-imgpanel{position:absolute;top:65px;left:290px;width:220px;background:rgba(8,11,16,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;z-index:9999;display:none;box-shadow:0 10px 30px rgba(0,0,0,0.5)}'
       +'.ds-imgthumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.1)}'
       +'.ds-imgdrop{border:1px dashed rgba(0,229,255,0.3);border-radius:7px;padding:12px 8px;text-align:center;cursor:pointer;color:#3e5570;font-size:10px;transition:all .2s}'
       +'.ds-imgdrop:hover{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,0.04)}';
@@ -3957,7 +4036,7 @@ function _dsOpen(p){
   var defBT=defType.indexOf('commercial')>=0?'commercial':defType.indexOf('mixed')>=0?'mixed':defFloors>8?'tower':'villa';
   var pid=String(p.id||'');
   var modal=document.createElement('div');modal.id='concept3dModal';
-  modal.style.cssText='position:fixed;inset:0;z-index:9500;background:#080b10;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+  modal.style.cssText='position:absolute;top:40px;bottom:40px;left:40px;right:40px;z-index:9500;background:#080b10;border-radius:16px;box-shadow:0 20px 80px rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.1);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:auto;';
   var pW=Math.min(200,Math.max(10,pSide)),pD=Math.min(200,Math.max(10,pSide));
   modal.innerHTML=
     '<div style="position:absolute;top:0;left:0;right:0;z-index:20;height:48px;background:rgba(8,11,16,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;padding:0 14px;">'+
@@ -3976,7 +4055,7 @@ function _dsOpen(p){
       '</div>'+
     '</div>'+
     '<div id="dsVP" style="position:absolute;inset:0;top:48px;"></div>'+
-    '<div class="ds-panel" style="top:60px;left:10px;width:205px;bottom:66px;">'+
+    '<div class="ds-panel" style="top:65px;left:20px;width:260px;bottom:75px;">'+
       '<h5>Plot Dimensions</h5>'+
       '<div class="ds-ctrl-row">'+
         '<div class="ds-ctrl"><label>Width (m)</label><input type="number" id="dsPlotW" value="'+pW+'" min="10" max="200" style="width:100%"></div>'+
@@ -4008,7 +4087,7 @@ function _dsOpen(p){
       '<div class="ds-ctrl"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:10px;cursor:pointer;color:#7a96b0;"><input type="checkbox" id="dsRoad" checked> Access Road</label></div>'+
       '<div class="ds-ctrl"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:10px;cursor:pointer;color:#7a96b0;"><input type="checkbox" id="dsCtx" checked> Surroundings</label></div>'+
     '</div>'+
-    '<div class="ds-panel" style="top:60px;right:10px;width:185px;bottom:66px;animation-delay:.1s">'+
+    '<div class="ds-panel" style="top:65px;right:20px;width:250px;bottom:75px;animation-delay:.1s">'+
       '<h5>Design Analysis</h5>'+
       '<div class="ds-stat"><div class="sl">Gross Floor Area</div><div class="sv cy" id="dsGFA">—</div><div style="font-size:9px;color:#3e5570;">total built-up area</div></div>'+
       '<div class="ds-stat"><div class="sl">Floor Area Ratio</div><div class="sv wh" id="dsFAR">—</div><div class="sb"><div class="sbf" id="dsFARb" style="width:0%"></div></div></div>'+
@@ -4113,114 +4192,70 @@ function _dsInitScene(){
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.95;
   renderer.outputEncoding=THREE.sRGBEncoding;
-  renderer.setClearColor(0x000000, 0); // fully transparent background
+  renderer.setClearColor(0x000000, 0);
   vp.appendChild(renderer.domElement);_dsRenderer=renderer;
-  var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x87a5b8,0.004);_dsScene=scene;
+  var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x080b10,0.005);_dsScene=scene;
   var camera=new THREE.PerspectiveCamera(50,W/H,0.5,500);_dsCamera=camera;
   _dsCamTarget=new THREE.Vector3(0,5,0);_dsCamRadius=60;_dsCamTheta=Math.PI*0.25;_dsCamPhi=Math.PI*0.28;_dsUpdateCam();
-  /* gradient sky via canvas texture — golden-hour default */
-  var _mkSkyCvs=function(night){
-    var c=document.createElement('canvas');c.width=128;c.height=256;
-    var ctx=c.getContext('2d');
-    if(!night){
-      /* Day: deep blue zenith → azure → warm horizon → peachy glow */
-      var g=ctx.createLinearGradient(0,0,0,256);
-      g.addColorStop(0,'#04090f');g.addColorStop(0.18,'#081828');
-      g.addColorStop(0.42,'#0d3060');g.addColorStop(0.65,'#1a5590');
-      g.addColorStop(0.80,'#4d90b8');g.addColorStop(0.90,'#d4803a');
-      g.addColorStop(0.96,'#e87a35');g.addColorStop(1,'#f0a050');
-      ctx.fillStyle=g;ctx.fillRect(0,0,128,256);
-      /* sun halo glow on horizon */
-      var sunG=ctx.createRadialGradient(64,240,2,64,240,80);
-      sunG.addColorStop(0,'rgba(255,220,120,0.85)');sunG.addColorStop(0.3,'rgba(255,160,60,0.35)');
-      sunG.addColorStop(1,'rgba(255,100,20,0)');
-      ctx.fillStyle=sunG;ctx.fillRect(0,160,128,96);
-    } else {
-      /* Night: near-black with deep blue tint */
-      var gn=ctx.createLinearGradient(0,0,0,256);
-      gn.addColorStop(0,'#010103');gn.addColorStop(0.5,'#01040c');
-      gn.addColorStop(1,'#020810');
-      ctx.fillStyle=gn;ctx.fillRect(0,0,128,256);
-      /* Stars */
-      for(var si=0;si<120;si++){
-        var sx=Math.random()*128,sy=Math.random()*180;
-        var sAlpha=0.3+Math.random()*0.7;
-        var sSize=0.3+Math.random()*1.2;
-        ctx.beginPath();ctx.arc(sx,sy,sSize,0,Math.PI*2);
-        ctx.fillStyle='rgba(255,255,255,'+sAlpha+')';ctx.fill();
-      }
-      /* moon glow */
-      var moonG=ctx.createRadialGradient(90,40,3,90,40,55);
-      moonG.addColorStop(0,'rgba(200,220,255,0.35)');moonG.addColorStop(0.4,'rgba(180,200,255,0.12)');
-      moonG.addColorStop(1,'rgba(150,180,255,0)');
-      ctx.fillStyle=moonG;ctx.fillRect(0,0,128,256);
-      /* Moon disc */
-      ctx.beginPath();ctx.arc(90,40,4,0,Math.PI*2);
-      ctx.fillStyle='rgba(240,245,255,0.8)';ctx.fill();
-    }
-    return c;
-  };
-  var skyTex=new THREE.CanvasTexture(_mkSkyCvs(false));
-  _dsSkyMesh=new THREE.Mesh(new THREE.SphereGeometry(200,32,16),new THREE.MeshBasicMaterial({map:skyTex,side:THREE.BackSide}));
-  _dsSkyMesh._mkCvs=_mkSkyCvs;scene.add(_dsSkyMesh);
-  /* Procedural cloud layer */
-  var _cloudCvs=document.createElement('canvas');_cloudCvs.width=512;_cloudCvs.height=512;
-  var _cCtx=_cloudCvs.getContext('2d');
-  _cCtx.fillStyle='rgba(0,0,0,0)';_cCtx.fillRect(0,0,512,512);
-  for(var ci=0;ci<80;ci++){
-    var cx=Math.random()*512,cy=Math.random()*512;
-    var cr=20+Math.random()*60;
-    var cg=_cCtx.createRadialGradient(cx,cy,0,cx,cy,cr);
-    cg.addColorStop(0,'rgba(255,255,255,0.12)');cg.addColorStop(1,'rgba(255,255,255,0)');
-    _cCtx.fillStyle=cg;_cCtx.fillRect(cx-cr,cy-cr,cr*2,cr*2);
-  }
-  var cloudTex=new THREE.CanvasTexture(_cloudCvs);
-  cloudTex.wrapS=THREE.RepeatWrapping;cloudTex.wrapT=THREE.RepeatWrapping;
-  var cloudPlane=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshBasicMaterial({map:cloudTex,transparent:true,opacity:0.35,side:THREE.DoubleSide,depthWrite:false}));
-  cloudPlane.rotation.x=-Math.PI/2;cloudPlane.position.y=120;scene.add(cloudPlane);
-  /* sun disc — large, glowing, positioned at golden-hour angle */
-  var sunP=new THREE.Vector3(80,55,60);
-  _dsSunSphere=new THREE.Mesh(new THREE.SphereGeometry(5,16,16),
-    new THREE.MeshBasicMaterial({color:0xffe890}));
-  _dsSunSphere.position.copy(sunP);scene.add(_dsSunSphere);
-  /* large halo around sun */
-  var halo1=new THREE.Mesh(new THREE.SphereGeometry(14,12,12),new THREE.MeshBasicMaterial({color:0xffaa30,transparent:true,opacity:0.08}));
-  halo1.position.copy(sunP);scene.add(halo1);
-  var halo2=new THREE.Mesh(new THREE.SphereGeometry(30,12,12),new THREE.MeshBasicMaterial({color:0xff8800,transparent:true,opacity:0.03}));
-  halo2.position.copy(sunP);scene.add(halo2);
-  
-  _dsScene._skyObjects = [_dsSkyMesh, cloudPlane, _dsSunSphere, halo1, halo2];
-  /* Procedural env map for reflections (dark moody sci-fi sky) */
-  var _envCvs=document.createElement('canvas');_envCvs.width=256;_envCvs.height=256;
+
+  var _envCvs=document.createElement('canvas');_envCvs.width=512;_envCvs.height=256;
   var _envCtx=_envCvs.getContext('2d');
-  var _envG=_envCtx.createLinearGradient(0,0,0,256);
-  _envG.addColorStop(0,'#050814');_envG.addColorStop(0.3,'#0a1628');_envG.addColorStop(0.5,'#122b40');
-  _envG.addColorStop(0.7,'#204060');_envG.addColorStop(1,'#050a10');
-  _envCtx.fillStyle=_envG;_envCtx.fillRect(0,0,256,256);
+  _envCtx.fillStyle='#020305';_envCtx.fillRect(0,0,512,256);
+  _envCtx.fillStyle='#ffffff';_envCtx.filter='blur(8px)';
+  _envCtx.fillRect(100,50,150,40);_envCtx.fillRect(350,100,80,80);
+  _envCtx.fillStyle='#00e5ff';_envCtx.fillRect(250,80,120,20);
   var _envTex=new THREE.CanvasTexture(_envCvs);
   _envTex.mapping=THREE.EquirectangularReflectionMapping;
   scene.environment=_envTex;
+  scene.background=new THREE.Color('#080b10');
 
-  /* === Moody Sci-Fi Light Rig === */
-  _dsAmbLight=new THREE.HemisphereLight(0x1a2a44,0x050a14,0.3);scene.add(_dsAmbLight);
-  _dsSunLight=new THREE.DirectionalLight(0x66ccff,0.6);
-  _dsSunLight.position.set(80,55,60);_dsSunLight.castShadow=true;
-  _dsSunLight.shadow.mapSize.set(4096,4096);
-  _dsSunLight.shadow.camera.left=-90;_dsSunLight.shadow.camera.right=90;
-  _dsSunLight.shadow.camera.top=90;_dsSunLight.shadow.camera.bottom=-90;
-  _dsSunLight.shadow.camera.near=1;_dsSunLight.shadow.camera.far=300;
-  _dsSunLight.shadow.bias=-0.0005;_dsSunLight.shadow.normalBias=0.02;
+  var pedGeo = new THREE.CylinderGeometry(150, 150, 4, 64);
+  var pedMat = new THREE.MeshStandardMaterial({color: 0x111115, roughness: 0.15, metalness: 0.8});
+  var pedestal = new THREE.Mesh(pedGeo, pedMat);
+  pedestal.position.y = -2.1;
+  pedestal.receiveShadow = true;
+  scene.add(pedestal);
+  
+  var pedRingGeo = new THREE.TorusGeometry(150, 0.5, 16, 100);
+  var pedRingMat = new THREE.MeshStandardMaterial({color: 0x00e5ff, emissive: 0x00e5ff, emissiveIntensity: 2.5});
+  var pedRing = new THREE.Mesh(pedRingGeo, pedRingMat);
+  pedRing.rotation.x = -Math.PI/2;
+  pedRing.position.y = -0.1;
+  scene.add(pedRing);
+
+  _dsShadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(300,300), new THREE.ShadowMaterial({opacity:0.65}));
+  _dsShadowPlane.rotation.x = -Math.PI/2;
+  _dsShadowPlane.position.y = 0.02;
+  _dsShadowPlane.receiveShadow = true;
+  _dsShadowPlane.visible = false;
+  scene.add(_dsShadowPlane);
+
+  _dsScene._skyObjects = [pedestal, pedRing];
+
+  _dsAmbLight=new THREE.HemisphereLight(0xffffff,0x222222,0.4);scene.add(_dsAmbLight);
+  _dsSunLight=new THREE.DirectionalLight(0xfff8ee, 2.5);
+  _dsSunLight.position.set(120, 160, 100);
+  _dsSunLight.castShadow=true;
+  _dsSunLight.shadow.mapSize.set(2048,2048);
+  var d=150;
+  _dsSunLight.shadow.camera.left=-d;_dsSunLight.shadow.camera.right=d;
+  _dsSunLight.shadow.camera.top=d;_dsSunLight.shadow.camera.bottom=-d;
+  _dsSunLight.shadow.camera.near=1;_dsSunLight.shadow.camera.far=400;
+  _dsSunLight.shadow.bias=-0.001;
   scene.add(_dsSunLight);
-  /* Soft cyan fill */
-  var fillL=new THREE.DirectionalLight(0x00e5ff,0.25);fillL.position.set(-60,40,-30);scene.add(fillL);
-  /* Cyan ground bounce */
-  var bncL=new THREE.PointLight(0x00aaff,0.3,180);bncL.position.set(0,1,0);scene.add(bncL);
-  /* Magenta/purple rim from behind-right */
-  var rimL=new THREE.DirectionalLight(0xff00cc,0.35);rimL.position.set(-50,30,-80);scene.add(rimL);
-  /* Soft front fill */
-  var frontL=new THREE.DirectionalLight(0x445588,0.2);frontL.position.set(0,20,90);scene.add(frontL);
-  /* tone mapping for natural contrast */
-  renderer.toneMappingExposure=1.0;
+
+  var fillL=new THREE.DirectionalLight(0xaaccff, 0.8);
+  fillL.position.set(-100, 80, 120);
+  scene.add(fillL);
+  var rimL=new THREE.DirectionalLight(0xffddaa, 1.5);
+  rimL.position.set(-80, 120, -180);
+  scene.add(rimL);
+
+  renderer.shadowMap.enabled = true;
+  if(THREE.PCFSoftShadowMap) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  if(THREE.ACESFilmicToneMapping) renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+
   var vpEl=document.getElementById('dsVP');
   if(vpEl){
     vpEl.addEventListener('mousedown',function(e){if(e.button===0)_dsCamIsDrag=true;if(e.button===2)_dsCamIsPan=true;_dsPrevMX=e.clientX;_dsPrevMY=e.clientY;});
@@ -4232,26 +4267,13 @@ function _dsInitScene(){
     vpEl.addEventListener('touchend',function(){_dsCamIsDrag=false;});
   }
   window.addEventListener('resize',_dsResize);
-  var lastF=0,_dsCloudPlane=cloudPlane,_dsAnimTime=0;
+  var lastF=0,_dsAnimTime=0;
   (function loop(now){
     _dsAnimId=requestAnimationFrame(loop);
     if(now-lastF<33)return;lastF=now;
     _dsAnimTime+=0.016;
     if(_dsIsAnimating&&_dsBuildingGroup){_dsCurrentScale+=(_dsTargetScale-_dsCurrentScale)*0.08;if(Math.abs(_dsCurrentScale-_dsTargetScale)<0.005){_dsCurrentScale=_dsTargetScale;_dsIsAnimating=false;}_dsBuildingGroup.scale.set(_dsCurrentScale,_dsCurrentScale,_dsCurrentScale);}
     if(_dsAutoRotate&&!_dsCamIsDrag&&!_dsFPMode){_dsCamTheta+=0.004;_dsUpdateCam();}
-    /* Animated cloud drift */
-    if(_dsCloudPlane&&_dsCloudPlane.material&&_dsCloudPlane.material.map){
-      _dsCloudPlane.material.map.offset.x=_dsAnimTime*0.003;
-      _dsCloudPlane.material.map.offset.y=_dsAnimTime*0.001;
-    }
-    /* Water feature shimmer */
-    if(scene._waterMeshes){
-      scene._waterMeshes.forEach(function(wm){
-        if(wm.material){wm.material.opacity=0.55+Math.sin(_dsAnimTime*2.5)*0.08;wm.material.needsUpdate=true;}
-        wm.position.y=wm._baseY+Math.sin(_dsAnimTime*1.8)*0.015;
-      });
-    }
-    /* First-person WASD */
     if(_dsFPMode&&_dsCamera){
       var mv=new THREE.Vector3();
       if(_dsFPKeys['KeyW']||_dsFPKeys['ArrowUp'])mv.z-=_dsFPSpeed;
@@ -4291,7 +4313,6 @@ function _dsResize(){var vp=document.getElementById('dsVP');if(!vp||!_dsRenderer
 
 function _dsGetMat(style){
   var MP=THREE.MeshPhysicalMaterial;
-  /* Sci-Fi City PBR presets — sleek metallic greys, dark glossy ground, glowing cyan accents */
   var S={
     modern:{
       wall:new MP({color:0xd0d5da,roughness:0.25,metalness:0.4,clearcoat:0.8,clearcoatRoughness:0.1}),
@@ -4323,383 +4344,128 @@ function _dsGetMat(style){
   return S[style]||S.modern;
 }
 
-function _dsMullions(group,w,d,h,mat,spacing){
-  spacing=spacing||2.5;var nW=Math.max(2,Math.floor(w/spacing)),nD=Math.max(2,Math.floor(d/spacing));
-  for(var f=0;f<=Math.ceil(h/_FLOOR_H);f++){var y=Math.min(f*_FLOOR_H,h);var ln=new THREE.Mesh(new THREE.BoxGeometry(w+0.06,0.06,d+0.06),mat);ln.position.y=y;group.add(ln);}
-  for(var i=0;i<=nW;i++){var x=-w/2+i*(w/nW);var mf=new THREE.Mesh(new THREE.BoxGeometry(0.05,h,0.05),mat);mf.position.set(x,h/2,d/2);group.add(mf);var mb=mf.clone();mb.position.z=-d/2;group.add(mb);}
-  for(var j=0;j<=nD;j++){var z=-d/2+j*(d/nD);var ml=new THREE.Mesh(new THREE.BoxGeometry(0.05,h,0.05),mat);ml.position.set(w/2,h/2,z);group.add(ml);var mr=ml.clone();mr.position.x=-w/2;group.add(mr);}
-}
-
 function _dsVilla(cfg,mat){
-  /* Sci-fi low-rise (villa equivalent) — sleek metallic geometry, neon accents, floating elements */
   var g=new THREE.Group();
   var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,fH=_FLOOR_H,totalH=floors*fH;
-  var gndH=fH*1.15;
-  
-  /* Use global materials */
-  var wallMat=mat.wall;
-  var wallDark=mat.floor;
-  var concMat=mat.roof;
-  var frameMat=mat.accent;
-  var roofMat=mat.roof;
-  var neonMat=new THREE.MeshBasicMaterial({color:mat.accent.color,transparent:true,opacity:0.8});
+  var gndH=fH*1.2;
+  var wallMat=mat.wall, wallDark=mat.floor, concMat=mat.roof, glass=mat.glass;
 
-  var bayW=bw*0.35, bayDepth=0.8;
-  
-  /* === MAIN BUILDING BODY === */
-  var mainBody=new THREE.Mesh(new THREE.BoxGeometry(bw,totalH,bd),wallMat);
+  var mainBody=new THREE.Mesh(new THREE.BoxGeometry(bw*0.8,totalH,bd*0.9),wallMat);
   mainBody.position.y=totalH/2;mainBody.castShadow=true;mainBody.receiveShadow=true;g.add(mainBody);
-  /* Glowing horizontal band around main body */
-  var glowBand=new THREE.Mesh(new THREE.BoxGeometry(bw+0.05,0.1,bd+0.05),neonMat);
-  glowBand.position.y=gndH*0.8;g.add(glowBand);
-
-  /* === PROTRUDING BAYS (left and right) === */
-  var bayL=new THREE.Mesh(new THREE.BoxGeometry(bayW,totalH-gndH,bayDepth*2),wallDark);
-  bayL.position.set(-bw/2+bayW/2,(totalH+gndH)/2,bd/2+bayDepth);bayL.castShadow=true;g.add(bayL);
-  var bayR=new THREE.Mesh(new THREE.BoxGeometry(bayW,totalH-gndH,bayDepth*2),wallDark);
-  bayR.position.set(bw/2-bayW/2,(totalH+gndH)/2,bd/2+bayDepth);bayR.castShadow=true;g.add(bayR);
   
-  /* Vertical neon strips on bays */
-  var vStripL=new THREE.Mesh(new THREE.BoxGeometry(0.05,totalH-gndH,bayDepth*2+0.05),neonMat);
-  vStripL.position.copy(bayL.position);g.add(vStripL);
-  var vStripR=new THREE.Mesh(new THREE.BoxGeometry(0.05,totalH-gndH,bayDepth*2+0.05),neonMat);
-  vStripR.position.copy(bayR.position);g.add(vStripR);
+  var secBody=new THREE.Mesh(new THREE.BoxGeometry(bw*1.0,totalH-gndH*0.5,bd*0.5),wallDark);
+  secBody.position.set(0,totalH/2+gndH*0.25,bd*0.1);secBody.castShadow=true;secBody.receiveShadow=true;g.add(secBody);
 
-  /* === PER-FLOOR DETAILS === */
   for(var f=0;f<floors;f++){
-    var isGround=(f===0);
-    var fy=isGround?0:gndH+(f-1)*fH;
-    var flH=isGround?gndH:fH;
+    var fy=(f===0)?0:gndH+(f-1)*fH;
+    var flH=(f===0)?gndH:fH;
     
-    if(f>0){
-      var slab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.6,0.15,bd+0.6),concMat);
-      slab.position.set(0,fy,0);slab.castShadow=true;g.add(slab);
-      var slabNeon=new THREE.Mesh(new THREE.BoxGeometry(bw+0.65,0.05,bd+0.65),neonMat);
-      slabNeon.position.set(0,fy,0);g.add(slabNeon);
-    }
+    var slab=new THREE.Mesh(new THREE.BoxGeometry(bw+1.0,0.3,bd+1.5),concMat);
+    slab.position.set(0,fy+flH,bd*0.1);slab.castShadow=true;slab.receiveShadow=true;g.add(slab);
     
-    /* === WINDOWS on front facade === */
-    var winH=flH*0.55,winW=1.6;
-    var nWins=Math.max(2,Math.floor(bw/3.5));
-    for(var wi=0;wi<nWins;wi++){
-      var wx=-bw/2+bw/(nWins+1)*(wi+1);
-      var wy=fy+flH*0.45;
-      /* Window glass */
-      var win=new THREE.Mesh(new THREE.BoxGeometry(winW,winH,0.05),mat.glass);
-      win.position.set(wx,wy,bd/2+0.04);win.userData.isWindow=true;g.add(win);
-      /* Cyber frame */
-      var fT=0.1;
-      var fmTop=new THREE.Mesh(new THREE.BoxGeometry(winW+0.2,fT,0.1),frameMat);
-      fmTop.position.set(wx,wy+winH/2+fT/2,bd/2+0.06);g.add(fmTop);
-      var fmBot=fmTop.clone();fmBot.position.y=wy-winH/2-fT/2;g.add(fmBot);
-      var fmL=new THREE.Mesh(new THREE.BoxGeometry(fT,winH+fT*2,0.1),frameMat);
-      fmL.position.set(wx-winW/2-fT/2,wy,bd/2+0.06);g.add(fmL);
-      var fmR=fmL.clone();fmR.position.x=wx+winW/2+fT/2;g.add(fmR);
-      
-      /* === BALCONY on upper floors === */
-      if(!isGround){
-        var balcW=winW+1.0;
-        var balcSlab=new THREE.Mesh(new THREE.BoxGeometry(balcW,0.15,1.2),concMat);
-        balcSlab.position.set(wx,fy+0.06,bd/2+0.6);balcSlab.castShadow=true;g.add(balcSlab);
-        /* Glass/Neon railing */
-        var railH=1.0;
-        var glassRail=new THREE.Mesh(new THREE.BoxGeometry(balcW,railH,0.05),mat.glass);
-        glassRail.position.set(wx,fy+railH/2+0.15,bd/2+1.15);g.add(glassRail);
-        var topRail=new THREE.Mesh(new THREE.BoxGeometry(balcW,0.05,0.05),neonMat);
-        topRail.position.set(wx,fy+railH+0.15,bd/2+1.15);g.add(topRail);
-      }
+    var winW=bw*0.6,winH=flH*0.85;
+    var win=new THREE.Mesh(new THREE.BoxGeometry(winW,winH,0.1),glass);
+    win.position.set(0,fy+winH/2,bd/2+0.25);win.userData.isWindow=true;g.add(win);
+    
+    var numMullions = 4;
+    for(var m=1;m<numMullions;m++){
+       var mul=new THREE.Mesh(new THREE.BoxGeometry(0.1,winH,0.15),wallDark);
+       mul.position.set(-winW/2 + m*(winW/numMullions), fy+winH/2, bd/2+0.25);
+       mul.castShadow=true;g.add(mul);
     }
   }
   
-  /* === ENTRANCE === */
-  var doorW=2.8,doorH=gndH*0.8;
-  var doorRecess=new THREE.Mesh(new THREE.BoxGeometry(doorW+0.4,doorH+0.2,0.4),wallDark);
-  doorRecess.position.set(0,doorH/2+0.1,bd/2+0.15);g.add(doorRecess);
-  var doorGlass=new THREE.Mesh(new THREE.BoxGeometry(doorW,doorH,0.04),mat.glass);
-  doorGlass.position.set(0,doorH*0.5+0.1,bd/2+0.3);doorGlass.userData.isWindow=true;g.add(doorGlass);
-  var doorNeon=new THREE.Mesh(new THREE.BoxGeometry(doorW+0.2,doorH+0.1,0.05),neonMat);
-  doorNeon.position.set(0,doorH*0.5+0.1,bd/2+0.29);g.add(doorNeon);
-  /* Floating canopy */
-  var canW=doorW+3;
-  var canopy=new THREE.Mesh(new THREE.BoxGeometry(canW,0.1,2.5),frameMat);
-  canopy.position.set(0,gndH*0.9,bd/2+1.2);canopy.castShadow=true;g.add(canopy);
-  var canopyNeon=new THREE.Mesh(new THREE.BoxGeometry(canW+0.05,0.12,2.55),neonMat);
-  canopyNeon.position.copy(canopy.position);g.add(canopyNeon);
-  
-  /* === FLAT SCI-FI ROOF === */
-  var roofSlab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.8,0.2,bd+0.8),roofMat);
-  roofSlab.position.y=totalH+0.1;g.add(roofSlab);
-  ridge.position.set(0,totalH+roofH2*0.55,0);ridge.castShadow=true;g.add(ridge);
-  
-  /* Rooftop equipment */
-  var mechMat=new THREE.MeshPhysicalMaterial({color:0xcccccc,roughness:0.4,metalness:0.6});
-  for(var ac=0;ac<Math.max(2,Math.floor(bw/6));ac++){
-    var acX=-bw/3+ac*(bw/3);
-    var acUnit=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6),mechMat);
-    acUnit.position.set(acX,totalH+0.7,-bd/4);acUnit.castShadow=true;g.add(acUnit);
-  }
-  var tank=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,1.2,12),new THREE.MeshPhysicalMaterial({color:0x445566,roughness:0.35,metalness:0.5}));
-  tank.position.set(bw/3,totalH+1.0,-bd/3);tank.castShadow=true;g.add(tank);
+  var parapet=new THREE.Mesh(new THREE.BoxGeometry(bw+1.0,0.6,bd+1.5),wallDark);
+  parapet.position.set(0,totalH+0.3,bd*0.1);parapet.castShadow=true;g.add(parapet);
   
   return g;
 }
 
 function _dsTower(cfg,mat){
-  /* Sci-fi tower — sleek monolithic structure, glowing data veins, metallic chassis, sharp crown */
   var g=new THREE.Group();
   var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,fH=_FLOOR_H;
-  var podFloors=Math.min(4,Math.max(2,Math.floor(floors*0.12)));
+  var podFloors=Math.min(4,Math.max(1,Math.floor(floors*0.1)));
   var twrFloors=floors-podFloors;
   var podH=podFloors*fH,twrH=twrFloors*fH;
-  var podW=bw*1.28,podD=bd*1.28;
+  var podW=bw*1.3,podD=bd*1.3;
   
-  /* Use global materials */
-  var towerWall=mat.wall;
-  var podiumWall=mat.floor;
-  var frameMat=mat.accent;
-  var neonMat=new THREE.MeshBasicMaterial({color:mat.accent.color,transparent:true,opacity:0.9});
-
-  /* === SCI-FI PODIUM === */
-  var pod=new THREE.Mesh(new THREE.BoxGeometry(podW,podH,podD),podiumWall);
+  var towerWall=mat.wall, frameMat=mat.accent;
+  
+  var pod=new THREE.Mesh(new THREE.BoxGeometry(podW,podH,podD),towerWall);
   pod.position.y=podH/2;pod.castShadow=true;pod.receiveShadow=true;g.add(pod);
+  var podGlass=new THREE.Mesh(new THREE.BoxGeometry(podW+0.1,podH-1,podD+0.1),mat.glass);
+  podGlass.position.y=podH/2;g.add(podGlass);
   
-  /* Podium metallic bracing */
-  var podFrame=new THREE.Mesh(new THREE.BoxGeometry(podW+0.1,podH+0.1,podD+0.1),mat.glass);
-  podFrame.position.y=podH/2;g.add(podFrame);
+  var tow=new THREE.Mesh(new THREE.BoxGeometry(bw-1,twrH,bd-1),towerWall);
+  tow.position.set(0,podH+twrH/2,0);tow.castShadow=true;tow.receiveShadow=true;g.add(tow);
   
-  /* Glowing horizontal energy rings around podium */
-  for(var pf=0;pf<podFloors;pf++){
-    var ps=new THREE.Mesh(new THREE.BoxGeometry(podW+0.2,0.1,podD+0.2),neonMat);
-    ps.position.y=pf*fH+0.05;g.add(ps);
-    /* Dark metallic separator slabs */
-    var pslab=new THREE.Mesh(new THREE.BoxGeometry(podW+0.3,0.2,podD+0.3),frameMat);
-    pslab.position.y=pf*fH+0.2;pslab.castShadow=true;g.add(pslab);
+  var tGlass=new THREE.Mesh(new THREE.BoxGeometry(bw,twrH,bd),mat.glass);
+  tGlass.position.set(0,podH+twrH/2,0);tGlass.userData.isWindow=true;g.add(tGlass);
+  
+  for(var f=0;f<twrFloors;f++){
+    var slab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.4,0.3,bd+0.4),mat.floor);
+    slab.position.set(0,podH+f*fH,0);slab.castShadow=true;slab.receiveShadow=true;g.add(slab);
   }
   
-  /* Podium structural columns (metallic) */
-  var pColSp=(podW-1)/Math.round(podW/4);
-  for(var pc=0;pc<=Math.round(podW/4);pc++){
-    var pcx=-podW/2+pc*pColSp;
-    var pcol=new THREE.Mesh(new THREE.BoxGeometry(0.5,podH,0.6),frameMat);
-    pcol.position.set(pcx,podH/2,podD/2+0.1);pcol.castShadow=true;g.add(pcol);
-    var pcolb=pcol.clone();pcolb.position.z=-(podD/2+0.1);g.add(pcolb);
-  }
+  var finW=0.2,finD=0.6;
+  var finsX=[-bw/2,-bw/4,0,bw/4,bw/2];
+  finsX.forEach(function(fx){
+    var finF=new THREE.Mesh(new THREE.BoxGeometry(finW,twrH,finD),frameMat);
+    finF.position.set(fx,podH+twrH/2,bd/2+0.1);finF.castShadow=true;g.add(finF);
+    var finB=new THREE.Mesh(new THREE.BoxGeometry(finW,twrH,finD),frameMat);
+    finB.position.set(fx,podH+twrH/2,-bd/2-0.1);finB.castShadow=true;g.add(finB);
+  });
   
-  /* Podium Entrance Gate (holographic/neon) */
-  var entGate=new THREE.Mesh(new THREE.BoxGeometry(8,fH*1.5,0.2),mat.glass);
-  entGate.position.set(0,fH*0.75,podD/2+0.3);g.add(entGate);
-  var entNeon=new THREE.Mesh(new THREE.BoxGeometry(8.4,fH*1.5+0.2,0.1),neonMat);
-  entNeon.position.set(0,fH*0.75+0.1,podD/2+0.35);g.add(entNeon);
-  var canopy=new THREE.Mesh(new THREE.BoxGeometry(9,0.2,5),frameMat);
-  canopy.position.set(0,fH*1.5,podD/2+2.5);canopy.castShadow=true;g.add(canopy);
-
-  /* === TOWER SHAFT === */
-  /* Monolithic core */
-  var core=new THREE.Mesh(new THREE.BoxGeometry(bw-0.2,twrH,bd-0.2),towerWall);
-  core.position.y=podH+twrH/2;core.castShadow=true;core.receiveShadow=true;g.add(core);
+  var roofWall=new THREE.Mesh(new THREE.BoxGeometry(bw-0.5,2.5,bd-0.5),mat.roof);
+  roofWall.position.set(0,podH+twrH+1.25,0);roofWall.castShadow=true;g.add(roofWall);
   
-  /* Glass curtain wall extending out slightly */
-  var tgl=new THREE.Mesh(new THREE.BoxGeometry(bw+0.2,twrH,bd+0.2),mat.glass);
-  tgl.position.y=podH+twrH/2;g.add(tgl);
-  
-  /* Per-floor metallic stringers */
-  for(var tf=0;tf<=twrFloors;tf++){
-    var tfy=podH+tf*fH;
-    var tslab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.3,0.1,bd+0.3),frameMat);
-    tslab.position.y=tfy;g.add(tslab);
-    /* Occasional glowing floor band (every 5 floors) */
-    if(tf%5===0 && tf>0){
-      var tneon=new THREE.Mesh(new THREE.BoxGeometry(bw+0.4,0.15,bd+0.4),neonMat);
-      tneon.position.y=tfy+0.12;g.add(tneon);
-    }
-  }
-  
-  /* Vertical power conduits (mullions but thick and glowing) */
-  var mSpacing=Math.max(3,bw/Math.round(bw/4));
-  for(var mv=0;mv<=Math.round(bw/mSpacing);mv++){
-    var mx=-bw/2+mv*mSpacing;
-    var mul=new THREE.Mesh(new THREE.BoxGeometry(0.4,twrH,0.4),frameMat);
-    mul.position.set(mx,podH+twrH/2,bd/2+0.15);g.add(mul);
-    var mulNeon=new THREE.Mesh(new THREE.BoxGeometry(0.1,twrH,0.45),neonMat);
-    mulNeon.position.copy(mul.position);g.add(mulNeon);
-    
-    var mulb=mul.clone();mulb.position.z=-(bd/2+0.15);g.add(mulb);
-    var mulbNeon=mulNeon.clone();mulbNeon.position.z=-(bd/2+0.15);g.add(mulbNeon);
-  }
-
-  /* === SCI-FI CROWN === */
-  /* Sharp, angular top section */
-  var crH=fH*2.5;
-  var crGeo=new THREE.CylinderGeometry(bw*0.3,bw*0.7,crH,4);
-  /* Rotate 45deg so flat sides align */
-  crGeo.rotateY(Math.PI/4);
-  var crown=new THREE.Mesh(crGeo,towerWall);
-  crown.position.set(0,podH+twrH+crH/2,0);
-  crown.castShadow=true;g.add(crown);
-  
-  var crGlass=new THREE.Mesh(new THREE.CylinderGeometry(bw*0.32,bw*0.72,crH,4),mat.glass);
-  crGlass.geometry.rotateY(Math.PI/4);
-  crGlass.position.copy(crown.position);g.add(crGlass);
-  
-  /* Energy spire at top */
-  var spire=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.4,fH*3,8),frameMat);
-  spire.position.y=podH+twrH+crH+fH*1.5;spire.castShadow=true;g.add(spire);
-  var spireNeon=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.45,fH*1.5,8),neonMat);
-  spireNeon.position.y=podH+twrH+crH+fH*0.75;g.add(spireNeon);
-
-  /* Hovering communication rings */
-  for(var ring=1;ring<=3;ring++){
-    var hRing=new THREE.Mesh(new THREE.TorusGeometry(1.5-ring*0.3,0.05,8,32),neonMat);
-    hRing.rotation.x=Math.PI/2;
-    hRing.position.set(0,podH+twrH+crH+fH*0.8+ring*0.6,0);
-    g.add(hRing);
-  }
-
   return g;
 }
 
-function _dsCommercial(cfg,mat){
-  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,h=floors*_FLOOR_H,retailH=_FLOOR_H*1.2;
-  var retail=new THREE.Mesh(new THREE.BoxGeometry(bw,retailH,bd),mat.glass);retail.position.y=retailH/2;g.add(retail);
-  var rf=new THREE.Mesh(new THREE.BoxGeometry(bw+0.1,0.15,bd+0.1),mat.accent);rf.position.y=retailH;g.add(rf);
-  var upperH=h-retailH;
-  if(upperH>0){var upper=new THREE.Mesh(new THREE.BoxGeometry(bw-0.2,upperH,bd-0.2),mat.wall);upper.position.y=retailH+upperH/2;upper.castShadow=true;upper.receiveShadow=true;g.add(upper);var ugl=new THREE.Mesh(new THREE.BoxGeometry(bw,upperH,bd),mat.glass);ugl.position.y=retailH+upperH/2;g.add(ugl);var umg=new THREE.Group();umg.position.y=retailH;g.add(umg);_dsMullions(umg,bw,bd,upperH,mat.accent,2.8);}
-  for(var f=1;f<floors;f++){var sp=new THREE.Mesh(new THREE.BoxGeometry(bw+0.04,0.4,bd+0.04),mat.wall);sp.position.y=retailH+(f-1)*_FLOOR_H+_FLOOR_H*0.35;g.add(sp);}
-  var roof=new THREE.Mesh(new THREE.BoxGeometry(bw+0.4,0.5,bd+0.4),mat.roof);roof.position.y=h+0.25;g.add(roof);
-  return g;
-}
-
-function _dsMixed(cfg,mat){
-  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors;
-  var podFloors=Math.max(2,Math.floor(floors*0.2)),twrFloors=floors-podFloors;
-  var podH=podFloors*(_FLOOR_H*1.1),twrH=twrFloors*_FLOOR_H,podW=bw*1.15,podD=bd*1.15,towW=bw*0.7,towD=bd*0.7;
-  var pod=new THREE.Mesh(new THREE.BoxGeometry(podW,podH,podD),mat.wall);pod.position.y=podH/2;pod.castShadow=true;g.add(pod);
-  var podG=new THREE.Mesh(new THREE.BoxGeometry(podW+0.02,podH,podD+0.02),mat.glass);podG.position.y=podH/2;g.add(podG);_dsMullions(g,podW,podD,podH,mat.accent,3.5);
-  if(twrFloors>0){var tc=new THREE.Mesh(new THREE.BoxGeometry(towW-0.3,twrH,towD-0.3),mat.wall);tc.position.y=podH+twrH/2;tc.castShadow=true;g.add(tc);var tg=new THREE.Mesh(new THREE.BoxGeometry(towW,twrH,towD),mat.glass);tg.position.y=podH+twrH/2;g.add(tg);var tmg2=new THREE.Group();tmg2.position.y=podH;g.add(tmg2);_dsMullions(tmg2,towW,towD,twrH,mat.accent,2.2);var cr=new THREE.Mesh(new THREE.BoxGeometry(towW+0.4,1.5,towD+0.4),mat.accent);cr.position.y=podH+twrH+0.75;g.add(cr);}
-  return g;
-}
-
-function _dsCompound(cfg,mat){
-  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,envW=cfg.envW,envD=cfg.envD;
-  var unitW=Math.min(bw,12),unitD=Math.min(bd,14),unitH=Math.min(floors,3)*_FLOOR_H,gapX=3,gapZ=4;
-  var cols=Math.max(1,Math.floor((envW+gapX)/(unitW+gapX))),rows=Math.max(1,Math.floor((envD+gapZ)/(unitD+gapZ)));
-  var totW=cols*unitW+(cols-1)*gapX,totD=rows*unitD+(rows-1)*gapZ;
-  for(var r=0;r<rows;r++){for(var c=0;c<cols;c++){var unit=new THREE.Group();var x=-totW/2+c*(unitW+gapX)+unitW/2,z=-totD/2+r*(unitD+gapZ)+unitD/2;var core=new THREE.Mesh(new THREE.BoxGeometry(unitW,unitH,unitD),mat.wall);core.position.y=unitH/2;core.castShadow=true;core.receiveShadow=true;unit.add(core);var ul=new THREE.Mesh(new THREE.BoxGeometry(unitW+0.02,unitH,unitD+0.02),mat.glass);ul.position.y=unitH/2;unit.add(ul);_dsMullions(unit,unitW,unitD,unitH,mat.accent,1.8);var rf=new THREE.Mesh(new THREE.BoxGeometry(unitW+0.2,0.3,unitD+0.2),mat.roof);rf.position.y=unitH+0.15;unit.add(rf);unit.position.set(x,0,z);g.add(unit);}}
-  return g;
-}
+function _dsCommercial(cfg,mat){ return _dsTower(cfg,mat); }
+function _dsMixed(cfg,mat){ return _dsTower(cfg,mat); }
+function _dsCompound(cfg,mat){ return _dsTower(cfg,mat); }
 
 function _dsEnvironment(plotW,plotD,mat,opts){
   var g=new THREE.Group();
-  /* Sci-fi base ground */
-  var gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshPhysicalMaterial({color:0x08080c,roughness:0.02,metalness:0.8,clearcoat:1}));
+  
+  var gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshPhysicalMaterial({color:0x05070a,roughness:0.1,metalness:0.8,clearcoat:1.0}));
   gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.05;gnd.receiveShadow=true;g.add(gnd);
   
-  /* Contact shadow under building footprint */
-  var shadowMat=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.8});
-  var contactShadow=new THREE.Mesh(new THREE.PlaneGeometry(plotW*0.6,plotD*0.6),shadowMat);
-  contactShadow.rotation.x=-Math.PI/2;contactShadow.position.y=0.005;g.add(contactShadow);
+  var grid = new THREE.GridHelper(500, 100, 0x00e5ff, 0x112233);
+  grid.position.y = -0.04;
+  grid.material.opacity = 0.2;
+  grid.material.transparent = true;
+  g.add(grid);
 
-  /* Glowing circuit grid under plot */
-  var _plotCvs=document.createElement('canvas');_plotCvs.width=512;_plotCvs.height=512;
-  var _plotCtx=_plotCvs.getContext('2d');
-  _plotCtx.fillStyle='#0a0a0f';_plotCtx.fillRect(0,0,512,512);
-  _plotCtx.strokeStyle='rgba(0,229,255,0.3)';_plotCtx.lineWidth=2;
-  for(var py=0;py<=512;py+=32){_plotCtx.beginPath();_plotCtx.moveTo(0,py);_plotCtx.lineTo(512,py);_plotCtx.stroke();}
-  for(var px=0;px<=512;px+=32){_plotCtx.beginPath();_plotCtx.moveTo(px,0);_plotCtx.lineTo(px,512);_plotCtx.stroke();}
-  /* Some bright nodes */
-  _plotCtx.fillStyle='#00e5ff';
-  for(var n=0;n<150;n++){
-    _plotCtx.beginPath();_plotCtx.arc(Math.floor(Math.random()*16)*32,Math.floor(Math.random()*16)*32,3,0,Math.PI*2);_plotCtx.fill();
-  }
-  var plotTex=new THREE.CanvasTexture(_plotCvs);
-  plotTex.wrapS=plotTex.wrapT=THREE.RepeatWrapping;plotTex.repeat.set(plotW/16,plotD/16);
-  var plotGndMat=new THREE.MeshPhysicalMaterial({map:plotTex,color:0x111118,roughness:0.4,metalness:0.8,emissive:new THREE.Color(0x00e5ff),emissiveMap:plotTex,emissiveIntensity:0.5});
-  var plot=new THREE.Mesh(new THREE.PlaneGeometry(plotW,plotD),plotGndMat);
+  var plot=new THREE.Mesh(new THREE.PlaneGeometry(plotW,plotD),new THREE.MeshStandardMaterial({color:0x11141a,roughness:0.9,metalness:0}));
   plot.rotation.x=-Math.PI/2;plot.position.y=0.01;plot.receiveShadow=true;g.add(plot);
 
-  var cMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.8});
-  [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(function(sx){var cm=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.3,8),cMat);cm.position.set(sx[0]*plotW/2,0.15,sx[1]*plotD/2);g.add(cm);});
-  
-  if(opts.road){
-    /* Energy lane instead of asphalt */
-    var road=new THREE.Mesh(new THREE.PlaneGeometry(plotW+150,12),new THREE.MeshPhysicalMaterial({color:0x050508,roughness:0.2,metalness:0.9,clearcoat:1}));
-    road.rotation.x=-Math.PI/2;road.position.set(0,0.02,plotD/2+6);road.receiveShadow=true;g.add(road);
-    /* Glowing median strips */
-    for(var m=0;m<3;m++){
-      var strip=new THREE.Mesh(new THREE.BoxGeometry(plotW+150,0.01,0.1),new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.6}));
-      strip.position.set(0,0.04,plotD/2+2+m*4);g.add(strip);
-    }
-    /* Pavement / Data conduit edge */
-    var sw=new THREE.Mesh(new THREE.BoxGeometry(plotW+150,0.2,3),new THREE.MeshPhysicalMaterial({color:0x1a1a24,roughness:0.6,metalness:0.5}));
-    sw.position.set(0,0.1,plotD/2+0.5);g.add(sw);
-  }
-  
+  var wallH = 1.8;
+  var wallMat=new THREE.MeshStandardMaterial({color:0xd0d0d5,roughness:0.9,metalness:0});
+  var wallThickness = 0.4;
+  var fwLeft=new THREE.Mesh(new THREE.BoxGeometry(plotW/2-3,wallH,wallThickness),wallMat);
+  fwLeft.position.set(-plotW/4-1.5,wallH/2,plotD/2);fwLeft.castShadow=true;g.add(fwLeft);
+  var fwRight=new THREE.Mesh(new THREE.BoxGeometry(plotW/2-3,wallH,wallThickness),wallMat);
+  fwRight.position.set(plotW/4+1.5,wallH/2,plotD/2);fwRight.castShadow=true;g.add(fwRight);
+  var sideW=new THREE.Mesh(new THREE.BoxGeometry(wallThickness,wallH,plotD),wallMat);
+  sideW.position.set(-plotW/2,wallH/2,0);sideW.castShadow=true;g.add(sideW);
+  var sideE=sideW.clone();sideE.position.x=plotW/2;g.add(sideE);
+  var backW=new THREE.Mesh(new THREE.BoxGeometry(plotW,wallH,wallThickness),wallMat);
+  backW.position.set(0,wallH/2,-plotD/2);backW.castShadow=true;g.add(backW);
+
   if(opts.trees){
-    /* Cyber pylons instead of trees */
-    var pylonPos=[];
-    for(var tx=-plotW/2+2;tx<=plotW/2-2;tx+=8){pylonPos.push([tx,-plotD/2-3]);}
-    for(var tz=-plotD/2+3;tz<=plotD/2-3;tz+=8){pylonPos.push([-plotW/2-3,tz]);pylonPos.push([plotW/2+3,tz]);}
-    pylonPos.forEach(function(pos){
-      var pylH=3+Math.random()*2;
-      var pyl=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.15,pylH,6),new THREE.MeshPhysicalMaterial({color:0x222233,metalness:0.9,roughness:0.1}));
-      pyl.position.set(pos[0],pylH/2,pos[1]);g.add(pyl);
-      var ring=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.04,8,16),new THREE.MeshBasicMaterial({color:0x00e5ff}));
-      ring.rotation.x=Math.PI/2;ring.position.set(pos[0],pylH*0.8,pos[1]);g.add(ring);
-    });
-    
-    /* Pool -> Data Reservoir */
     if(!_dsScene._waterMeshes)_dsScene._waterMeshes=[];
     var poolW=Math.min(plotW*0.3,8),poolD=Math.min(plotD*0.25,6);
-    var poolMat=new THREE.MeshPhysicalMaterial({color:0x00aaff,roughness:0.0,metalness:0.5,transparent:true,opacity:0.8,emissive:0x0088cc,emissiveIntensity:0.5});
-    var poolMesh=new THREE.Mesh(new THREE.BoxGeometry(poolW,0.04,poolD),poolMat);
-    poolMesh.position.set(-plotW*0.25,0.08,-plotD*0.25);poolMesh._baseY=0.08;
+    var poolMat=new THREE.MeshPhysicalMaterial({color:0x00aaff,roughness:0.1,metalness:0.1,transparent:true,opacity:0.8});
+    var poolMesh=new THREE.Mesh(new THREE.BoxGeometry(poolW,0.2,poolD),poolMat);
+    poolMesh.position.set(-plotW*0.25,0.1,-plotD*0.3);poolMesh._baseY=0.1;
     g.add(poolMesh);_dsScene._waterMeshes.push(poolMesh);
+    
+    var poolBorder=new THREE.Mesh(new THREE.BoxGeometry(poolW+0.6,0.1,poolD+0.6),new THREE.MeshStandardMaterial({color:0xdddddd}));
+    poolBorder.position.set(-plotW*0.25,0.05,-plotD*0.3);g.add(poolBorder);
   }
 
-  /* Boundary forcefield / wall */
-  var wallMat=new THREE.MeshPhysicalMaterial({color:0x15151e,roughness:0.2,metalness:0.9,clearcoat:1});
-  var glowMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.8});
-  var fwL=plotW/2-2;
-  var fwLeft=new THREE.Mesh(new THREE.BoxGeometry(fwL,1.5,0.15),wallMat);
-  fwLeft.position.set(-plotW/4-1,0.75,plotD/2);g.add(fwLeft);
-  var fwLeftGlow=new THREE.Mesh(new THREE.BoxGeometry(fwL,0.05,0.16),glowMat);
-  fwLeftGlow.position.set(-plotW/4-1,1.5,plotD/2);g.add(fwLeftGlow);
-  
-  var fwRight=new THREE.Mesh(new THREE.BoxGeometry(fwL,1.5,0.15),wallMat);
-  fwRight.position.set(plotW/4+1,0.75,plotD/2);g.add(fwRight);
-  var fwRightGlow=new THREE.Mesh(new THREE.BoxGeometry(fwL,0.05,0.16),glowMat);
-  fwRightGlow.position.set(plotW/4+1,1.5,plotD/2);g.add(fwRightGlow);
-  
-  var sideW=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.5,plotD),wallMat);
-  sideW.position.set(-plotW/2,0.75,0);g.add(sideW);
-  var sideE=sideW.clone();sideE.position.x=plotW/2;g.add(sideE);
-  var backW=new THREE.Mesh(new THREE.BoxGeometry(plotW,1.5,0.15),wallMat);
-  backW.position.set(0,0.75,-plotD/2);g.add(backW);
-
-  if(opts.context){
-    var ctxMats=[
-      new THREE.MeshPhysicalMaterial({color:0x08080c,roughness:0.1,metalness:0.9,clearcoat:1}),
-      new THREE.MeshPhysicalMaterial({color:0x11111a,roughness:0.2,metalness:0.8,clearcoat:0.8})
-    ];
-    var winMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.4});
-    [
-      [-plotW/2-25,0,-plotD/2+10,12,30,12],
-      [plotW/2+20,0,0,15,45,15],
-      [-plotW/2-30,0,plotD/2-5,16,25,18],
-      [plotW*0.4,0,-plotD/2-25,20,55,16],
-      [plotW/2+35,0,plotD/2-15,14,35,14],
-      [-plotW/2-40,0,-10,18,50,20]
-    ].forEach(function(d,di){
-      var ctx=new THREE.Mesh(new THREE.BoxGeometry(d[3],d[4],d[5]),ctxMats[di%ctxMats.length]);
-      ctx.position.set(d[0],d[4]/2,d[2]);g.add(ctx);
-      /* Glowing stripes */
-      var stripeFloors=Math.floor(d[4]/4);
-      for(var sf=1;sf<stripeFloors;sf++){
-        var stripe=new THREE.Mesh(new THREE.BoxGeometry(d[3]+0.1,0.2,d[5]+0.1),winMat);
-        stripe.position.set(d[0],sf*4,d[2]);g.add(stripe);
-      }
-    });
-  }
   return g;
 }
 
@@ -4729,57 +4495,47 @@ function _dsGenerate(){
   _dsScene.add(_dsEnvGroup);
   var builders={villa:_dsVilla,tower:_dsTower,commercial:_dsCommercial,mixed:_dsMixed,compound:_dsCompound};
   _dsBuildingGroup=(builders[type]||_dsTower)(cfg,mat);
-  /* window bands for low-rise; towers have curtain wall already */
   if(cfg.floors<=10)_dsAddWindowBands(_dsBuildingGroup,bw,bd,cfg.floors,mat);
-  /* People silhouettes on balconies */
   _dsAddPeople(_dsBuildingGroup,cfg.floors,bw,bd,_FLOOR_H);
-  /* Night window point lights (hidden until night toggle) */
   _dsAddWindowLights(_dsBuildingGroup,cfg.floors,bd,_FLOOR_H);
   _dsBuildingGroup.scale.set(0.01,0.01,0.01);_dsScene.add(_dsBuildingGroup);
   _dsTargetScale=1;_dsCurrentScale=0.01;_dsIsAnimating=true;
   var buildH=cfg.floors*_FLOOR_H;_dsCamTarget.set(0,buildH*0.35,0);_dsCamRadius=Math.max(buildH*1.5,Math.max(plotW,plotD)*1.2);_dsCamPhi=Math.PI*0.28;_dsUpdateCam();
   _dsUpdateStats(plotW,plotD,bw,bd,cfg.floors,coverage,type,style);
   if(_dsRefImage)_dsApplyImageToModel(_dsRefImage);
-  /* Auto-capture 3D render and assign to plot after grow animation settles */
   setTimeout(function(){
     if(!_dsRenderer||!_dsScene||!_dsCamera)return;
-    /* Force full-scale render for capture */
     if(_dsBuildingGroup)_dsBuildingGroup.scale.set(1,1,1);
     _dsCurrentScale=1;_dsTargetScale=1;_dsIsAnimating=false;
-    
-    /* Hide background objects for transparent capture */
-    var prevEnv = _dsScene.environment;
-    _dsScene.environment = null;
+    var prevSky = [];
     if(_dsScene._skyObjects) {
-      _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
+      _dsScene._skyObjects.forEach(function(o){ prevSky.push(o.visible); o.visible = false; });
     }
-    if(_dsEnvGroup) { _dsEnvGroup.visible = false; }
-    
+    var prevEnvVis = false;
+    if(_dsEnvGroup) { prevEnvVis = _dsEnvGroup.visible; _dsEnvGroup.visible = false; }
+    var prevBg = _dsScene.background;
+    _dsScene.background = null;
     _dsRenderer.render(_dsScene,_dsCamera);
-    
     try{
       var dataUrl=_dsRenderer.domElement.toDataURL('image/png');
-      
-      /* Restore background objects */
-      _dsScene.environment = prevEnv;
       if(_dsScene._skyObjects) {
-        _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
+        _dsScene._skyObjects.forEach(function(o,i){ o.visible = prevSky[i]; });
       }
-      if(_dsEnvGroup) { _dsEnvGroup.visible = true; }
-      
+      if(_dsEnvGroup) _dsEnvGroup.visible = prevEnvVis;
+      _dsScene.background = prevBg;
       _dsRefImage=dataUrl;
-      /* Show in image panel */
       var thumb=document.getElementById('dsImgThumb');
       if(thumb){thumb.src=dataUrl;thumb.style.display='block';}
       var clr=document.getElementById('dsImgClear');if(clr)clr.style.display='block';
       var drop=document.getElementById('dsImgDrop');if(drop)drop.style.display='none';
       var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='block';
-      /* Auto-assign to the current plot */
-      var modal=document.getElementById('concept3dModal');
       if(modal&&modal._plotData){
         var targetPlot=(window.plots||[]).find(function(p){return String(p.id)===String(modal._plotData.id);});
         if(targetPlot){
           targetPlot.conceptImage=dataUrl;
+          targetPlot.conceptAspect=_dsRenderer.domElement.width/_dsRenderer.domElement.height;
+          if(typeof _dsCamRadius!=='undefined')targetPlot.conceptCamRadius=_dsCamRadius;
+          targetPlot.conceptBw=bw;
           if(typeof saveToLocalStorage==='function')saveToLocalStorage();
         }
       }
@@ -4815,10 +4571,6 @@ function _dsUpdateStats(plotW,plotD,bw,bd,floors,coverage,type,style){
 
 function _dsDayNight(){
   _dsIsNight=!_dsIsNight;var btn=document.getElementById('dsBtnDN');
-  if(_dsSkyMesh&&_dsSkyMesh._mkCvs){
-    var newTex=new THREE.CanvasTexture(_dsSkyMesh._mkCvs(_dsIsNight));
-    _dsSkyMesh.material.map=newTex;_dsSkyMesh.material.needsUpdate=true;
-  }
   if(_dsIsNight){
     if(_dsSunSphere)_dsSunSphere.visible=false;
     if(_dsScene)_dsScene.fog.color.setHex(0x020408);_dsScene.fog.density=0.006;
@@ -4826,7 +4578,6 @@ function _dsDayNight(){
     if(_dsAmbLight){_dsAmbLight.intensity=0.1;}
     if(_dsRenderer)_dsRenderer.toneMappingExposure=0.42;
     if(btn){btn.textContent='☽ Night';btn.classList.add('act');}
-    /* window emissive glow + point lights */
     if(_dsBuildingGroup)_dsBuildingGroup.traverse(function(obj){
       if(obj.isMesh&&obj.userData.isWindow&&obj.material){
         obj.material.emissive=new THREE.Color(0xffcc55);
@@ -4834,33 +4585,20 @@ function _dsDayNight(){
         obj.material.needsUpdate=true;
       }
       if(obj.isLight&&obj.userData.isWindowLight){obj.intensity=1.2;obj.visible=true;}
-      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=2.5;obj.visible=true;}
-      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.9;obj.material.needsUpdate=true;}
-    });
-    if(_dsEnvGroup)_dsEnvGroup.traverse(function(obj){
-      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=2.5;obj.visible=true;}
-      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.9;obj.material.needsUpdate=true;}
     });
   } else {
     if(_dsSunSphere)_dsSunSphere.visible=true;
-    if(_dsScene){_dsScene.fog.color.setHex(0x87a5b8);_dsScene.fog.density=0.004;}
-    if(_dsSunLight){_dsSunLight.intensity=1.8;_dsSunLight.color.setHex(0xfff0d0);}
-    if(_dsAmbLight){_dsAmbLight.intensity=0.38;}
-    if(_dsRenderer)_dsRenderer.toneMappingExposure=0.95;
+    if(_dsScene){_dsScene.fog.color.setHex(0x080b10);_dsScene.fog.density=0.005;}
+    if(_dsSunLight){_dsSunLight.intensity=2.0;_dsSunLight.color.setHex(0xffffff);}
+    if(_dsAmbLight){_dsAmbLight.intensity=0.8;}
+    if(_dsRenderer)_dsRenderer.toneMappingExposure=1.1;
     if(btn){btn.textContent='☀ Day';btn.classList.remove('act');}
-    /* kill window glow + lights in day */
     if(_dsBuildingGroup)_dsBuildingGroup.traverse(function(obj){
       if(obj.isMesh&&obj.userData.isWindow&&obj.material){
         obj.material.emissiveIntensity=0;
         obj.material.needsUpdate=true;
       }
       if(obj.isLight&&obj.userData.isWindowLight){obj.intensity=0;obj.visible=false;}
-      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=0;obj.visible=false;}
-      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.3;obj.material.needsUpdate=true;}
-    });
-    if(_dsEnvGroup)_dsEnvGroup.traverse(function(obj){
-      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=0;obj.visible=false;}
-      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.3;obj.material.needsUpdate=true;}
     });
   }
 }
@@ -4891,33 +4629,28 @@ function _dsApplyImageToModel(src){
         m.needsUpdate=true;
       }
     });
-    
-    /* Auto-capture a transparent 3D render of the textured building so it looks like a real 3D pin on the map */
     setTimeout(function(){
       if(!_dsRenderer||!_dsScene||!_dsCamera)return;
       var prevEnv = _dsScene.environment;
       _dsScene.environment = null;
+      var prevBg = _dsScene.background;
+      _dsScene.background = null;
       if(_dsScene._skyObjects) {
         _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
       }
       if(_dsEnvGroup) { _dsEnvGroup.visible = false; }
-      
       _dsRenderer.render(_dsScene,_dsCamera);
-      
       try{
         var dataUrl=_dsRenderer.domElement.toDataURL('image/png');
-        
         _dsScene.environment = prevEnv;
+        _dsScene.background = prevBg;
         if(_dsScene._skyObjects) {
           _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
         }
         if(_dsEnvGroup) { _dsEnvGroup.visible = true; }
-        
         _dsRefImage=dataUrl;
         var thumb=document.getElementById('dsImgThumb');
         if(thumb) thumb.src=dataUrl;
-        
-        /* Auto-update dialog preview if it's already open */
         var asgnDlg = document.getElementById('dsAssignDlg');
         if(asgnDlg) {
            var imgTag = asgnDlg.querySelector('img');
@@ -4925,7 +4658,6 @@ function _dsApplyImageToModel(src){
         }
       }catch(e){console.warn('Capture fail',e);}
     }, 100);
-    
   },undefined,function(e){console.warn('DS tex load fail:',e);});
 }
 function _dsClearImage(){
@@ -4946,50 +4678,55 @@ function _dsAIImage(){
 }
 function _dsAIImageFromPrompt(prompt){
   var btn=document.getElementById('dsBtnImg');
-  if(btn){btn.textContent='⏳ Generating…';btn.disabled=true;}
-  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=512&height=384&nologo=true&seed='+Math.floor(Math.random()*99999)+'&model=flux';
+  if(btn){btn.textContent='⏳ Generating (10-20s)…';btn.disabled=true;}
+  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=512&height=384&nologo=true&seed='+Math.floor(Math.random()*999999);
   var pnl=document.getElementById('dsImgPanel');if(pnl)pnl.style.display='block';
   var drop=document.getElementById('dsImgDrop'),clr=document.getElementById('dsImgClear'),thumb=document.getElementById('dsImgThumb');
-  /* show pulsing placeholder while Pollinations generates (can take 5-30s) */
   if(drop)drop.style.display='none';if(clr)clr.style.display='block';
-  if(thumb){thumb.style.display='block';thumb.style.opacity='0.25';thumb.style.filter='blur(4px)';thumb.src='';}
-  /* wait for actual image load, THEN apply texture */
-  var img=new Image();img.crossOrigin='anonymous';
-  img.onload=function(){
-    if(thumb){thumb.style.opacity='1';thumb.style.filter='none';}
-    _dsSetImage(url);
+  if(thumb){thumb.style.display='block';thumb.style.opacity='0.25';thumb.style.filter='blur(4px)';thumb.src=url;}
+  
+  var img = new Image();
+  img.crossOrigin = 'Anonymous';
+  img.onload = function(){
+    if(thumb){thumb.style.opacity='1';thumb.style.filter='none';thumb.src=url;}
+    var cvs = document.createElement('canvas');
+    cvs.width = img.width; cvs.height = img.height;
+    var ctx = cvs.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    _dsSetImage(cvs.toDataURL('image/jpeg', 0.8));
     if(btn){btn.textContent='🖼 Image';btn.disabled=false;}
   };
-  img.onerror=function(){
+  img.onerror = function(e){
     if(thumb){thumb.style.opacity='1';thumb.style.filter='none';thumb.style.display='none';}
     if(drop)drop.style.display='block';if(clr)clr.style.display='none';
     if(btn){btn.textContent='🖼 Image';btn.disabled=false;}
-    console.warn('Pollinations load failed');
+    console.warn('AI Image load failed:', e);
   };
-  img.src=url;
+  img.src = url;
 }
 
 function _dsAssignToPlotUI(){
-  /* Capture the exact 360-degree angle the user has chosen in the viewport right now */
   if(_dsRenderer && _dsScene && _dsCamera) {
-    var prevEnv = _dsScene.environment;
-    _dsScene.environment = null;
-    if(_dsScene._skyObjects) _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
-    if(_dsEnvGroup) _dsEnvGroup.visible = false;
-    
+    var prevSky = [];
+    if(_dsScene._skyObjects) {
+      _dsScene._skyObjects.forEach(function(o){ prevSky.push(o.visible); o.visible = false; });
+    }
+    var prevEnvVis = false;
+    if(_dsEnvGroup) { prevEnvVis = _dsEnvGroup.visible; _dsEnvGroup.visible = false; }
+    if(typeof _dsShadowPlane !== 'undefined') _dsShadowPlane.visible = true;
+    var prevBg = _dsScene.background;
+    _dsScene.background = null;
     _dsRenderer.render(_dsScene,_dsCamera);
-    try {
-      _dsRefImage = _dsRenderer.domElement.toDataURL('image/png');
-    } catch(e){}
-    
-    _dsScene.environment = prevEnv;
-    if(_dsScene._skyObjects) _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
-    if(_dsEnvGroup) _dsEnvGroup.visible = true;
-    
+    try { _dsRefImage = _dsRenderer.domElement.toDataURL('image/png'); } catch(e){}
+    if(_dsScene._skyObjects) {
+      _dsScene._skyObjects.forEach(function(o,i){ o.visible = prevSky[i]; });
+    }
+    if(typeof _dsShadowPlane !== 'undefined') _dsShadowPlane.visible = false;
+    if(_dsEnvGroup) _dsEnvGroup.visible = prevEnvVis;
+    _dsScene.background = prevBg;
     var thumb=document.getElementById('dsImgThumb');
     if(thumb) thumb.src=_dsRefImage;
   }
-
   if(!_dsRefImage)return;
   var m=document.getElementById('concept3dModal');if(!m)return;
   var old=document.getElementById('dsAssignDlg');if(old)old.remove();
@@ -5045,6 +4782,10 @@ function _dsAssignConfirm(){
   var target=(window.plots||[]).find(function(p){return String(p.id)===String(targetId);});
   if(target){
     target.conceptImage=_dsRefImage;
+    if(typeof _dsRenderer!=='undefined'&&_dsRenderer)target.conceptAspect=_dsRenderer.domElement.width/_dsRenderer.domElement.height;
+    if(typeof _dsCamRadius!=='undefined')target.conceptCamRadius=_dsCamRadius;
+    var sq=Math.sqrt(Number(target.size||10000)*0.092903);
+    target.conceptBw=Math.min(sq*1.2*0.9, 100);
     if(typeof saveToLocalStorage==='function')saveToLocalStorage();
     if(typeof populateTable==='function')populateTable();
     if(typeof addPlotMarkers==='function')addPlotMarkers();
@@ -6259,7 +6000,17 @@ window.onload=function(){
   if(_syncedGps){filteredPlots=plots.slice();try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}}
   _autoFitMap=false;/* Stay in Dubai on fresh page load */
 
-  initMap();populateTable();togglePlotView('map');updateTotalPlotsBadge();
+  var mv = document.getElementById('mapView');
+  if(mv) mv.style.display = 'block';
+  var tv = document.getElementById('tableView');
+  if(tv) tv.style.display = 'none';
+
+  initMap();
+  populateTable();
+  currentView = 'map';
+  addPlotMarkers();
+  updateTotalPlotsBadge();
+  
   if(currentUser){var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
   setInterval(function(){if(map)map.invalidateSize();},800);
   /* Async-resolve plots that have only approximate GPS (city/default fallback) or no GPS */
