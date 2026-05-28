@@ -1922,6 +1922,10 @@ function addPlotMarkers(){
         var ctrlHtml = '<div style="background:#0a0f1a; padding:4px; text-align:center; font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif; min-width:160px;">' +
             '<div style="color:#38bdf8; margin:0 0 10px 0; font-size:12px; font-weight:700;">3D Model Controls</div>' +
             '<div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:10px;">' +
+              '<button onclick="window.rotateConcept(\''+p.id+'\', -15)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">↺ Rot L</button>' +
+              '<button onclick="window.rotateConcept(\''+p.id+'\', 15)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">Rot R ↻</button>' +
+            '</div>' +
+            '<div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:10px;">' +
               '<button onclick="window.scaleConcept(\''+p.id+'\', 1.1)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➕ Scale Up</button>' +
               '<button onclick="window.scaleConcept(\''+p.id+'\', 0.9)" style="flex:1; padding:6px; background:#1e293b; color:#38bdf8; border-radius:5px; border:1px solid #334155; cursor:pointer; font-size:11px;">➖ Scale Down</button>' +
             '</div>' +
@@ -1933,6 +1937,11 @@ function addPlotMarkers(){
           '</div>';
         overlay.bindPopup(ctrlHtml, {className: 'aiplot-popup', closeButton: true});
         overlay._plotId = p.id;
+        overlay.on('add', function() {
+           var img = this.getElement();
+           if(img) img.style.rotate = (parseFloat(p.conceptRotation) || 0) + 'deg';
+        });
+
         overlay.addTo(map);
         _conceptOverlays.push(overlay);
       }
@@ -2378,6 +2387,22 @@ window.scaleConcept = function(id, factor) {
     var lngScale = latScale / Math.cos(lat*Math.PI/180);
     var halfW = (imgWidthMeters / 2) * lngScale; 
     overlay.setBounds([[botLat, lng-halfW],[topLat, lng+halfW]]);
+  } else {
+    addPlotMarkers();
+  }
+};
+
+window.rotateConcept = function(id, deg) {
+  var p=plots.find(function(x){return String(x.id)===String(id);});
+  if(!p) return;
+  p.conceptRotation = (parseFloat(p.conceptRotation) || 0) + deg;
+  if(p.conceptRotation >= 360) p.conceptRotation -= 360;
+  if(p.conceptRotation <= -360) p.conceptRotation += 360;
+  saveToLocalStorage();
+  var overlay = _conceptOverlays.find(function(o){ return String(o._plotId) === String(id); });
+  if(overlay) {
+    var img = overlay.getElement();
+    if(img) img.style.rotate = p.conceptRotation + 'deg';
   } else {
     addPlotMarkers();
   }
