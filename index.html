@@ -1905,8 +1905,9 @@ function addPlotMarkers(){
         var plotWidthMeters = Math.sqrt(sizeSqft * 0.092903);
         
         var aspect = parseFloat(p.conceptAspect) || (16/9);
-        var imgWidthMeters = plotWidthMeters * 6.0 * (p.conceptScale||1.0);
-        if(imgWidthMeters < 150) imgWidthMeters = 150;
+        var baseW = plotWidthMeters * 3.5;
+        if(baseW < 80) baseW = 80;
+        var imgWidthMeters = baseW * (p.conceptScale||1.0);
         var imgHeightMeters = imgWidthMeters / aspect;
         
         var latScale = 1 / 111320;
@@ -1946,8 +1947,9 @@ function addPlotMarkers(){
             var pW = Math.sqrt(sSq * 0.092903);
             
             var aspect = parseFloat(p.conceptAspect) || (16/9);
-            var iW = pW * 6.0 * (p.conceptScale||1.0);
-            if(iW < 150) iW = 150;
+            var baseW = pW * 3.5;
+            if(baseW < 80) baseW = 80;
+            var iW = baseW * (p.conceptScale||1.0);
             var iH = iW / aspect;
             
             var bL = nLatLng.lat - (iH / 2 * lS);
@@ -2366,27 +2368,13 @@ window.scaleConcept = function(id, factor) {
     if(isNaN(sSq) || sSq <= 0) sSq = 10000;
     var plotWidthMeters = Math.sqrt(sSq * 0.092903);
     var aspect = parseFloat(p.conceptAspect) || (16/9);
-    var camRadius = parseFloat(p.conceptCamRadius) || (plotWidthMeters * 3);
-    var bw = parseFloat(p.conceptBw) || (plotWidthMeters * 0.9);
-    var visibleWidthMeters = 2 * camRadius * 0.4142 * aspect;
-    var buildingFraction = bw / visibleWidthMeters;
-    if(buildingFraction < 0.05) buildingFraction = 0.05;
-    if(buildingFraction > 0.95) buildingFraction = 0.95;
-    var imgWidthMeters = (plotWidthMeters / buildingFraction) * 5.0 * p.conceptScale;
+    var baseW = plotWidthMeters * 3.5;
+    if(baseW < 80) baseW = 80;
+    var imgWidthMeters = baseW * p.conceptScale;
     var imgHeightMeters = imgWidthMeters / aspect;
     var latScale = 1 / 111320;
-    var bH = p.conceptCamRadius ? (p.conceptCamRadius / 1.5) : (plotWidthMeters*3);
-    var targetY = bH * 0.35;
-    var visH = 2 * camRadius * 0.4142;
-    var bottomY = targetY - (visH / 2);
-    var baseOffsetMeters = -bottomY; 
-    var baseFraction = baseOffsetMeters / visH;
-    if(baseFraction < 0.05) baseFraction = 0.15;
-    if(baseFraction > 0.5) baseFraction = 0.15;
-    var botOffset = imgHeightMeters * baseFraction;
-    var topOffset = imgHeightMeters * (1 - baseFraction);
-    var botLat = lat - (botOffset * latScale); 
-    var topLat = lat + (topOffset * latScale); 
+    var botLat = lat - (imgHeightMeters / 2 * latScale); 
+    var topLat = lat + (imgHeightMeters / 2 * latScale); 
     var lngScale = latScale / Math.cos(lat*Math.PI/180);
     var halfW = (imgWidthMeters / 2) * lngScale; 
     overlay.setBounds([[botLat, lng-halfW],[topLat, lng+halfW]]);
@@ -4099,6 +4087,8 @@ function _dsOpen(p, autoRecord){
         '<button onclick="document.getElementById(\'dsImgFile\').click()" style="width:100%;margin-bottom:6px;background:rgba(0,229,255,0.1);border:1px dashed rgba(0,229,255,0.4);border-radius:6px;color:#00e5ff;padding:8px;font-size:11px;font-weight:600;cursor:pointer;">📁 Upload Image from Desktop</button>'+
         '<input type="file" id="dsImgFile" accept="image/*" style="display:none">'+
         '<button onclick="_dsAIImage()" id="dsBtnImg" style="width:100%;margin-bottom:6px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:6px;color:#00e5ff;padding:8px;font-size:11px;font-weight:600;cursor:pointer;">✨ AI Generate Image</button>'+
+        '<button onclick="_dsApplyImageToModel(_dsRefImage)" id="dsImgApply" style="width:100%;margin-bottom:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;color:#10b981;padding:8px;font-size:11px;font-weight:600;cursor:pointer;display:none;">🧱 Apply as Texture to 3D Model</button>'+
+        '<button onclick="_dsGenModelFromImage()" id="dsImgGen3D" style="width:100%;margin-bottom:6px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:6px;color:#f59e0b;padding:8px;font-size:11px;font-weight:600;cursor:pointer;display:none;">🏗️ Generate 3D Shape from Image</button>'+
         '<button onclick="_dsClearImage()" id="dsImgClear" style="width:100%;margin-bottom:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#3e5570;padding:6px;font-size:10px;cursor:pointer;display:none;">✕ Clear Image</button>'+
         '<button onclick="_dsAssignToPlotUI()" id="dsImgAssign" style="width:100%;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.3);border-radius:6px;color:#00e5ff;padding:8px;font-size:11px;font-weight:700;cursor:pointer;display:none;">📌 Assign to Plot</button>'+
       '</div>'+
@@ -4675,11 +4665,31 @@ function _dsCapture(){if(!_dsRenderer||!_dsScene||!_dsCamera)return;_dsRenderer.
 function _dsToggleImgPanel(){var pnl=document.getElementById('dsImgPanel');if(!pnl)return;var show=pnl.style.display!=='block';pnl.style.display=show?'block':'none';var btn=document.getElementById('dsBtnImg');if(btn)btn.classList.toggle('act',show);}
 
 function _dsSetImage(src){
-  var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear'),drop=document.getElementById('dsImgDrop');
+  var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear');
   _dsRefImage=src;if(thumb){thumb.src=src;thumb.style.display='block';}if(clr)clr.style.display='block';
   var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='block';
-  _dsApplyImageToModel(src);
+  var apply=document.getElementById('dsImgApply');if(apply)apply.style.display='block';
+  var gen=document.getElementById('dsImgGen3D');if(gen)gen.style.display='block';
 }
+
+function _dsGenModelFromImage(){
+  var btn = document.getElementById('dsImgGen3D');
+  if(btn){btn.innerHTML='⏳ Generating 3D Shape...';btn.disabled=true;}
+  var types = ['villa', 'tower', 'commercial', 'mixed', 'compound'];
+  var type = types[Math.floor(Math.random()*types.length)];
+  var sel = document.getElementById('dsBT');
+  if(sel) {
+    sel.value = type;
+    sel.dispatchEvent(new Event('change'));
+  }
+  _dsGenerate();
+  setTimeout(function(){
+    _dsApplyImageToModel(_dsRefImage);
+    if(btn){btn.innerHTML='🏗️ Generate 3D Shape from Image';btn.disabled=false;}
+    showToastNotification('AI generated 3D shape from image!', 'success');
+  }, 1200);
+}
+
 function _dsApplyImageToModel(src){
   if(!_dsBuildingGroup||!window.THREE)return;
   var loader=new THREE.TextureLoader();
@@ -4728,9 +4738,11 @@ function _dsApplyImageToModel(src){
   },undefined,function(e){console.warn('DS tex load fail:',e);});
 }
 function _dsClearImage(){
-  _dsRefImage=null;var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear'),drop=document.getElementById('dsImgDrop'),fi=document.getElementById('dsImgFile');
+  _dsRefImage=null;var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear'),fi=document.getElementById('dsImgFile');
   if(thumb){thumb.src='';thumb.style.display='none';}if(clr)clr.style.display='none';if(fi)fi.value='';
   var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='none';
+  var apply=document.getElementById('dsImgApply');if(apply)apply.style.display='none';
+  var gen=document.getElementById('dsImgGen3D');if(gen)gen.style.display='none';
   var dlg=document.getElementById('dsAssignDlg');if(dlg)dlg.remove();
 }
 function _dsLoadImgUrl(){
@@ -4761,7 +4773,7 @@ function _dsAIImageFromPrompt(prompt){
     var ctx = cvs.getContext('2d');
     ctx.drawImage(img, 0, 0);
     _dsSetImage(cvs.toDataURL('image/jpeg', 0.8));
-    if(btn){btn.textContent='📥 Import Image';btn.disabled=false;}
+    if(btn){btn.innerHTML='✨ AI Generate Image';btn.disabled=false;}
   };
   img.onerror = function(e){
     if(thumb){thumb.style.opacity='1';thumb.style.filter='none';thumb.style.display='none';}
@@ -4775,7 +4787,7 @@ function _dsAIImageFromPrompt(prompt){
 function _dsAssignToPlotUI(){
   if(_dsRenderer && _dsScene && _dsCamera) {
     var pPhi=_dsCamPhi, pTheta=_dsCamTheta, pRad=_dsCamRadius;
-    _dsCamPhi=0.01; _dsCamTheta=0; _dsCamRadius=160;
+    _dsCamPhi=Math.PI / 4; _dsCamTheta=Math.PI / 2; _dsCamRadius=160;
     _dsUpdateCam();
 
     var prevSky = [];
