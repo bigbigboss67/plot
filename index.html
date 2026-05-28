@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -193,6 +193,8 @@ body{background:var(--g1);background-image:radial-gradient(ellipse 80% 60% at 20
 .toast.info{border-left:3px solid var(--accent);}
 @keyframes toastIn{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
 @keyframes toastOut{from{transform:translateX(0);opacity:1;}to{transform:translateX(110%);opacity:0;}}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 .moverlay{position:fixed;inset:0;background:rgba(4,8,15,0.88);z-index:5000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
 .moverlay.hidden{display:none;}
 .mbox{background:rgba(255,255,255,0.06);backdrop-filter:blur(32px);-webkit-backdrop-filter:blur(32px);border:1px solid rgba(255,255,255,0.14);border-radius:20px;width:96%;max-width:720px;max-height:94vh;display:flex;flex-direction:column;overflow:hidden;}
@@ -292,6 +294,13 @@ body{background:var(--g1);background-image:radial-gradient(ellipse 80% 60% at 20
 .aiplot-popup .leaflet-popup-content{margin:0;width:auto!important;}
 .aiplot-popup .leaflet-popup-tip-container{display:none;}
 .aiplot-popup .leaflet-popup-close-button{display:none!important;}
+
+.ai-concept-overlay {
+  filter: drop-shadow(0 25px 25px rgba(0,0,0,0.7));
+  pointer-events: auto;
+}
+
+@keyframes floatAnim {}
 /* Card sections */
 .pp-topbar{display:flex;justify-content:space-between;align-items:center;padding:11px 14px 0;}
 .pp-badge{display:inline-flex;align-items:center;border-radius:20px;padding:5px 12px;font-size:11px;font-weight:800;text-transform:capitalize;letter-spacing:0.3px;font-family:'Inter',sans-serif;}
@@ -839,7 +848,8 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
       <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
       <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')geocodeAddress()">
       <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
-      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="topo">Topo</option></select>
+      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="topo">Topo</option><option value="terrain">🏔 Terrain</option><option value="2gis" selected>🗺️ 2GIS Map</option></select>
+      <button class="fbtn" id="blockGridBtn" onclick="toggleBlockGrid()" title="Block Grid Overlay"><i class="fas fa-th"></i> Blocks</button>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
       <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export</button>
     </div>
@@ -917,7 +927,8 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
 </div>
 
 <script>
-var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser={name:'Guest',role:'guest'},searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[];
+var plots=[],filteredPlots=[],selectedIds=new Set(),map=null,markerCluster=null,heatLayer=null,heatmapActive=false,proximityActive=false,amenityLayer=null,areaLayer=null,areaLabel=null,areaMeasurePts=[],areaMeasurePoly=null,distanceMarkers=[],distanceLine=null,distanceLabel=null,bufferCircle=null,currentUser={name:'Guest',role:'guest'},searchTimer=null,_importData=[],_rawRows=[],_sharePlotId=null,currentView='map',_iconSeq=0,_autoFitMap=true,_popupCloseTimer=null,_crmFollowups=[],_conceptOverlays=[];
+/* -- Map Globals Removed -- */
 /* -- Live Sync globals (MQTT over WebSocket) -- */
 var _mqttClient=null,_mqttConnected=false,_mqttTopic='';
 var _syncActive=false,_syncRoom='',_lastRemoteTs=0,_pushTimer=null;
@@ -946,6 +957,7 @@ function saveToLocalStorage(){
       plots.forEach(function(p){
         var sp = JSON.parse(JSON.stringify(p));
         if(typeof sp.image==='string'&&sp.image.startsWith('data:')) sp.image='';
+        if(typeof sp.conceptImage==='string'&&sp.conceptImage.startsWith('data:')) sp.conceptImage='';
         _fbRoomRef.child(String(p.id).replace(/\./g, '_')).set(sp);
       });
     } else {
@@ -1768,11 +1780,12 @@ function parsePDFFile(file,prev,onRows){
 
 function initMap(){
   map=L.map('map',{zoomControl:true}).setView([25.2048,55.2708],10);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'&copy; ESRI',maxZoom:20}).addTo(map);
   markerCluster=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:60,spiderfyOnMaxZoom:true});
+  setMapStyle('2gis');
   map.addLayer(markerCluster);
   addPlotMarkers();
   _initSetOnMapClick();
+
 }
 
 function getStatusColor(s){return s==='Available'?'#22c55e':s==='Reserved'?'#f59e0b':s==='Sold'?'#ef4444':'#94a3b8';}
@@ -1796,6 +1809,15 @@ function makeIcon(color,label,approx){
   return L.divIcon({className:'',html:svg,iconSize:[38,50],iconAnchor:[19,50],popupAnchor:[0,-52]});
 }
 
+function makeConceptIcon(p){
+  var html=
+    '<div style="position:relative;width:24px;height:24px;">'+
+      '<div style="width:12px;height:12px;background:#00e5ff;border:2px solid #040c16;border-radius:50%;box-shadow:0 0 8px rgba(0,229,255,0.8);position:absolute;bottom:0;left:6px;"></div>'+
+      '<div style="position:absolute;bottom:16px;left:12px;transform:translateX(-50%);background:rgba(0,229,255,0.9);color:#040c16;font-size:10px;font-weight:900;font-family:Arial,sans-serif;padding:2px 5px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;">#'+(p.no||p.id)+'</div>'+
+    '</div>';
+  return L.divIcon({className:'',html:html,iconSize:[24,24],iconAnchor:[12,24],popupAnchor:[0,-28]});
+}
+
 function makePopupHTML(p){
   var price=parseNum(p.price),size=parseNum(p.size);
   var szOk=!isNaN(size)&&size>0,prOk=!isNaN(price)&&price>0;
@@ -1810,6 +1832,7 @@ function makePopupHTML(p){
   var shareHref='onclick="(navigator.clipboard||{writeText:function(){}}).writeText(window.location.origin+window.location.pathname+\'?plot='+pid+'\').then(function(){showToastNotification(\'Link copied!\',\'success\');}).catch(function(){});return false;"';
   return (
     '<div style="width:280px;font-family:Inter,sans-serif;">'+
+    (p.conceptImage?'<div style="position:relative;margin:-15px -15px 8px;overflow:hidden;border-radius:8px 8px 0 0;background:radial-gradient(circle at 50% 50%,#0d2137,#040c16);"><img src="'+p.conceptImage+'" style="width:100%;height:110px;object-fit:contain;display:block;" crossorigin="anonymous"><button onclick="window.deleteConcept('+p.id+')" style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,0.6);border:none;color:#ef4444;border-radius:4px;padding:3px 6px;font-size:10px;cursor:pointer;font-weight:bold;"><i class="fas fa-trash-alt"></i></button></div>':'')+
     /* Compact header: plot number + dev + close */
     '<div class="pp-topbar" style="padding:10px 12px 6px;">'+
       '<div style="display:flex;flex-direction:column;line-height:1.2;">'+
@@ -1879,6 +1902,9 @@ function addPlotMarkers(){
   if(!map||!markerCluster)return;
   try{map.invalidateSize();}catch(e){}
   markerCluster.clearLayers();
+  /* Remove old concept overlays */
+  _conceptOverlays.forEach(function(o){try{map.removeLayer(o);}catch(e){}});
+  _conceptOverlays=[];
   var noGps=0,added=0,approxCount=0;
   filteredPlots.forEach(function(p){
     try{
@@ -1889,7 +1915,51 @@ function addPlotMarkers(){
       /* Approximate GPS methods: city fallback or UAE default */
       var isApprox=(p._gpsMethod==='city'||p._gpsMethod==='default');
       if(isApprox)approxCount++;
-      var m=L.marker([lat,lng],{icon:makeIcon(color,p.no,isApprox)});
+      var hasConcept = p.conceptImage && (p.conceptImage.startsWith('data:')||p.conceptImage.startsWith('http'));
+      var m=L.marker([lat,lng],{
+        icon:(hasConcept?makeConceptIcon(p):makeIcon(color,p.no,isApprox)),
+        draggable: true
+      });
+      
+      var overlay = null;
+      if(hasConcept){
+        var latScale = 1 / 111320;
+        /* ~100m total height, base offset 15m south so coordinate rests near bottom of image */
+        var botLat = lat - (15 * latScale); 
+        var topLat = lat + (85 * latScale); 
+        var lngScale = latScale / Math.cos(lat*Math.PI/180);
+        var halfW = 88 * lngScale; /* ~176m wide footprint for 16:9 aspect ratio */
+        var bounds = [[botLat, lng-halfW],[topLat, lng+halfW]];
+        overlay = L.imageOverlay(p.conceptImage, bounds, {className:'ai-concept-overlay', interactive:true});
+        overlay.on('click', function(e){
+            L.DomEvent.stopPropagation(e);
+            if(m.isPopupOpen()){ m.closePopup(); } else { map.closePopup(); m.openPopup(); }
+        });
+        overlay.addTo(map);
+        _conceptOverlays.push(overlay);
+      }
+      
+      /* Drag handling: move image overlay in sync, save on drop */
+      m.on('drag', function(e){
+         if(overlay) {
+            var nLatLng = e.latlng;
+            var lS = 1 / 111320;
+            var bL = nLatLng.lat - (15 * lS);
+            var tL = nLatLng.lat + (85 * lS);
+            var lnS = lS / Math.cos(nLatLng.lat*Math.PI/180);
+            var hW = 88 * lnS;
+            overlay.setBounds([[bL, nLatLng.lng-hW], [tL, nLatLng.lng+hW]]);
+         }
+      });
+      m.on('dragend', function(e){
+         var nLatLng = e.target.getLatLng();
+         p.lat = String(nLatLng.lat);
+         p.lng = String(nLatLng.lng);
+         p._gpsMethod = 'manual';
+         saveToLocalStorage();
+         updateLegendCounts();
+         if(typeof currentView!=='undefined' && currentView==='table') populateTable();
+      });
       /* Bind full popup card — used by both hover and click */
       m.bindPopup(makePopupHTML(p),{maxWidth:300,className:'aiplot-popup',closeButton:false,autoClose:false,closeOnClick:false,offset:[0,-8]});
       /* Click → open/keep popup at pin, NO map pan, NO sidebar — other pins stay visible */
@@ -2038,10 +2108,100 @@ function _initSetOnMapClick(){
 function setMapStyle(style){
   if(!map)return;
   map.eachLayer(function(l){if(l instanceof L.TileLayer)map.removeLayer(l);});
-  var u={carto:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'};
-  L.tileLayer(u[style]||u.osm,{attribution:'',maxZoom:20}).addTo(map);
+  /* Remove block grid if active */
+  if(_blockGridLayer){try{map.removeLayer(_blockGridLayer);}catch(e){}_blockGridLayer=null;}
+  var u={
+    carto:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    osm:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    satellite:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    topo:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    terrain:'https://tiles.stadiamaps.com/tiles/stamen_terrain/{z}/{x}/{y}{r}.png'
+  };
+  if(style==='2gis'){
+    L.tileLayer('https://tile1.maps.2gis.com/tiles?x={x}&y={y}&z={z}&v=1', {attribution:'© <a href="https://2gis.com">2GIS</a>', maxZoom:21, maxNativeZoom:18}).addTo(map);
+  } else if(style==='terrain'){
+    L.tileLayer(u.terrain,{attribution:'© Stadia Maps © Stamen Design © OpenMapTiles © OpenStreetMap',maxZoom:18}).addTo(map);
+    L.tileLayer('https://tiles.stadiamaps.com/tiles/stamen_terrain_labels/{z}/{x}/{y}{r}.png',{maxZoom:18,pane:'overlayPane'}).addTo(map);
+    /* Auto-enable block grid with terrain */
+    _enableBlockGrid();
+  } else {
+    L.tileLayer(u[style]||u.osm,{attribution:'',maxZoom:20}).addTo(map);
+  }
   map.addLayer(markerCluster);
 }
+
+/* ═══════════════════════════════════════════════════
+   BLOCK GRID OVERLAY — divides map into parcels
+   ═══════════════════════════════════════════════════ */
+var _blockGridLayer=null;
+
+function _enableBlockGrid(){
+  if(_blockGridLayer){try{map.removeLayer(_blockGridLayer);}catch(e){}}
+  var GridClass=L.GridLayer.extend({
+    createTile:function(coords){
+      var tile=document.createElement('canvas');
+      var size=this.getTileSize();
+      tile.width=size.x;tile.height=size.y;
+      var ctx=tile.getContext('2d');
+      var z=coords.z;
+      if(z<12){return tile;}
+      var subdivs=z>=16?8:z>=14?4:2;
+      var cellW=size.x/subdivs,cellH=size.y/subdivs;
+      var nwPoint=this._map.unproject([coords.x*size.x,coords.y*size.y],z);
+      var sePoint=this._map.unproject([(coords.x+1)*size.x,(coords.y+1)*size.y],z);
+      var latRange=nwPoint.lat-sePoint.lat;
+      var lngRange=sePoint.lng-nwPoint.lng;
+      for(var r=0;r<subdivs;r++){
+        for(var c=0;c<subdivs;c++){
+          var cellLat1=nwPoint.lat-r*(latRange/subdivs);
+          var cellLat2=cellLat1-latRange/subdivs;
+          var cellLng1=nwPoint.lng+c*(lngRange/subdivs);
+          var cellLng2=cellLng1+lngRange/subdivs;
+          var cnt=0;
+          (window.filteredPlots||[]).forEach(function(p){
+            var la=parseFloat(p.lat),ln=parseFloat(p.lng);
+            if(!isNaN(la)&&!isNaN(ln)&&la<=cellLat1&&la>=cellLat2&&ln>=cellLng1&&ln<=cellLng2)cnt++;
+          });
+          if(cnt>0){
+            var alpha=Math.min(0.45,0.08+cnt*0.06);
+            var hue=cnt>=5?0:cnt>=3?30:cnt>=2?60:120;
+            ctx.fillStyle='hsla('+hue+',80%,55%,'+alpha+')';
+            ctx.fillRect(c*cellW,r*cellH,cellW,cellH);
+            if(z>=14){
+              ctx.font='bold '+(z>=16?'11':'9')+'px Inter,sans-serif';
+              ctx.textAlign='center';ctx.textBaseline='middle';
+              ctx.fillStyle='rgba(255,255,255,0.85)';
+              ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=2;
+              var tx=c*cellW+cellW/2,ty=r*cellH+cellH/2;
+              ctx.strokeText(cnt,tx,ty);
+              ctx.fillText(cnt,tx,ty);
+            }
+          }
+          ctx.strokeStyle='rgba(124,109,250,0.25)';
+          ctx.lineWidth=1;
+          ctx.strokeRect(c*cellW,r*cellH,cellW,cellH);
+        }
+      }
+      ctx.strokeStyle='rgba(124,109,250,0.4)';
+      ctx.lineWidth=1.5;
+      ctx.strokeRect(0,0,size.x,size.y);
+      return tile;
+    }
+  });
+  _blockGridLayer=new GridClass({opacity:0.9,zIndex:600});
+  _blockGridLayer.addTo(map);
+  var btn=document.getElementById('blockGridBtn');
+  if(btn)btn.classList.add('act');
+}
+function _disableBlockGrid(){
+  if(_blockGridLayer){try{map.removeLayer(_blockGridLayer);}catch(e){}_blockGridLayer=null;}
+  var btn=document.getElementById('blockGridBtn');
+  if(btn)btn.classList.remove('act');
+}
+function toggleBlockGrid(){
+  if(_blockGridLayer)_disableBlockGrid();else _enableBlockGrid();
+}
+
 
 function togglePlotView(view){
   currentView=view;
@@ -2076,7 +2236,7 @@ function populateTable(){
     var sel=selectedIds.has(p.id);var pid=p.id;
     var tr=document.createElement('tr');if(sel)tr.className='rowsel';
     tr.innerHTML='<td><input type="checkbox"'+(sel?' checked':'')+' onchange="toggleSelection('+pid+',this.checked)"></td>'+
-      '<td style="font-weight:700;color:#f1f5f9;">'+esc(p.no)+'<br><span style="font-size:9px;color:#64748b;font-weight:normal;background:#1e293b;padding:1px 4px;border-radius:3px;display:inline-block;margin-top:3px;">'+esc(p.uid||'')+'</span></td>'+
+      '<td style="font-weight:700;color:#f1f5f9;">'+esc(p.no)+'<br><span style="font-size:9px;color:#64748b;font-weight:normal;background:#1e293b;padding:1px 4px;border-radius:3px;display:inline-block;margin-top:3px;">'+esc(p.uid||'')+'</span>'+(p.conceptImage?'<br><img src="'+p.conceptImage+'" style="width:44px;height:30px;object-fit:contain;background:#040c16;border-radius:3px;margin-top:3px;border:1px solid rgba(129,140,248,0.35);" title="Has concept design">':'')+'</td>'+
       '<td style="color:#94a3b8;">'+esc(p.dev||'—')+'</td>'+
       '<td style="color:#94a3b8;">'+esc(p.type||'—')+'</td>'+
       '<td><div style="font-weight:600;color:#e2e8f0;">'+(szOk?fmtN(sz)+' sqft':'—')+'</div>'+(szSqft?'<div style="font-size:10px;color:#64748b;">'+szSqft+'</div>':'')+'</td>'+
@@ -2089,6 +2249,7 @@ function populateTable(){
         '<button class="fbtn" onclick="showFollowUpModal('+pid+')" style="margin-right:3px;color:#14b8a6;" title="Follow Up"><i class="fas fa-calendar-check"></i></button>'+
         '<button class="fbtn" onclick="showUNIDOFeasibility('+pid+')" style="margin-right:3px;color:#fbbf24;" title="UNIDO Feasibility"><i class="fas fa-chart-line"></i></button>'+
         (!p.lat||!p.lng?'<button class="fbtn" style="color:#6366f1;margin-right:3px;" onclick="startSetOnMapModeForPlot('+pid+')" title="Place on Map"><i class="fas fa-map-marker-alt"></i></button>':'')+
+        '<button class="fbtn" onclick="show3DConcept('+pid+')" style="margin-right:3px;color:#818cf8;" title="3D AI Concept"><i class="fas fa-cube"></i></button>'+
         '<button class="fbtn" onclick="printPlot('+pid+')" style="margin-right:3px;" title="Print"><i class="fas fa-print"></i></button>'+
         '<button class="fbtn" style="color:#ef4444;" onclick="deletePlot('+pid+')" title="Delete"><i class="fas fa-trash"></i></button>'+
       '</td>';
@@ -2184,6 +2345,18 @@ function toggleSelection(id,checked){if(checked)selectedIds.add(id);else selecte
 function toggleSelectAll(checked){if(checked)filteredPlots.forEach(function(p){selectedIds.add(p.id);});else selectedIds.clear();populateTable();var c=selectedIds.size;var sc=document.getElementById('selectionCount');if(sc)sc.textContent=c>0?c+' selected':'';var bd=document.getElementById('bulkDeleteBtn'),be=document.getElementById('bulkExportBtn');if(bd)bd.style.display=c>0?'':'none';if(be)be.style.display=c>0?'':'none';}
 function bulkDelete(){if(!selectedIds.size)return;if(!confirm('Delete '+selectedIds.size+' plots?'))return;var toDel=Array.from(selectedIds);plots=plots.filter(function(p){return!selectedIds.has(p.id);});selectedIds.clear();filteredPlots=plots.slice();saveToLocalStorage();populateTable();addPlotMarkers();updateTotalPlotsBadge();showToastNotification('Plots deleted.','success');if(_syncActive && _fbRoomRef && typeof _fbRoomRef.child === 'function') toDel.forEach(function(id){_fbRoomRef.child(String(id).replace(/\./g, '_')).remove();});}
 function bulkExport(){downloadCSV(plots.filter(function(p){return selectedIds.has(p.id);}),'selected_plots.csv');}
+
+window.deleteConcept = function(id) {
+  if(!confirm('Remove 3D concept design from this plot?')) return;
+  var p=plots.find(function(x){return String(x.id)===String(id);});
+  if(!p) return;
+  p.conceptImage = null;
+  saveToLocalStorage();
+  addPlotMarkers();
+  if(typeof currentView!=='undefined' && currentView==='table') populateTable();
+  selectPlot(id);
+  showToastNotification('3D Concept removed.', 'success');
+};
 
 function selectPlot(id){
   var p=plots.find(function(x){return String(x.id)===String(id);});if(!p)return;
@@ -2414,6 +2587,7 @@ function selectPlot(id){
       '<button class="pc-abtn pc-abtn-unido" style="flex:2;" onclick="showUNIDOFeasibility('+pid+')"><i class="fas fa-chart-line"></i> UNIDO Feasibility</button>'+
       '<button class="pc-abtn pc-abtn-print" onclick="printPlot('+pid+')"><i class="fas fa-print"></i> Print</button>'+
     '</div>'+
+    '<button class="pc-abtn" style="background:linear-gradient(135deg,#312e81,#4338ca);color:#a5b4fc;border:1px solid #4338ca;border-radius:9px;padding:10px;width:100%;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:7px;" onclick="show3DConcept('+pid+')"><i class="fas fa-cube"></i> 3D AI Concept Design</button>'+
     '<button class="pc-abtn pc-abtn-del" onclick="deletePlot('+pid+')"><i class="fas fa-trash-alt"></i> Delete Plot</button>'+
   '</div>'+
   ''
@@ -2905,6 +3079,19 @@ window.printPlot=function(id){
   if(p.far)areaRows+='<tr><td>FAR</td><td>'+esc(p.far)+'</td></tr>';
   if(p.bua)areaRows+='<tr><td>BUA</td><td>'+esc(p.bua)+' sqft</td></tr>';
 
+  /* -- Concept design section -- */
+  var hasConcept=p.conceptImage&&(p.conceptImage.startsWith('data:')||p.conceptImage.startsWith('http'));
+  var conceptHTML='';
+  if(hasConcept){
+    conceptHTML='<div style="margin-top:14px;padding-top:12px;border-top:1.5px solid #e2e8f0;">'+
+      '<div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:#6366f1;margin-bottom:6px;">&#127775; 3D Concept Design</div>'+
+      '<img src="'+p.conceptImage+'" style="width:100%;height:130px;object-fit:contain;background:radial-gradient(circle at 50% 50%,#0d2137,#040c16);border-radius:8px;border:1.5px solid rgba(99,102,241,0.35);display:block;" crossorigin="anonymous">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">'+
+        '<div style="font-size:8px;color:#64748b;">AI-generated architectural concept</div>'+
+        '<button onclick="window.deleteConcept('+p.id+')" style="background:none;border:none;color:#ef4444;font-size:10px;cursor:pointer;font-weight:bold;display:flex;align-items:center;gap:4px;padding:2px 4px;border-radius:4px;"><i class="fas fa-trash-alt"></i> Remove</button>'+
+      '</div>'+
+    '</div>';
+  }
   /* -- Decide what to show in the image area -- */
   var hasImage=p.image&&(p.image.startsWith('data:')||p.image.startsWith('http')||p.image.startsWith('https')||p.image.startsWith('blob:'));
   var pLat=parseFloat(p.lat),pLng=parseFloat(p.lng);
@@ -3040,6 +3227,7 @@ window.printPlot=function(id){
           (p.videoUrl?'<div class="irow"><span class="il">'+tp('prtVideoTour')+'</span><span class="iv" style="color:#6366f1;">'+tp('prtVideoAvail')+'</span></div>':'')+
           (hasGps?'<div class="irow"><span class="il">'+tp('prtGpsLabel')+'</span><span class="iv" style="font-size:9px;">'+esc(p.lat)+'<br>'+esc(p.lng)+(isApprox?'<br><span style="color:#d97706;">'+tp('prtApproxLabel')+'</span>':'')+'</span></div>':'')+
           (!hasImage&&hasGps?'<div style="font-size:8px;color:#64748b;margin-top:8px;padding:5px 0;border-top:1px solid #f1f5f9;">'+tp('prtOsmCredit')+' &bull; '+(isApprox?tp('prtApproxLoc2'):tp('prtExactLoc'))+'</div>':'')+
+          conceptHTML+
         '</div>'+
       '</div>'+
       '<div class="foot">'+
@@ -3203,6 +3391,12 @@ function showUNIDOFeasibility(plotId){
         '<b style="color:#f1f5f9;">'+tu('unidoNextChecks')+':</b> '+tu('unidoNextList')+
         (missing.length?'<br><b style="color:#fbbf24;">'+tu('unidoMissing')+':</b> '+esc(missing.join(', '))+'.':'<br><b style="color:#22c55e;">'+tu('unidoDataReady')+':</b> '+tu('unidoDataReadyMsg'))+
       '</div>'+
+      (p.conceptImage?
+        '<div style="margin-top:12px;border-top:1px solid #334155;padding-top:12px;">'+
+          '<div style="font-size:9px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;">✨ 3D Concept Design</div>'+
+          '<img src="'+p.conceptImage+'" style="width:100%;height:120px;object-fit:contain;background:radial-gradient(circle at 50% 50%,#0d2137,#040c16);border-radius:8px;border:1px solid rgba(99,102,241,0.4);" crossorigin="anonymous">'+
+          '<div style="font-size:8px;color:#475569;margin-top:4px;">AI-generated architectural concept visualisation</div>'+
+        '</div>':'')+
     '</div></div>';
   document.body.appendChild(modal);
 }
@@ -3701,6 +3895,1590 @@ function askPortalAI(q){
   var el=document.getElementById('aiAnswer');if(el)el.textContent=_aiPortalAnswer(q);
 }
 
+/* ══════════════════════════════════════════════════════
+   3D DESIGN STUDIO VISUALIZER
+   Saffarini Design Studio port · Three.js r128 inline
+   ══════════════════════════════════════════════════════ */
+var _dsScene=null,_dsCamera=null,_dsRenderer=null,_dsAnimId=null;
+var _dsBuildingGroup=null,_dsEnvGroup=null;
+var _dsTargetScale=1,_dsCurrentScale=1,_dsIsAnimating=false;
+var _dsIsNight=false,_dsRefImage=null,_dsAutoRotate=false;
+var _dsCamTheta=Math.PI*0.25,_dsCamPhi=Math.PI*0.28,_dsCamRadius=60;
+var _dsCamTarget=null,_dsCamIsDrag=false,_dsCamIsPan=false,_dsPrevMX=0,_dsPrevMY=0,_dsTouchDist=0;
+var _dsSunLight=null,_dsAmbLight=null,_dsSkyMesh=null,_dsSunSphere=null,_dsComposer=null,_dsBloomPass=null;
+var _dsFPMode=false,_dsFPYaw=0,_dsFPPitch=0,_dsFPKeys={},_dsFPSpeed=0.14;
+var _FLOOR_H=3.2;
+var _COST_RANGES={villa:[2500,4500],tower:[3000,5500],commercial:[2800,4000],mixed:[3200,5000],compound:[2200,3800]};
+var _STYLE_MULT={modern:1.0,arabic:1.15,glass:1.2,mediterranean:0.95,futuristic:1.3};
+var _TYPE_LABELS={villa:'Luxury Villa',tower:'Residential Tower',commercial:'Commercial Block',mixed:'Mixed-Use Development',compound:'Residential Compound'};
+var _STYLE_LABELS={modern:'Modern Minimalist',arabic:'Neo-Arabic',glass:'Glass Curtain',mediterranean:'Mediterranean',futuristic:'Futuristic'};
+
+function show3DConcept(id){
+  var p=plots.find(function(x){return String(x.id)===String(id);});if(!p)return;
+  _dsOpen(p);
+}
+
+function _dsOpen(p){
+  var old=document.getElementById('concept3dModal');if(old){_dsCleanup();old.remove();}
+  _dsIsNight=false;_dsRefImage=null;
+  if(!document.getElementById('_ds_css')){
+    var st=document.createElement('style');st.id='_ds_css';
+    st.textContent='@keyframes dsGlow{0%,100%{box-shadow:0 0 20px rgba(0,229,255,0.06)}50%{box-shadow:0 0 40px rgba(0,229,255,0.14)}}'
+      +'@keyframes dsFadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}'
+      +'#dsVP{position:absolute;inset:0;cursor:grab}#dsVP:active{cursor:grabbing}#dsVP canvas{display:block;width:100%!important;height:100%!important}'
+      +'.ds-panel{position:absolute;background:rgba(8,11,16,0.82);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;overflow-y:auto;animation:dsFadeUp .4s ease both,dsGlow 6s ease-in-out 2s infinite}'
+      +'.ds-panel::-webkit-scrollbar{width:3px}.ds-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px}'
+      +'.ds-panel h5{font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#3e5570;margin:12px 0 7px}.ds-panel h5:first-child{margin-top:0}'
+      +'.ds-ctrl{margin-bottom:8px}.ds-ctrl label{display:block;font-size:9px;font-weight:600;letter-spacing:.7px;text-transform:uppercase;color:#3e5570;margin-bottom:3px}'
+      +'.ds-ctrl select,.ds-ctrl input[type="number"]{width:100%;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:6px 8px;color:#e8eef4;font-size:11px;outline:none;font-family:inherit}'
+      +'.ds-ctrl select{cursor:pointer}.ds-ctrl select option{background:#0c1018;color:#e8eef4}'
+      +'.ds-ctrl input[type="range"]{width:100%;-webkit-appearance:none;background:rgba(255,255,255,0.07);height:3px;border-radius:2px;outline:none;margin:5px 0 1px}'
+      +'.ds-ctrl input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#00e5ff;cursor:pointer;border:2px solid #080b10}'
+      +'.ds-rv{font-size:11px;color:#00e5ff;font-weight:700}.ds-ctrl-row{display:grid;grid-template-columns:1fr 1fr;gap:5px}'
+      +'.ds-stat{margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.06)}.ds-stat:last-child{border:none;margin-bottom:0;padding-bottom:0}'
+      +'.ds-stat .sl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#3e5570;margin-bottom:2px}'
+      +'.ds-stat .sv{font-size:15px;font-weight:800;letter-spacing:-.4px}.ds-stat .sv.cy{color:#00e5ff}.ds-stat .sv.go{color:#c9963a}.ds-stat .sv.gr{color:#22cc66}.ds-stat .sv.wh{color:#e8eef4}'
+      +'.ds-stat .sb{height:3px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:5px;overflow:hidden}.ds-stat .sbf{height:100%;border-radius:2px;background:linear-gradient(90deg,#00e5ff,#00b8d4);transition:width .5s ease}'
+      +'.ds-narr{background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.1);border-radius:7px;padding:8px;margin-top:8px}.ds-narr p{font-size:10px;color:#7a96b0;line-height:1.65;font-style:italic}'
+      +'.ds-hbtn{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:5px 10px;color:#7a96b0;font-size:11px;cursor:pointer;transition:all .15s;font-weight:600;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}'
+      +'.ds-hbtn:hover,.ds-hbtn.act{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,0.06)}'
+      +'.ds-gen{background:linear-gradient(135deg,#00e5ff,#00b8d4);color:#080b10;border:none;padding:11px 28px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .2s}'
+      +'.ds-gen:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,229,255,0.22)}'
+      +'.ds-imgpanel{position:absolute;bottom:68px;right:12px;width:178px;background:rgba(8,11,16,0.9);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;z-index:18;display:none}'
+      +'.ds-imgthumb{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:7px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.1)}'
+      +'.ds-imgdrop{border:1px dashed rgba(0,229,255,0.3);border-radius:7px;padding:12px 8px;text-align:center;cursor:pointer;color:#3e5570;font-size:10px;transition:all .2s}'
+      +'.ds-imgdrop:hover{border-color:#00e5ff;color:#00e5ff;background:rgba(0,229,255,0.04)}';
+    document.head.appendChild(st);
+  }
+  var pArea=parseFloat(p.size)||400,pSide=Math.round(Math.sqrt(pArea));
+  var gfa=parseFloat(p.gfa||p.bua)||0;
+  var defFloors=gfa>0&&pArea>0?Math.max(1,Math.round(gfa/pArea)):8;
+  var defType=(p.type||p.plotType||'').toLowerCase();
+  var defBT=defType.indexOf('commercial')>=0?'commercial':defType.indexOf('mixed')>=0?'mixed':defFloors>8?'tower':'villa';
+  var pid=String(p.id||'');
+  var modal=document.createElement('div');modal.id='concept3dModal';
+  modal.style.cssText='position:fixed;inset:0;z-index:9500;background:#080b10;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+  var pW=Math.min(200,Math.max(10,pSide)),pD=Math.min(200,Math.max(10,pSide));
+  modal.innerHTML=
+    '<div style="position:absolute;top:0;left:0;right:0;z-index:20;height:48px;background:rgba(8,11,16,0.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;padding:0 14px;">'+
+      '<div style="display:flex;align-items:center;gap:9px;">'+
+        '<div style="width:28px;height:28px;background:linear-gradient(135deg,#cc2222,#e63333);border-radius:7px;position:relative;overflow:hidden;flex-shrink:0;"><div style="position:absolute;top:50%;left:50%;width:11px;height:11px;border:1.5px solid rgba(255,255,255,0.85);transform:translate(-50%,-50%) rotate(45deg);"></div></div>'+
+        '<div><div style="color:#e8eef4;font-size:12px;font-weight:700;">Design Studio</div><div style="color:#3e5570;font-size:9px;">Plot #'+esc(pid)+' · 3D Concept Visualizer</div></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:5px;align-items:center;">'+
+        '<button class="ds-hbtn" id="dsBtnDN" onclick="_dsDayNight()">☀ Day</button>'+
+        '<button class="ds-hbtn" id="dsBtnAR" onclick="_dsToggleAutoRotate()">↻ Rotate</button>'+
+        '<button class="ds-hbtn" id="dsBtnPlan" onclick="_dsTopView()">⬜ Plan</button>'+
+        '<button class="ds-hbtn" id="dsBtnFP" onclick="_dsFPToggle()" title="WASD first-person walk">🚶 Walk</button>'+
+        '<button class="ds-hbtn" onclick="_dsCapture()">📷 Capture</button>'+
+        '<button class="ds-hbtn" id="dsBtnImg" onclick="_dsToggleImgPanel()">🖼 Image</button>'+
+        '<button onclick="_close3DModal()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#3e5570;width:28px;height:28px;cursor:pointer;font-size:15px;line-height:1;">×</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="dsVP" style="position:absolute;inset:0;top:48px;"></div>'+
+    '<div class="ds-panel" style="top:60px;left:10px;width:205px;bottom:66px;">'+
+      '<h5>Plot Dimensions</h5>'+
+      '<div class="ds-ctrl-row">'+
+        '<div class="ds-ctrl"><label>Width (m)</label><input type="number" id="dsPlotW" value="'+pW+'" min="10" max="200" style="width:100%"></div>'+
+        '<div class="ds-ctrl"><label>Depth (m)</label><input type="number" id="dsPlotD" value="'+pD+'" min="10" max="200" style="width:100%"></div>'+
+      '</div>'+
+      '<div class="ds-ctrl"><label>Area</label><div id="dsPlotArea" style="font-size:13px;font-weight:700;color:#c9963a;">'+(pW*pD).toLocaleString()+' m²</div></div>'+
+      '<h5>Building Type</h5>'+
+      '<div class="ds-ctrl"><select id="dsBT">'+
+        '<option value="villa"'+(defBT==='villa'?' selected':'')+'>Villa</option>'+
+        '<option value="tower"'+(defBT==='tower'?' selected':'')+'>Residential Tower</option>'+
+        '<option value="commercial"'+(defBT==='commercial'?' selected':'')+'>Commercial Block</option>'+
+        '<option value="mixed"'+(defBT==='mixed'?' selected':'')+'>Mixed-Use</option>'+
+        '<option value="compound"'+(defBT==='compound'?' selected':'')+'>Compound</option>'+
+      '</select></div>'+
+      '<h5>Design Style</h5>'+
+      '<div class="ds-ctrl"><select id="dsStyle">'+
+        '<option value="modern">Modern Minimalist</option>'+
+        '<option value="arabic">Neo-Arabic</option>'+
+        '<option value="glass">Glass Curtain</option>'+
+        '<option value="mediterranean">Mediterranean</option>'+
+        '<option value="futuristic">Futuristic</option>'+
+      '</select></div>'+
+      '<h5>Parameters</h5>'+
+      '<div class="ds-ctrl"><label>Floors: <span class="ds-rv" id="dsFlV">'+Math.min(50,defFloors)+'</span></label><input type="range" id="dsFloors" min="1" max="50" value="'+Math.min(50,defFloors)+'"></div>'+
+      '<div class="ds-ctrl"><label>Coverage: <span class="ds-rv" id="dsCovV">40%</span></label><input type="range" id="dsCov" min="10" max="80" value="40"></div>'+
+      '<div class="ds-ctrl"><label>Setback: <span class="ds-rv" id="dsSetV">4m</span></label><input type="range" id="dsSet" min="1" max="20" value="4"></div>'+
+      '<h5>Environment</h5>'+
+      '<div class="ds-ctrl"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:10px;cursor:pointer;color:#7a96b0;"><input type="checkbox" id="dsTree" checked> Landscaping</label></div>'+
+      '<div class="ds-ctrl"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:10px;cursor:pointer;color:#7a96b0;"><input type="checkbox" id="dsRoad" checked> Access Road</label></div>'+
+      '<div class="ds-ctrl"><label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:10px;cursor:pointer;color:#7a96b0;"><input type="checkbox" id="dsCtx" checked> Surroundings</label></div>'+
+    '</div>'+
+    '<div class="ds-panel" style="top:60px;right:10px;width:185px;bottom:66px;animation-delay:.1s">'+
+      '<h5>Design Analysis</h5>'+
+      '<div class="ds-stat"><div class="sl">Gross Floor Area</div><div class="sv cy" id="dsGFA">—</div><div style="font-size:9px;color:#3e5570;">total built-up area</div></div>'+
+      '<div class="ds-stat"><div class="sl">Floor Area Ratio</div><div class="sv wh" id="dsFAR">—</div><div class="sb"><div class="sbf" id="dsFARb" style="width:0%"></div></div></div>'+
+      '<div class="ds-stat"><div class="sl">Site Coverage</div><div class="sv wh" id="dsCovSt">—</div></div>'+
+      '<div class="ds-stat"><div class="sl">Building Height</div><div class="sv cy" id="dsHgt">—</div></div>'+
+      '<div class="ds-stat"><div class="sl">Open Space</div><div class="sv gr" id="dsOpen">—</div></div>'+
+      '<h5>Cost Estimate</h5>'+
+      '<div class="ds-stat"><div class="sl">Indicative Range</div><div class="sv go" id="dsCost">—</div><div style="font-size:9px;color:#3e5570;">excl. land value</div></div>'+
+      '<h5>AI Insight</h5>'+
+      '<div class="ds-narr"><p id="dsNarr">Configure plot and click Generate Design.</p></div>'+
+    '</div>'+
+    '<div class="ds-imgpanel" id="dsImgPanel">'+
+      '<div style="color:#7a96b0;font-size:10px;font-weight:700;margin-bottom:7px;">REFERENCE IMAGE</div>'+
+      '<img id="dsImgThumb" class="ds-imgthumb" style="display:none;">'+
+      '<div class="ds-imgdrop" id="dsImgDrop" onclick="document.getElementById(\'dsImgFile\').click()"><div style="font-size:18px;margin-bottom:3px;">📁</div>Upload from device</div>'+
+      '<input type="file" id="dsImgFile" accept="image/*" style="display:none">'+
+      '<div style="margin:7px 0;display:flex;align-items:center;gap:5px;"><div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div><span style="color:#3e5570;font-size:9px;">or</span><div style="flex:1;height:1px;background:rgba(255,255,255,0.07)"></div></div>'+
+      '<div style="display:flex;gap:4px;">'+
+        '<input id="dsImgUrl" type="text" placeholder="URL or AI prompt…" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:5px;padding:5px 7px;color:#e8eef4;font-size:10px;outline:none;min-width:0;">'+
+        '<button onclick="_dsLoadImgUrl()" style="background:#00e5ff;border:none;border-radius:5px;color:#080b10;padding:5px 8px;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;">→</button>'+
+      '</div>'+
+      '<button onclick="_dsAIImage()" style="width:100%;margin-top:6px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:6px;color:#00e5ff;padding:6px;font-size:10px;font-weight:600;cursor:pointer;">✨ AI Generate Image</button>'+
+      '<button onclick="_dsClearImage()" id="dsImgClear" style="width:100%;margin-top:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#3e5570;padding:4px;font-size:9px;cursor:pointer;display:none;">✕ Clear</button>'+
+      '<button onclick="_dsAssignToPlotUI()" id="dsImgAssign" style="width:100%;margin-top:5px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.3);border-radius:6px;color:#00e5ff;padding:6px;font-size:10px;font-weight:700;cursor:pointer;display:none;letter-spacing:.3px;">📌 Assign to Plot</button>'+
+    '</div>'+
+    '<div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:20;animation:dsFadeUp .5s ease .2s both;">'+
+      '<button class="ds-gen" onclick="_dsGenerate()">⚙ Generate Design</button>'+
+    '</div>'+
+    '<div id="dsLoad" style="position:absolute;inset:0;top:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#080b10;z-index:10;">'+
+      '<div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.05);border-top-color:#00e5ff;border-radius:50%;animation:spin 0.8s linear infinite;"></div>'+
+      '<div style="color:#3e5570;font-size:11px;">Loading 3D engine…</div>'+
+    '</div>';
+  modal._plotData=p;
+  document.body.appendChild(modal);
+  _dsBind();
+  _dsLoadLib(function(){
+    var ld=document.getElementById('dsLoad');if(ld)ld.style.display='none';
+    _dsInitScene();
+    /* Bloom composer — must run AFTER THREE + postprocessing loaded + scene init */
+    if(window.THREE&&window.THREE.EffectComposer&&_dsRenderer&&_dsScene&&_dsCamera){
+      _dsComposer=new THREE.EffectComposer(_dsRenderer);
+      _dsComposer.addPass(new THREE.RenderPass(_dsScene,_dsCamera));
+      _dsBloomPass=new THREE.UnrealBloomPass(
+        new THREE.Vector2(_dsRenderer.domElement.width,_dsRenderer.domElement.height),
+        0.35,0.6,0.85);
+      _dsComposer.addPass(_dsBloomPass);
+    }
+    setTimeout(_dsGenerate,200);
+  });
+}
+
+function _dsBind(){
+  var sl=document.getElementById('dsFloors');if(sl)sl.addEventListener('input',function(){document.getElementById('dsFlV').textContent=this.value;});
+  var sc=document.getElementById('dsCov');if(sc)sc.addEventListener('input',function(){document.getElementById('dsCovV').textContent=this.value+'%';});
+  var ss=document.getElementById('dsSet');if(ss)ss.addEventListener('input',function(){document.getElementById('dsSetV').textContent=this.value+'m';});
+  ['dsPlotW','dsPlotD'].forEach(function(id){var el=document.getElementById(id);if(el)el.addEventListener('input',function(){var w=Number(document.getElementById('dsPlotW').value)||0,d=Number(document.getElementById('dsPlotD').value)||0;var pa=document.getElementById('dsPlotArea');if(pa)pa.textContent=(w*d).toLocaleString()+' m²';});});
+  var bt=document.getElementById('dsBT');if(bt)bt.addEventListener('change',function(){var fl=document.getElementById('dsFloors');var ranges={villa:[1,4,2],tower:[5,50,15],commercial:[2,12,5],mixed:[4,30,10],compound:[1,3,2]};var r=ranges[this.value]||[1,50,8];if(fl){fl.min=r[0];fl.max=r[1];fl.value=r[2];document.getElementById('dsFlV').textContent=r[2];}});
+  var fi=document.getElementById('dsImgFile');if(fi)fi.addEventListener('change',function(){if(this.files&&this.files[0]){var rd=new FileReader();rd.onload=function(e){_dsSetImage(e.target.result);};rd.readAsDataURL(this.files[0]);}});
+}
+
+function _dsLoadScripts(urls,cb){
+  if(!urls.length){cb();return;}
+  var s=document.createElement('script');s.src=urls[0];
+  s.onload=function(){_dsLoadScripts(urls.slice(1),cb);};
+  s.onerror=function(){_dsLoadScripts(urls.slice(1),cb);};
+  document.head.appendChild(s);
+}
+function _dsLoadLib(cb){
+  if(window.THREE&&window.THREE.EffectComposer){cb();return;}
+  var ppBase='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/';
+  if(!window.THREE){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload=function(){
+      _dsLoadScripts([
+        ppBase+'postprocessing/EffectComposer.js',
+        ppBase+'shaders/CopyShader.js',
+        ppBase+'postprocessing/ShaderPass.js',
+        ppBase+'postprocessing/RenderPass.js',
+        ppBase+'shaders/LuminosityHighPassShader.js',
+        ppBase+'postprocessing/UnrealBloomPass.js'
+      ],cb);
+    };
+    document.head.appendChild(s);
+  } else {
+    _dsLoadScripts([
+      ppBase+'postprocessing/EffectComposer.js',
+      ppBase+'shaders/CopyShader.js',
+      ppBase+'postprocessing/ShaderPass.js',
+      ppBase+'postprocessing/RenderPass.js',
+      ppBase+'shaders/LuminosityHighPassShader.js',
+      ppBase+'postprocessing/UnrealBloomPass.js'
+    ],cb);
+  }
+}
+
+function _dsInitScene(){
+  var vp=document.getElementById('dsVP');if(!vp)return;
+  var W=vp.clientWidth,H=vp.clientHeight;
+  var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+  renderer.setSize(W,H);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.95;
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.setClearColor(0x000000, 0); // fully transparent background
+  vp.appendChild(renderer.domElement);_dsRenderer=renderer;
+  var scene=new THREE.Scene();scene.fog=new THREE.FogExp2(0x87a5b8,0.004);_dsScene=scene;
+  var camera=new THREE.PerspectiveCamera(50,W/H,0.5,500);_dsCamera=camera;
+  _dsCamTarget=new THREE.Vector3(0,5,0);_dsCamRadius=60;_dsCamTheta=Math.PI*0.25;_dsCamPhi=Math.PI*0.28;_dsUpdateCam();
+  /* gradient sky via canvas texture — golden-hour default */
+  var _mkSkyCvs=function(night){
+    var c=document.createElement('canvas');c.width=128;c.height=256;
+    var ctx=c.getContext('2d');
+    if(!night){
+      /* Day: deep blue zenith → azure → warm horizon → peachy glow */
+      var g=ctx.createLinearGradient(0,0,0,256);
+      g.addColorStop(0,'#04090f');g.addColorStop(0.18,'#081828');
+      g.addColorStop(0.42,'#0d3060');g.addColorStop(0.65,'#1a5590');
+      g.addColorStop(0.80,'#4d90b8');g.addColorStop(0.90,'#d4803a');
+      g.addColorStop(0.96,'#e87a35');g.addColorStop(1,'#f0a050');
+      ctx.fillStyle=g;ctx.fillRect(0,0,128,256);
+      /* sun halo glow on horizon */
+      var sunG=ctx.createRadialGradient(64,240,2,64,240,80);
+      sunG.addColorStop(0,'rgba(255,220,120,0.85)');sunG.addColorStop(0.3,'rgba(255,160,60,0.35)');
+      sunG.addColorStop(1,'rgba(255,100,20,0)');
+      ctx.fillStyle=sunG;ctx.fillRect(0,160,128,96);
+    } else {
+      /* Night: near-black with deep blue tint */
+      var gn=ctx.createLinearGradient(0,0,0,256);
+      gn.addColorStop(0,'#010103');gn.addColorStop(0.5,'#01040c');
+      gn.addColorStop(1,'#020810');
+      ctx.fillStyle=gn;ctx.fillRect(0,0,128,256);
+      /* Stars */
+      for(var si=0;si<120;si++){
+        var sx=Math.random()*128,sy=Math.random()*180;
+        var sAlpha=0.3+Math.random()*0.7;
+        var sSize=0.3+Math.random()*1.2;
+        ctx.beginPath();ctx.arc(sx,sy,sSize,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,255,255,'+sAlpha+')';ctx.fill();
+      }
+      /* moon glow */
+      var moonG=ctx.createRadialGradient(90,40,3,90,40,55);
+      moonG.addColorStop(0,'rgba(200,220,255,0.35)');moonG.addColorStop(0.4,'rgba(180,200,255,0.12)');
+      moonG.addColorStop(1,'rgba(150,180,255,0)');
+      ctx.fillStyle=moonG;ctx.fillRect(0,0,128,256);
+      /* Moon disc */
+      ctx.beginPath();ctx.arc(90,40,4,0,Math.PI*2);
+      ctx.fillStyle='rgba(240,245,255,0.8)';ctx.fill();
+    }
+    return c;
+  };
+  var skyTex=new THREE.CanvasTexture(_mkSkyCvs(false));
+  _dsSkyMesh=new THREE.Mesh(new THREE.SphereGeometry(200,32,16),new THREE.MeshBasicMaterial({map:skyTex,side:THREE.BackSide}));
+  _dsSkyMesh._mkCvs=_mkSkyCvs;scene.add(_dsSkyMesh);
+  /* Procedural cloud layer */
+  var _cloudCvs=document.createElement('canvas');_cloudCvs.width=512;_cloudCvs.height=512;
+  var _cCtx=_cloudCvs.getContext('2d');
+  _cCtx.fillStyle='rgba(0,0,0,0)';_cCtx.fillRect(0,0,512,512);
+  for(var ci=0;ci<80;ci++){
+    var cx=Math.random()*512,cy=Math.random()*512;
+    var cr=20+Math.random()*60;
+    var cg=_cCtx.createRadialGradient(cx,cy,0,cx,cy,cr);
+    cg.addColorStop(0,'rgba(255,255,255,0.12)');cg.addColorStop(1,'rgba(255,255,255,0)');
+    _cCtx.fillStyle=cg;_cCtx.fillRect(cx-cr,cy-cr,cr*2,cr*2);
+  }
+  var cloudTex=new THREE.CanvasTexture(_cloudCvs);
+  cloudTex.wrapS=THREE.RepeatWrapping;cloudTex.wrapT=THREE.RepeatWrapping;
+  var cloudPlane=new THREE.Mesh(new THREE.PlaneGeometry(400,400),new THREE.MeshBasicMaterial({map:cloudTex,transparent:true,opacity:0.35,side:THREE.DoubleSide,depthWrite:false}));
+  cloudPlane.rotation.x=-Math.PI/2;cloudPlane.position.y=120;scene.add(cloudPlane);
+  /* sun disc — large, glowing, positioned at golden-hour angle */
+  var sunP=new THREE.Vector3(80,55,60);
+  _dsSunSphere=new THREE.Mesh(new THREE.SphereGeometry(5,16,16),
+    new THREE.MeshBasicMaterial({color:0xffe890}));
+  _dsSunSphere.position.copy(sunP);scene.add(_dsSunSphere);
+  /* large halo around sun */
+  var halo1=new THREE.Mesh(new THREE.SphereGeometry(14,12,12),new THREE.MeshBasicMaterial({color:0xffaa30,transparent:true,opacity:0.08}));
+  halo1.position.copy(sunP);scene.add(halo1);
+  var halo2=new THREE.Mesh(new THREE.SphereGeometry(30,12,12),new THREE.MeshBasicMaterial({color:0xff8800,transparent:true,opacity:0.03}));
+  halo2.position.copy(sunP);scene.add(halo2);
+  
+  _dsScene._skyObjects = [_dsSkyMesh, cloudPlane, _dsSunSphere, halo1, halo2];
+  /* Procedural env map for reflections (dark moody sci-fi sky) */
+  var _envCvs=document.createElement('canvas');_envCvs.width=256;_envCvs.height=256;
+  var _envCtx=_envCvs.getContext('2d');
+  var _envG=_envCtx.createLinearGradient(0,0,0,256);
+  _envG.addColorStop(0,'#050814');_envG.addColorStop(0.3,'#0a1628');_envG.addColorStop(0.5,'#122b40');
+  _envG.addColorStop(0.7,'#204060');_envG.addColorStop(1,'#050a10');
+  _envCtx.fillStyle=_envG;_envCtx.fillRect(0,0,256,256);
+  var _envTex=new THREE.CanvasTexture(_envCvs);
+  _envTex.mapping=THREE.EquirectangularReflectionMapping;
+  scene.environment=_envTex;
+
+  /* === Moody Sci-Fi Light Rig === */
+  _dsAmbLight=new THREE.HemisphereLight(0x1a2a44,0x050a14,0.3);scene.add(_dsAmbLight);
+  _dsSunLight=new THREE.DirectionalLight(0x66ccff,0.6);
+  _dsSunLight.position.set(80,55,60);_dsSunLight.castShadow=true;
+  _dsSunLight.shadow.mapSize.set(4096,4096);
+  _dsSunLight.shadow.camera.left=-90;_dsSunLight.shadow.camera.right=90;
+  _dsSunLight.shadow.camera.top=90;_dsSunLight.shadow.camera.bottom=-90;
+  _dsSunLight.shadow.camera.near=1;_dsSunLight.shadow.camera.far=300;
+  _dsSunLight.shadow.bias=-0.0005;_dsSunLight.shadow.normalBias=0.02;
+  scene.add(_dsSunLight);
+  /* Soft cyan fill */
+  var fillL=new THREE.DirectionalLight(0x00e5ff,0.25);fillL.position.set(-60,40,-30);scene.add(fillL);
+  /* Cyan ground bounce */
+  var bncL=new THREE.PointLight(0x00aaff,0.3,180);bncL.position.set(0,1,0);scene.add(bncL);
+  /* Magenta/purple rim from behind-right */
+  var rimL=new THREE.DirectionalLight(0xff00cc,0.35);rimL.position.set(-50,30,-80);scene.add(rimL);
+  /* Soft front fill */
+  var frontL=new THREE.DirectionalLight(0x445588,0.2);frontL.position.set(0,20,90);scene.add(frontL);
+  /* tone mapping for natural contrast */
+  renderer.toneMappingExposure=1.0;
+  var vpEl=document.getElementById('dsVP');
+  if(vpEl){
+    vpEl.addEventListener('mousedown',function(e){if(e.button===0)_dsCamIsDrag=true;if(e.button===2)_dsCamIsPan=true;_dsPrevMX=e.clientX;_dsPrevMY=e.clientY;});
+    window.addEventListener('mousemove',_dsCamMove);window.addEventListener('mouseup',function(){_dsCamIsDrag=false;_dsCamIsPan=false;});
+    vpEl.addEventListener('wheel',function(e){e.preventDefault();_dsCamRadius=Math.max(8,Math.min(200,_dsCamRadius+e.deltaY*0.06));_dsUpdateCam();},{passive:false});
+    vpEl.addEventListener('contextmenu',function(e){e.preventDefault();});
+    vpEl.addEventListener('touchstart',function(e){if(e.touches.length===1){_dsCamIsDrag=true;_dsPrevMX=e.touches[0].clientX;_dsPrevMY=e.touches[0].clientY;}if(e.touches.length===2){var dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;_dsTouchDist=Math.sqrt(dx*dx+dy*dy);}},{passive:true});
+    vpEl.addEventListener('touchmove',function(e){if(e.touches.length===1&&_dsCamIsDrag){var dx=e.touches[0].clientX-_dsPrevMX,dy=e.touches[0].clientY-_dsPrevMY;_dsPrevMX=e.touches[0].clientX;_dsPrevMY=e.touches[0].clientY;_dsCamTheta-=dx*0.005;_dsCamPhi=Math.max(0.15,Math.min(1.45,_dsCamPhi-dy*0.005));_dsUpdateCam();}if(e.touches.length===2){var dx2=e.touches[0].clientX-e.touches[1].clientX,dy2=e.touches[0].clientY-e.touches[1].clientY;var d=Math.sqrt(dx2*dx2+dy2*dy2);_dsCamRadius=Math.max(8,Math.min(200,_dsCamRadius-(_dsTouchDist-d)*0.15));_dsTouchDist=d;_dsUpdateCam();}},{passive:true});
+    vpEl.addEventListener('touchend',function(){_dsCamIsDrag=false;});
+  }
+  window.addEventListener('resize',_dsResize);
+  var lastF=0,_dsCloudPlane=cloudPlane,_dsAnimTime=0;
+  (function loop(now){
+    _dsAnimId=requestAnimationFrame(loop);
+    if(now-lastF<33)return;lastF=now;
+    _dsAnimTime+=0.016;
+    if(_dsIsAnimating&&_dsBuildingGroup){_dsCurrentScale+=(_dsTargetScale-_dsCurrentScale)*0.08;if(Math.abs(_dsCurrentScale-_dsTargetScale)<0.005){_dsCurrentScale=_dsTargetScale;_dsIsAnimating=false;}_dsBuildingGroup.scale.set(_dsCurrentScale,_dsCurrentScale,_dsCurrentScale);}
+    if(_dsAutoRotate&&!_dsCamIsDrag&&!_dsFPMode){_dsCamTheta+=0.004;_dsUpdateCam();}
+    /* Animated cloud drift */
+    if(_dsCloudPlane&&_dsCloudPlane.material&&_dsCloudPlane.material.map){
+      _dsCloudPlane.material.map.offset.x=_dsAnimTime*0.003;
+      _dsCloudPlane.material.map.offset.y=_dsAnimTime*0.001;
+    }
+    /* Water feature shimmer */
+    if(scene._waterMeshes){
+      scene._waterMeshes.forEach(function(wm){
+        if(wm.material){wm.material.opacity=0.55+Math.sin(_dsAnimTime*2.5)*0.08;wm.material.needsUpdate=true;}
+        wm.position.y=wm._baseY+Math.sin(_dsAnimTime*1.8)*0.015;
+      });
+    }
+    /* First-person WASD */
+    if(_dsFPMode&&_dsCamera){
+      var mv=new THREE.Vector3();
+      if(_dsFPKeys['KeyW']||_dsFPKeys['ArrowUp'])mv.z-=_dsFPSpeed;
+      if(_dsFPKeys['KeyS']||_dsFPKeys['ArrowDown'])mv.z+=_dsFPSpeed;
+      if(_dsFPKeys['KeyA']||_dsFPKeys['ArrowLeft'])mv.x-=_dsFPSpeed;
+      if(_dsFPKeys['KeyD']||_dsFPKeys['ArrowRight'])mv.x+=_dsFPSpeed;
+      if(_dsFPKeys['Space'])_dsCamera.position.y+=_dsFPSpeed*0.6;
+      if(_dsFPKeys['ShiftLeft']||_dsFPKeys['ShiftRight'])_dsCamera.position.y-=_dsFPSpeed*0.6;
+      if(mv.lengthSq()>0){
+        var q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0,_dsFPYaw,0,'YXZ'));
+        mv.applyQuaternion(q);
+        _dsCamera.position.add(mv);
+        _dsCamera.position.y=Math.max(1.6,_dsCamera.position.y);
+      }
+      _dsCamera.rotation.order='YXZ';
+      _dsCamera.rotation.y=_dsFPYaw;
+      _dsCamera.rotation.x=_dsFPPitch;
+    }
+    if(_dsComposer)_dsComposer.render();else renderer.render(scene,camera);
+  })(0);
+}
+
+function _dsUpdateCam(){
+  if(!_dsCamera||!_dsCamTarget)return;
+  var r=_dsCamRadius,t=_dsCamTheta,p=_dsCamPhi;
+  _dsCamera.position.x=_dsCamTarget.x+r*Math.sin(p)*Math.cos(t);
+  _dsCamera.position.y=_dsCamTarget.y+r*Math.cos(p);
+  _dsCamera.position.z=_dsCamTarget.z+r*Math.sin(p)*Math.sin(t);
+  _dsCamera.lookAt(_dsCamTarget);
+}
+function _dsCamMove(e){
+  var dx=e.clientX-_dsPrevMX,dy=e.clientY-_dsPrevMY;_dsPrevMX=e.clientX;_dsPrevMY=e.clientY;
+  if(_dsCamIsDrag){_dsCamTheta-=dx*0.005;_dsCamPhi=Math.max(0.15,Math.min(1.45,_dsCamPhi-dy*0.005));_dsUpdateCam();}
+  if(_dsCamIsPan){var r=new THREE.Vector3();_dsCamera.getWorldDirection(r);r.cross(_dsCamera.up).normalize();_dsCamTarget.addScaledVector(r,-dx*_dsCamRadius*0.0008);_dsCamTarget.y=Math.max(0,_dsCamTarget.y+dy*_dsCamRadius*0.0008);_dsUpdateCam();}
+}
+function _dsResize(){var vp=document.getElementById('dsVP');if(!vp||!_dsRenderer||!_dsCamera)return;var W=vp.clientWidth,H=vp.clientHeight;_dsCamera.aspect=W/H;_dsCamera.updateProjectionMatrix();_dsRenderer.setSize(W,H);if(_dsComposer)_dsComposer.setSize(W,H);}
+
+function _dsGetMat(style){
+  var MP=THREE.MeshPhysicalMaterial;
+  /* Sci-Fi City PBR presets — sleek metallic greys, dark glossy ground, glowing cyan accents */
+  var S={
+    modern:{
+      wall:new MP({color:0xd0d5da,roughness:0.25,metalness:0.4,clearcoat:0.8,clearcoatRoughness:0.1}),
+      glass:new MP({color:0x001122,roughness:0.05,metalness:0.8,transparent:true,opacity:0.6,clearcoat:1,clearcoatRoughness:0.02,envMapIntensity:2}),
+      accent:new MP({color:0x00e5ff,roughness:0.1,metalness:0.5,emissive:new THREE.Color(0x00aacc),emissiveIntensity:0.8}),
+      floor:new MP({color:0x33333a,roughness:0.4,metalness:0.2}),
+      roof:new MP({color:0x222228,roughness:0.6,metalness:0.5}),
+      ground:new MP({color:0x111115,roughness:0.1,metalness:0.1,clearcoat:0.5})
+    },
+    futuristic:{
+      wall:new MP({color:0xc0c8d0,roughness:0.15,metalness:0.6,clearcoat:1.0,clearcoatRoughness:0.05}),
+      glass:new MP({color:0x00e5ff,roughness:0.02,metalness:0.3,transparent:true,opacity:0.2,clearcoat:1,emissive:new THREE.Color(0x003344),emissiveIntensity:0.5,envMapIntensity:2}),
+      accent:new MP({color:0x00e5ff,roughness:0.05,metalness:0.8,emissive:new THREE.Color(0x00ddff),emissiveIntensity:1.2}),
+      floor:new MP({color:0x15151c,roughness:0.3,metalness:0.6}),
+      roof:new MP({color:0x111118,roughness:0.2,metalness:0.8}),
+      ground:new MP({color:0x0a0a0e,roughness:0.05,metalness:0.2,clearcoat:0.8})
+    },
+    arabic:{
+      wall:new MP({color:0xe0e5e0,roughness:0.4,metalness:0.2,clearcoat:0.3}),
+      glass:new MP({color:0x0088aa,roughness:0.1,metalness:0.4,transparent:true,opacity:0.4}),
+      accent:new MP({color:0x00aacc,roughness:0.2,metalness:0.6,emissive:new THREE.Color(0x005577),emissiveIntensity:0.5}),
+      floor:new MP({color:0x222228,roughness:0.5}),
+      roof:new MP({color:0x1a1a20,roughness:0.6}),
+      ground:new MP({color:0x111115,roughness:0.1,clearcoat:0.5})
+    }
+  };
+  S.glass = S.futuristic;
+  S.mediterranean = S.modern;
+  return S[style]||S.modern;
+}
+
+function _dsMullions(group,w,d,h,mat,spacing){
+  spacing=spacing||2.5;var nW=Math.max(2,Math.floor(w/spacing)),nD=Math.max(2,Math.floor(d/spacing));
+  for(var f=0;f<=Math.ceil(h/_FLOOR_H);f++){var y=Math.min(f*_FLOOR_H,h);var ln=new THREE.Mesh(new THREE.BoxGeometry(w+0.06,0.06,d+0.06),mat);ln.position.y=y;group.add(ln);}
+  for(var i=0;i<=nW;i++){var x=-w/2+i*(w/nW);var mf=new THREE.Mesh(new THREE.BoxGeometry(0.05,h,0.05),mat);mf.position.set(x,h/2,d/2);group.add(mf);var mb=mf.clone();mb.position.z=-d/2;group.add(mb);}
+  for(var j=0;j<=nD;j++){var z=-d/2+j*(d/nD);var ml=new THREE.Mesh(new THREE.BoxGeometry(0.05,h,0.05),mat);ml.position.set(w/2,h/2,z);group.add(ml);var mr=ml.clone();mr.position.x=-w/2;group.add(mr);}
+}
+
+function _dsVilla(cfg,mat){
+  /* Sci-fi low-rise (villa equivalent) — sleek metallic geometry, neon accents, floating elements */
+  var g=new THREE.Group();
+  var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,fH=_FLOOR_H,totalH=floors*fH;
+  var gndH=fH*1.15;
+  
+  /* Use global materials */
+  var wallMat=mat.wall;
+  var wallDark=mat.floor;
+  var concMat=mat.roof;
+  var frameMat=mat.accent;
+  var roofMat=mat.roof;
+  var neonMat=new THREE.MeshBasicMaterial({color:mat.accent.color,transparent:true,opacity:0.8});
+
+  var bayW=bw*0.35, bayDepth=0.8;
+  
+  /* === MAIN BUILDING BODY === */
+  var mainBody=new THREE.Mesh(new THREE.BoxGeometry(bw,totalH,bd),wallMat);
+  mainBody.position.y=totalH/2;mainBody.castShadow=true;mainBody.receiveShadow=true;g.add(mainBody);
+  /* Glowing horizontal band around main body */
+  var glowBand=new THREE.Mesh(new THREE.BoxGeometry(bw+0.05,0.1,bd+0.05),neonMat);
+  glowBand.position.y=gndH*0.8;g.add(glowBand);
+
+  /* === PROTRUDING BAYS (left and right) === */
+  var bayL=new THREE.Mesh(new THREE.BoxGeometry(bayW,totalH-gndH,bayDepth*2),wallDark);
+  bayL.position.set(-bw/2+bayW/2,(totalH+gndH)/2,bd/2+bayDepth);bayL.castShadow=true;g.add(bayL);
+  var bayR=new THREE.Mesh(new THREE.BoxGeometry(bayW,totalH-gndH,bayDepth*2),wallDark);
+  bayR.position.set(bw/2-bayW/2,(totalH+gndH)/2,bd/2+bayDepth);bayR.castShadow=true;g.add(bayR);
+  
+  /* Vertical neon strips on bays */
+  var vStripL=new THREE.Mesh(new THREE.BoxGeometry(0.05,totalH-gndH,bayDepth*2+0.05),neonMat);
+  vStripL.position.copy(bayL.position);g.add(vStripL);
+  var vStripR=new THREE.Mesh(new THREE.BoxGeometry(0.05,totalH-gndH,bayDepth*2+0.05),neonMat);
+  vStripR.position.copy(bayR.position);g.add(vStripR);
+
+  /* === PER-FLOOR DETAILS === */
+  for(var f=0;f<floors;f++){
+    var isGround=(f===0);
+    var fy=isGround?0:gndH+(f-1)*fH;
+    var flH=isGround?gndH:fH;
+    
+    if(f>0){
+      var slab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.6,0.15,bd+0.6),concMat);
+      slab.position.set(0,fy,0);slab.castShadow=true;g.add(slab);
+      var slabNeon=new THREE.Mesh(new THREE.BoxGeometry(bw+0.65,0.05,bd+0.65),neonMat);
+      slabNeon.position.set(0,fy,0);g.add(slabNeon);
+    }
+    
+    /* === WINDOWS on front facade === */
+    var winH=flH*0.55,winW=1.6;
+    var nWins=Math.max(2,Math.floor(bw/3.5));
+    for(var wi=0;wi<nWins;wi++){
+      var wx=-bw/2+bw/(nWins+1)*(wi+1);
+      var wy=fy+flH*0.45;
+      /* Window glass */
+      var win=new THREE.Mesh(new THREE.BoxGeometry(winW,winH,0.05),mat.glass);
+      win.position.set(wx,wy,bd/2+0.04);win.userData.isWindow=true;g.add(win);
+      /* Cyber frame */
+      var fT=0.1;
+      var fmTop=new THREE.Mesh(new THREE.BoxGeometry(winW+0.2,fT,0.1),frameMat);
+      fmTop.position.set(wx,wy+winH/2+fT/2,bd/2+0.06);g.add(fmTop);
+      var fmBot=fmTop.clone();fmBot.position.y=wy-winH/2-fT/2;g.add(fmBot);
+      var fmL=new THREE.Mesh(new THREE.BoxGeometry(fT,winH+fT*2,0.1),frameMat);
+      fmL.position.set(wx-winW/2-fT/2,wy,bd/2+0.06);g.add(fmL);
+      var fmR=fmL.clone();fmR.position.x=wx+winW/2+fT/2;g.add(fmR);
+      
+      /* === BALCONY on upper floors === */
+      if(!isGround){
+        var balcW=winW+1.0;
+        var balcSlab=new THREE.Mesh(new THREE.BoxGeometry(balcW,0.15,1.2),concMat);
+        balcSlab.position.set(wx,fy+0.06,bd/2+0.6);balcSlab.castShadow=true;g.add(balcSlab);
+        /* Glass/Neon railing */
+        var railH=1.0;
+        var glassRail=new THREE.Mesh(new THREE.BoxGeometry(balcW,railH,0.05),mat.glass);
+        glassRail.position.set(wx,fy+railH/2+0.15,bd/2+1.15);g.add(glassRail);
+        var topRail=new THREE.Mesh(new THREE.BoxGeometry(balcW,0.05,0.05),neonMat);
+        topRail.position.set(wx,fy+railH+0.15,bd/2+1.15);g.add(topRail);
+      }
+    }
+  }
+  
+  /* === ENTRANCE === */
+  var doorW=2.8,doorH=gndH*0.8;
+  var doorRecess=new THREE.Mesh(new THREE.BoxGeometry(doorW+0.4,doorH+0.2,0.4),wallDark);
+  doorRecess.position.set(0,doorH/2+0.1,bd/2+0.15);g.add(doorRecess);
+  var doorGlass=new THREE.Mesh(new THREE.BoxGeometry(doorW,doorH,0.04),mat.glass);
+  doorGlass.position.set(0,doorH*0.5+0.1,bd/2+0.3);doorGlass.userData.isWindow=true;g.add(doorGlass);
+  var doorNeon=new THREE.Mesh(new THREE.BoxGeometry(doorW+0.2,doorH+0.1,0.05),neonMat);
+  doorNeon.position.set(0,doorH*0.5+0.1,bd/2+0.29);g.add(doorNeon);
+  /* Floating canopy */
+  var canW=doorW+3;
+  var canopy=new THREE.Mesh(new THREE.BoxGeometry(canW,0.1,2.5),frameMat);
+  canopy.position.set(0,gndH*0.9,bd/2+1.2);canopy.castShadow=true;g.add(canopy);
+  var canopyNeon=new THREE.Mesh(new THREE.BoxGeometry(canW+0.05,0.12,2.55),neonMat);
+  canopyNeon.position.copy(canopy.position);g.add(canopyNeon);
+  
+  /* === FLAT SCI-FI ROOF === */
+  var roofSlab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.8,0.2,bd+0.8),roofMat);
+  roofSlab.position.y=totalH+0.1;g.add(roofSlab);
+  ridge.position.set(0,totalH+roofH2*0.55,0);ridge.castShadow=true;g.add(ridge);
+  
+  /* Rooftop equipment */
+  var mechMat=new THREE.MeshPhysicalMaterial({color:0xcccccc,roughness:0.4,metalness:0.6});
+  for(var ac=0;ac<Math.max(2,Math.floor(bw/6));ac++){
+    var acX=-bw/3+ac*(bw/3);
+    var acUnit=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.7,0.6),mechMat);
+    acUnit.position.set(acX,totalH+0.7,-bd/4);acUnit.castShadow=true;g.add(acUnit);
+  }
+  var tank=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,1.2,12),new THREE.MeshPhysicalMaterial({color:0x445566,roughness:0.35,metalness:0.5}));
+  tank.position.set(bw/3,totalH+1.0,-bd/3);tank.castShadow=true;g.add(tank);
+  
+  return g;
+}
+
+function _dsTower(cfg,mat){
+  /* Sci-fi tower — sleek monolithic structure, glowing data veins, metallic chassis, sharp crown */
+  var g=new THREE.Group();
+  var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,fH=_FLOOR_H;
+  var podFloors=Math.min(4,Math.max(2,Math.floor(floors*0.12)));
+  var twrFloors=floors-podFloors;
+  var podH=podFloors*fH,twrH=twrFloors*fH;
+  var podW=bw*1.28,podD=bd*1.28;
+  
+  /* Use global materials */
+  var towerWall=mat.wall;
+  var podiumWall=mat.floor;
+  var frameMat=mat.accent;
+  var neonMat=new THREE.MeshBasicMaterial({color:mat.accent.color,transparent:true,opacity:0.9});
+
+  /* === SCI-FI PODIUM === */
+  var pod=new THREE.Mesh(new THREE.BoxGeometry(podW,podH,podD),podiumWall);
+  pod.position.y=podH/2;pod.castShadow=true;pod.receiveShadow=true;g.add(pod);
+  
+  /* Podium metallic bracing */
+  var podFrame=new THREE.Mesh(new THREE.BoxGeometry(podW+0.1,podH+0.1,podD+0.1),mat.glass);
+  podFrame.position.y=podH/2;g.add(podFrame);
+  
+  /* Glowing horizontal energy rings around podium */
+  for(var pf=0;pf<podFloors;pf++){
+    var ps=new THREE.Mesh(new THREE.BoxGeometry(podW+0.2,0.1,podD+0.2),neonMat);
+    ps.position.y=pf*fH+0.05;g.add(ps);
+    /* Dark metallic separator slabs */
+    var pslab=new THREE.Mesh(new THREE.BoxGeometry(podW+0.3,0.2,podD+0.3),frameMat);
+    pslab.position.y=pf*fH+0.2;pslab.castShadow=true;g.add(pslab);
+  }
+  
+  /* Podium structural columns (metallic) */
+  var pColSp=(podW-1)/Math.round(podW/4);
+  for(var pc=0;pc<=Math.round(podW/4);pc++){
+    var pcx=-podW/2+pc*pColSp;
+    var pcol=new THREE.Mesh(new THREE.BoxGeometry(0.5,podH,0.6),frameMat);
+    pcol.position.set(pcx,podH/2,podD/2+0.1);pcol.castShadow=true;g.add(pcol);
+    var pcolb=pcol.clone();pcolb.position.z=-(podD/2+0.1);g.add(pcolb);
+  }
+  
+  /* Podium Entrance Gate (holographic/neon) */
+  var entGate=new THREE.Mesh(new THREE.BoxGeometry(8,fH*1.5,0.2),mat.glass);
+  entGate.position.set(0,fH*0.75,podD/2+0.3);g.add(entGate);
+  var entNeon=new THREE.Mesh(new THREE.BoxGeometry(8.4,fH*1.5+0.2,0.1),neonMat);
+  entNeon.position.set(0,fH*0.75+0.1,podD/2+0.35);g.add(entNeon);
+  var canopy=new THREE.Mesh(new THREE.BoxGeometry(9,0.2,5),frameMat);
+  canopy.position.set(0,fH*1.5,podD/2+2.5);canopy.castShadow=true;g.add(canopy);
+
+  /* === TOWER SHAFT === */
+  /* Monolithic core */
+  var core=new THREE.Mesh(new THREE.BoxGeometry(bw-0.2,twrH,bd-0.2),towerWall);
+  core.position.y=podH+twrH/2;core.castShadow=true;core.receiveShadow=true;g.add(core);
+  
+  /* Glass curtain wall extending out slightly */
+  var tgl=new THREE.Mesh(new THREE.BoxGeometry(bw+0.2,twrH,bd+0.2),mat.glass);
+  tgl.position.y=podH+twrH/2;g.add(tgl);
+  
+  /* Per-floor metallic stringers */
+  for(var tf=0;tf<=twrFloors;tf++){
+    var tfy=podH+tf*fH;
+    var tslab=new THREE.Mesh(new THREE.BoxGeometry(bw+0.3,0.1,bd+0.3),frameMat);
+    tslab.position.y=tfy;g.add(tslab);
+    /* Occasional glowing floor band (every 5 floors) */
+    if(tf%5===0 && tf>0){
+      var tneon=new THREE.Mesh(new THREE.BoxGeometry(bw+0.4,0.15,bd+0.4),neonMat);
+      tneon.position.y=tfy+0.12;g.add(tneon);
+    }
+  }
+  
+  /* Vertical power conduits (mullions but thick and glowing) */
+  var mSpacing=Math.max(3,bw/Math.round(bw/4));
+  for(var mv=0;mv<=Math.round(bw/mSpacing);mv++){
+    var mx=-bw/2+mv*mSpacing;
+    var mul=new THREE.Mesh(new THREE.BoxGeometry(0.4,twrH,0.4),frameMat);
+    mul.position.set(mx,podH+twrH/2,bd/2+0.15);g.add(mul);
+    var mulNeon=new THREE.Mesh(new THREE.BoxGeometry(0.1,twrH,0.45),neonMat);
+    mulNeon.position.copy(mul.position);g.add(mulNeon);
+    
+    var mulb=mul.clone();mulb.position.z=-(bd/2+0.15);g.add(mulb);
+    var mulbNeon=mulNeon.clone();mulbNeon.position.z=-(bd/2+0.15);g.add(mulbNeon);
+  }
+
+  /* === SCI-FI CROWN === */
+  /* Sharp, angular top section */
+  var crH=fH*2.5;
+  var crGeo=new THREE.CylinderGeometry(bw*0.3,bw*0.7,crH,4);
+  /* Rotate 45deg so flat sides align */
+  crGeo.rotateY(Math.PI/4);
+  var crown=new THREE.Mesh(crGeo,towerWall);
+  crown.position.set(0,podH+twrH+crH/2,0);
+  crown.castShadow=true;g.add(crown);
+  
+  var crGlass=new THREE.Mesh(new THREE.CylinderGeometry(bw*0.32,bw*0.72,crH,4),mat.glass);
+  crGlass.geometry.rotateY(Math.PI/4);
+  crGlass.position.copy(crown.position);g.add(crGlass);
+  
+  /* Energy spire at top */
+  var spire=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.4,fH*3,8),frameMat);
+  spire.position.y=podH+twrH+crH+fH*1.5;spire.castShadow=true;g.add(spire);
+  var spireNeon=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.45,fH*1.5,8),neonMat);
+  spireNeon.position.y=podH+twrH+crH+fH*0.75;g.add(spireNeon);
+
+  /* Hovering communication rings */
+  for(var ring=1;ring<=3;ring++){
+    var hRing=new THREE.Mesh(new THREE.TorusGeometry(1.5-ring*0.3,0.05,8,32),neonMat);
+    hRing.rotation.x=Math.PI/2;
+    hRing.position.set(0,podH+twrH+crH+fH*0.8+ring*0.6,0);
+    g.add(hRing);
+  }
+
+  return g;
+}
+
+function _dsCommercial(cfg,mat){
+  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,h=floors*_FLOOR_H,retailH=_FLOOR_H*1.2;
+  var retail=new THREE.Mesh(new THREE.BoxGeometry(bw,retailH,bd),mat.glass);retail.position.y=retailH/2;g.add(retail);
+  var rf=new THREE.Mesh(new THREE.BoxGeometry(bw+0.1,0.15,bd+0.1),mat.accent);rf.position.y=retailH;g.add(rf);
+  var upperH=h-retailH;
+  if(upperH>0){var upper=new THREE.Mesh(new THREE.BoxGeometry(bw-0.2,upperH,bd-0.2),mat.wall);upper.position.y=retailH+upperH/2;upper.castShadow=true;upper.receiveShadow=true;g.add(upper);var ugl=new THREE.Mesh(new THREE.BoxGeometry(bw,upperH,bd),mat.glass);ugl.position.y=retailH+upperH/2;g.add(ugl);var umg=new THREE.Group();umg.position.y=retailH;g.add(umg);_dsMullions(umg,bw,bd,upperH,mat.accent,2.8);}
+  for(var f=1;f<floors;f++){var sp=new THREE.Mesh(new THREE.BoxGeometry(bw+0.04,0.4,bd+0.04),mat.wall);sp.position.y=retailH+(f-1)*_FLOOR_H+_FLOOR_H*0.35;g.add(sp);}
+  var roof=new THREE.Mesh(new THREE.BoxGeometry(bw+0.4,0.5,bd+0.4),mat.roof);roof.position.y=h+0.25;g.add(roof);
+  return g;
+}
+
+function _dsMixed(cfg,mat){
+  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors;
+  var podFloors=Math.max(2,Math.floor(floors*0.2)),twrFloors=floors-podFloors;
+  var podH=podFloors*(_FLOOR_H*1.1),twrH=twrFloors*_FLOOR_H,podW=bw*1.15,podD=bd*1.15,towW=bw*0.7,towD=bd*0.7;
+  var pod=new THREE.Mesh(new THREE.BoxGeometry(podW,podH,podD),mat.wall);pod.position.y=podH/2;pod.castShadow=true;g.add(pod);
+  var podG=new THREE.Mesh(new THREE.BoxGeometry(podW+0.02,podH,podD+0.02),mat.glass);podG.position.y=podH/2;g.add(podG);_dsMullions(g,podW,podD,podH,mat.accent,3.5);
+  if(twrFloors>0){var tc=new THREE.Mesh(new THREE.BoxGeometry(towW-0.3,twrH,towD-0.3),mat.wall);tc.position.y=podH+twrH/2;tc.castShadow=true;g.add(tc);var tg=new THREE.Mesh(new THREE.BoxGeometry(towW,twrH,towD),mat.glass);tg.position.y=podH+twrH/2;g.add(tg);var tmg2=new THREE.Group();tmg2.position.y=podH;g.add(tmg2);_dsMullions(tmg2,towW,towD,twrH,mat.accent,2.2);var cr=new THREE.Mesh(new THREE.BoxGeometry(towW+0.4,1.5,towD+0.4),mat.accent);cr.position.y=podH+twrH+0.75;g.add(cr);}
+  return g;
+}
+
+function _dsCompound(cfg,mat){
+  var g=new THREE.Group();var bw=cfg.bw,bd=cfg.bd,floors=cfg.floors,envW=cfg.envW,envD=cfg.envD;
+  var unitW=Math.min(bw,12),unitD=Math.min(bd,14),unitH=Math.min(floors,3)*_FLOOR_H,gapX=3,gapZ=4;
+  var cols=Math.max(1,Math.floor((envW+gapX)/(unitW+gapX))),rows=Math.max(1,Math.floor((envD+gapZ)/(unitD+gapZ)));
+  var totW=cols*unitW+(cols-1)*gapX,totD=rows*unitD+(rows-1)*gapZ;
+  for(var r=0;r<rows;r++){for(var c=0;c<cols;c++){var unit=new THREE.Group();var x=-totW/2+c*(unitW+gapX)+unitW/2,z=-totD/2+r*(unitD+gapZ)+unitD/2;var core=new THREE.Mesh(new THREE.BoxGeometry(unitW,unitH,unitD),mat.wall);core.position.y=unitH/2;core.castShadow=true;core.receiveShadow=true;unit.add(core);var ul=new THREE.Mesh(new THREE.BoxGeometry(unitW+0.02,unitH,unitD+0.02),mat.glass);ul.position.y=unitH/2;unit.add(ul);_dsMullions(unit,unitW,unitD,unitH,mat.accent,1.8);var rf=new THREE.Mesh(new THREE.BoxGeometry(unitW+0.2,0.3,unitD+0.2),mat.roof);rf.position.y=unitH+0.15;unit.add(rf);unit.position.set(x,0,z);g.add(unit);}}
+  return g;
+}
+
+function _dsEnvironment(plotW,plotD,mat,opts){
+  var g=new THREE.Group();
+  /* Sci-fi base ground */
+  var gnd=new THREE.Mesh(new THREE.PlaneGeometry(500,500),new THREE.MeshPhysicalMaterial({color:0x08080c,roughness:0.02,metalness:0.8,clearcoat:1}));
+  gnd.rotation.x=-Math.PI/2;gnd.position.y=-0.05;gnd.receiveShadow=true;g.add(gnd);
+  
+  /* Contact shadow under building footprint */
+  var shadowMat=new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.8});
+  var contactShadow=new THREE.Mesh(new THREE.PlaneGeometry(plotW*0.6,plotD*0.6),shadowMat);
+  contactShadow.rotation.x=-Math.PI/2;contactShadow.position.y=0.005;g.add(contactShadow);
+
+  /* Glowing circuit grid under plot */
+  var _plotCvs=document.createElement('canvas');_plotCvs.width=512;_plotCvs.height=512;
+  var _plotCtx=_plotCvs.getContext('2d');
+  _plotCtx.fillStyle='#0a0a0f';_plotCtx.fillRect(0,0,512,512);
+  _plotCtx.strokeStyle='rgba(0,229,255,0.3)';_plotCtx.lineWidth=2;
+  for(var py=0;py<=512;py+=32){_plotCtx.beginPath();_plotCtx.moveTo(0,py);_plotCtx.lineTo(512,py);_plotCtx.stroke();}
+  for(var px=0;px<=512;px+=32){_plotCtx.beginPath();_plotCtx.moveTo(px,0);_plotCtx.lineTo(px,512);_plotCtx.stroke();}
+  /* Some bright nodes */
+  _plotCtx.fillStyle='#00e5ff';
+  for(var n=0;n<150;n++){
+    _plotCtx.beginPath();_plotCtx.arc(Math.floor(Math.random()*16)*32,Math.floor(Math.random()*16)*32,3,0,Math.PI*2);_plotCtx.fill();
+  }
+  var plotTex=new THREE.CanvasTexture(_plotCvs);
+  plotTex.wrapS=plotTex.wrapT=THREE.RepeatWrapping;plotTex.repeat.set(plotW/16,plotD/16);
+  var plotGndMat=new THREE.MeshPhysicalMaterial({map:plotTex,color:0x111118,roughness:0.4,metalness:0.8,emissive:new THREE.Color(0x00e5ff),emissiveMap:plotTex,emissiveIntensity:0.5});
+  var plot=new THREE.Mesh(new THREE.PlaneGeometry(plotW,plotD),plotGndMat);
+  plot.rotation.x=-Math.PI/2;plot.position.y=0.01;plot.receiveShadow=true;g.add(plot);
+
+  var cMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.8});
+  [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(function(sx){var cm=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.3,8),cMat);cm.position.set(sx[0]*plotW/2,0.15,sx[1]*plotD/2);g.add(cm);});
+  
+  if(opts.road){
+    /* Energy lane instead of asphalt */
+    var road=new THREE.Mesh(new THREE.PlaneGeometry(plotW+150,12),new THREE.MeshPhysicalMaterial({color:0x050508,roughness:0.2,metalness:0.9,clearcoat:1}));
+    road.rotation.x=-Math.PI/2;road.position.set(0,0.02,plotD/2+6);road.receiveShadow=true;g.add(road);
+    /* Glowing median strips */
+    for(var m=0;m<3;m++){
+      var strip=new THREE.Mesh(new THREE.BoxGeometry(plotW+150,0.01,0.1),new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.6}));
+      strip.position.set(0,0.04,plotD/2+2+m*4);g.add(strip);
+    }
+    /* Pavement / Data conduit edge */
+    var sw=new THREE.Mesh(new THREE.BoxGeometry(plotW+150,0.2,3),new THREE.MeshPhysicalMaterial({color:0x1a1a24,roughness:0.6,metalness:0.5}));
+    sw.position.set(0,0.1,plotD/2+0.5);g.add(sw);
+  }
+  
+  if(opts.trees){
+    /* Cyber pylons instead of trees */
+    var pylonPos=[];
+    for(var tx=-plotW/2+2;tx<=plotW/2-2;tx+=8){pylonPos.push([tx,-plotD/2-3]);}
+    for(var tz=-plotD/2+3;tz<=plotD/2-3;tz+=8){pylonPos.push([-plotW/2-3,tz]);pylonPos.push([plotW/2+3,tz]);}
+    pylonPos.forEach(function(pos){
+      var pylH=3+Math.random()*2;
+      var pyl=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.15,pylH,6),new THREE.MeshPhysicalMaterial({color:0x222233,metalness:0.9,roughness:0.1}));
+      pyl.position.set(pos[0],pylH/2,pos[1]);g.add(pyl);
+      var ring=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.04,8,16),new THREE.MeshBasicMaterial({color:0x00e5ff}));
+      ring.rotation.x=Math.PI/2;ring.position.set(pos[0],pylH*0.8,pos[1]);g.add(ring);
+    });
+    
+    /* Pool -> Data Reservoir */
+    if(!_dsScene._waterMeshes)_dsScene._waterMeshes=[];
+    var poolW=Math.min(plotW*0.3,8),poolD=Math.min(plotD*0.25,6);
+    var poolMat=new THREE.MeshPhysicalMaterial({color:0x00aaff,roughness:0.0,metalness:0.5,transparent:true,opacity:0.8,emissive:0x0088cc,emissiveIntensity:0.5});
+    var poolMesh=new THREE.Mesh(new THREE.BoxGeometry(poolW,0.04,poolD),poolMat);
+    poolMesh.position.set(-plotW*0.25,0.08,-plotD*0.25);poolMesh._baseY=0.08;
+    g.add(poolMesh);_dsScene._waterMeshes.push(poolMesh);
+  }
+
+  /* Boundary forcefield / wall */
+  var wallMat=new THREE.MeshPhysicalMaterial({color:0x15151e,roughness:0.2,metalness:0.9,clearcoat:1});
+  var glowMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.8});
+  var fwL=plotW/2-2;
+  var fwLeft=new THREE.Mesh(new THREE.BoxGeometry(fwL,1.5,0.15),wallMat);
+  fwLeft.position.set(-plotW/4-1,0.75,plotD/2);g.add(fwLeft);
+  var fwLeftGlow=new THREE.Mesh(new THREE.BoxGeometry(fwL,0.05,0.16),glowMat);
+  fwLeftGlow.position.set(-plotW/4-1,1.5,plotD/2);g.add(fwLeftGlow);
+  
+  var fwRight=new THREE.Mesh(new THREE.BoxGeometry(fwL,1.5,0.15),wallMat);
+  fwRight.position.set(plotW/4+1,0.75,plotD/2);g.add(fwRight);
+  var fwRightGlow=new THREE.Mesh(new THREE.BoxGeometry(fwL,0.05,0.16),glowMat);
+  fwRightGlow.position.set(plotW/4+1,1.5,plotD/2);g.add(fwRightGlow);
+  
+  var sideW=new THREE.Mesh(new THREE.BoxGeometry(0.15,1.5,plotD),wallMat);
+  sideW.position.set(-plotW/2,0.75,0);g.add(sideW);
+  var sideE=sideW.clone();sideE.position.x=plotW/2;g.add(sideE);
+  var backW=new THREE.Mesh(new THREE.BoxGeometry(plotW,1.5,0.15),wallMat);
+  backW.position.set(0,0.75,-plotD/2);g.add(backW);
+
+  if(opts.context){
+    var ctxMats=[
+      new THREE.MeshPhysicalMaterial({color:0x08080c,roughness:0.1,metalness:0.9,clearcoat:1}),
+      new THREE.MeshPhysicalMaterial({color:0x11111a,roughness:0.2,metalness:0.8,clearcoat:0.8})
+    ];
+    var winMat=new THREE.MeshBasicMaterial({color:0x00e5ff,transparent:true,opacity:0.4});
+    [
+      [-plotW/2-25,0,-plotD/2+10,12,30,12],
+      [plotW/2+20,0,0,15,45,15],
+      [-plotW/2-30,0,plotD/2-5,16,25,18],
+      [plotW*0.4,0,-plotD/2-25,20,55,16],
+      [plotW/2+35,0,plotD/2-15,14,35,14],
+      [-plotW/2-40,0,-10,18,50,20]
+    ].forEach(function(d,di){
+      var ctx=new THREE.Mesh(new THREE.BoxGeometry(d[3],d[4],d[5]),ctxMats[di%ctxMats.length]);
+      ctx.position.set(d[0],d[4]/2,d[2]);g.add(ctx);
+      /* Glowing stripes */
+      var stripeFloors=Math.floor(d[4]/4);
+      for(var sf=1;sf<stripeFloors;sf++){
+        var stripe=new THREE.Mesh(new THREE.BoxGeometry(d[3]+0.1,0.2,d[5]+0.1),winMat);
+        stripe.position.set(d[0],sf*4,d[2]);g.add(stripe);
+      }
+    });
+  }
+  return g;
+}
+
+function _dsGenerate(){
+  if(!_dsScene||!window.THREE)return;
+  var plotW=Number((document.getElementById('dsPlotW')||{}).value)||40;
+  var plotD=Number((document.getElementById('dsPlotD')||{}).value)||50;
+  var type=(document.getElementById('dsBT')||{}).value||'tower';
+  var style=(document.getElementById('dsStyle')||{}).value||'modern';
+  var floors=Number((document.getElementById('dsFloors')||{}).value)||8;
+  var coverage=Number((document.getElementById('dsCov')||{}).value)||40;
+  var setback=Number((document.getElementById('dsSet')||{}).value)||4;
+  var mat=_dsGetMat(style);
+  var envW=plotW-2*setback,envD=plotD-2*setback;
+  var maxFoot=envW*envD,targetFoot=maxFoot*(coverage/100);
+  var bw,bd;
+  if(type==='villa'){bw=Math.min(envW,Math.sqrt(targetFoot*1.4));bd=Math.min(envD,targetFoot/Math.max(1,bw));}
+  else if(type==='tower'){bw=Math.min(envW*0.55,Math.sqrt(targetFoot));bd=Math.min(envD*0.55,targetFoot/Math.max(1,bw));}
+  else if(type==='compound'){bw=envW;bd=envD;}
+  else{bw=Math.min(envW,Math.sqrt(targetFoot*1.2));bd=Math.min(envD,targetFoot/Math.max(1,bw));}
+  bw=Math.max(6,bw);bd=Math.max(6,bd);
+  var cfg={bw:bw,bd:bd,floors:type==='villa'?Math.min(floors,4):floors,envW:envW,envD:envD};
+  if(_dsBuildingGroup){_dsScene.remove(_dsBuildingGroup);_dsBuildingGroup=null;}
+  if(_dsEnvGroup){_dsScene.remove(_dsEnvGroup);_dsEnvGroup=null;}
+  if(_dsScene._waterMeshes)_dsScene._waterMeshes=[];
+  _dsEnvGroup=_dsEnvironment(plotW,plotD,mat,{trees:(document.getElementById('dsTree')||{}).checked!==false,road:(document.getElementById('dsRoad')||{}).checked!==false,context:(document.getElementById('dsCtx')||{}).checked!==false});
+  _dsScene.add(_dsEnvGroup);
+  var builders={villa:_dsVilla,tower:_dsTower,commercial:_dsCommercial,mixed:_dsMixed,compound:_dsCompound};
+  _dsBuildingGroup=(builders[type]||_dsTower)(cfg,mat);
+  /* window bands for low-rise; towers have curtain wall already */
+  if(cfg.floors<=10)_dsAddWindowBands(_dsBuildingGroup,bw,bd,cfg.floors,mat);
+  /* People silhouettes on balconies */
+  _dsAddPeople(_dsBuildingGroup,cfg.floors,bw,bd,_FLOOR_H);
+  /* Night window point lights (hidden until night toggle) */
+  _dsAddWindowLights(_dsBuildingGroup,cfg.floors,bd,_FLOOR_H);
+  _dsBuildingGroup.scale.set(0.01,0.01,0.01);_dsScene.add(_dsBuildingGroup);
+  _dsTargetScale=1;_dsCurrentScale=0.01;_dsIsAnimating=true;
+  var buildH=cfg.floors*_FLOOR_H;_dsCamTarget.set(0,buildH*0.35,0);_dsCamRadius=Math.max(buildH*1.5,Math.max(plotW,plotD)*1.2);_dsCamPhi=Math.PI*0.28;_dsUpdateCam();
+  _dsUpdateStats(plotW,plotD,bw,bd,cfg.floors,coverage,type,style);
+  if(_dsRefImage)_dsApplyImageToModel(_dsRefImage);
+  /* Auto-capture 3D render and assign to plot after grow animation settles */
+  setTimeout(function(){
+    if(!_dsRenderer||!_dsScene||!_dsCamera)return;
+    /* Force full-scale render for capture */
+    if(_dsBuildingGroup)_dsBuildingGroup.scale.set(1,1,1);
+    _dsCurrentScale=1;_dsTargetScale=1;_dsIsAnimating=false;
+    
+    /* Hide background objects for transparent capture */
+    var prevEnv = _dsScene.environment;
+    _dsScene.environment = null;
+    if(_dsScene._skyObjects) {
+      _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
+    }
+    if(_dsEnvGroup) { _dsEnvGroup.visible = false; }
+    
+    _dsRenderer.render(_dsScene,_dsCamera);
+    
+    try{
+      var dataUrl=_dsRenderer.domElement.toDataURL('image/png');
+      
+      /* Restore background objects */
+      _dsScene.environment = prevEnv;
+      if(_dsScene._skyObjects) {
+        _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
+      }
+      if(_dsEnvGroup) { _dsEnvGroup.visible = true; }
+      
+      _dsRefImage=dataUrl;
+      /* Show in image panel */
+      var thumb=document.getElementById('dsImgThumb');
+      if(thumb){thumb.src=dataUrl;thumb.style.display='block';}
+      var clr=document.getElementById('dsImgClear');if(clr)clr.style.display='block';
+      var drop=document.getElementById('dsImgDrop');if(drop)drop.style.display='none';
+      var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='block';
+      /* Auto-assign to the current plot */
+      var modal=document.getElementById('concept3dModal');
+      if(modal&&modal._plotData){
+        var targetPlot=(window.plots||[]).find(function(p){return String(p.id)===String(modal._plotData.id);});
+        if(targetPlot){
+          targetPlot.conceptImage=dataUrl;
+          if(typeof saveToLocalStorage==='function')saveToLocalStorage();
+        }
+      }
+    }catch(e){console.warn('Auto-capture failed:',e);}
+  },800);
+}
+
+function _dsUpdateStats(plotW,plotD,bw,bd,floors,coverage,type,style){
+  var plotArea=plotW*plotD,footprint=bw*bd,gfa=footprint*floors,far=gfa/plotArea;
+  var actualCov=(footprint/plotArea)*100,height=floors*_FLOOR_H,openSpace=plotArea-footprint,openPct=(openSpace/plotArea)*100;
+  var fmtN=function(n){return Math.round(n).toLocaleString('en-US');};
+  var fmtM=function(v){if(v>=1e9)return'AED '+(v/1e9).toFixed(1)+'B';if(v>=1e6)return'AED '+(v/1e6).toFixed(1)+'M';return'AED '+(v/1e3).toFixed(0)+'K';};
+  var el=function(id){return document.getElementById(id);};
+  if(el('dsGFA'))el('dsGFA').textContent=fmtN(gfa)+' m²';
+  if(el('dsFAR'))el('dsFAR').textContent=far.toFixed(2);
+  if(el('dsFARb'))el('dsFARb').style.width=Math.min(100,far*25)+'%';
+  if(el('dsCovSt'))el('dsCovSt').textContent=Math.round(actualCov)+'%';
+  if(el('dsHgt'))el('dsHgt').textContent=Math.round(height)+' m ('+floors+' fl)';
+  if(el('dsOpen'))el('dsOpen').textContent=fmtN(openSpace)+' m² ('+Math.round(openPct)+'%)';
+  var range=_COST_RANGES[type]||[3000,5000],mult=_STYLE_MULT[style]||1.0;
+  if(el('dsCost'))el('dsCost').textContent=fmtM(gfa*range[0]*mult)+' – '+fmtM(gfa*range[1]*mult);
+  var tl=_TYPE_LABELS[type],sl=_STYLE_LABELS[style],orient=plotW>plotD?'landscape-oriented':'portrait-oriented',density=far>2?'high-density':far>1?'medium-density':'low-density';
+  var narr=tl+' concept in '+sl+' style. The '+orient+' plot yields a '+density+' configuration with '+fmtN(gfa)+' m² GFA. ';
+  if(type==='villa')narr+='Design maximises garden space with '+Math.round(100-actualCov)+'% open area, L-shaped layout for natural cross-ventilation.';
+  else if(type==='tower')narr+='Slim tower on retail podium optimises views. '+Math.round(100-actualCov)+'% open ground creates landscaped plaza.';
+  else if(type==='commercial')narr+='Maximum floorplate efficiency. Ground retail activates street frontage.';
+  else if(type==='mixed')narr+='Stepped massing with retail podium and residential tower. Setback preserves street-level light.';
+  else narr+='Individual units provide privacy while shared infrastructure reduces costs.';
+  if(style==='futuristic')narr+=' Parametric facade with photovoltaic cladding responds to solar angle.';
+  else if(style==='arabic')narr+=' Mashrabiya-inspired elements filter sunlight while maintaining privacy traditions.';
+  if(el('dsNarr'))el('dsNarr').textContent=narr;
+}
+
+function _dsDayNight(){
+  _dsIsNight=!_dsIsNight;var btn=document.getElementById('dsBtnDN');
+  if(_dsSkyMesh&&_dsSkyMesh._mkCvs){
+    var newTex=new THREE.CanvasTexture(_dsSkyMesh._mkCvs(_dsIsNight));
+    _dsSkyMesh.material.map=newTex;_dsSkyMesh.material.needsUpdate=true;
+  }
+  if(_dsIsNight){
+    if(_dsSunSphere)_dsSunSphere.visible=false;
+    if(_dsScene)_dsScene.fog.color.setHex(0x020408);_dsScene.fog.density=0.006;
+    if(_dsSunLight){_dsSunLight.intensity=0.25;_dsSunLight.color.setHex(0x3344aa);}
+    if(_dsAmbLight){_dsAmbLight.intensity=0.1;}
+    if(_dsRenderer)_dsRenderer.toneMappingExposure=0.42;
+    if(btn){btn.textContent='☽ Night';btn.classList.add('act');}
+    /* window emissive glow + point lights */
+    if(_dsBuildingGroup)_dsBuildingGroup.traverse(function(obj){
+      if(obj.isMesh&&obj.userData.isWindow&&obj.material){
+        obj.material.emissive=new THREE.Color(0xffcc55);
+        obj.material.emissiveIntensity=0.55;
+        obj.material.needsUpdate=true;
+      }
+      if(obj.isLight&&obj.userData.isWindowLight){obj.intensity=1.2;obj.visible=true;}
+      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=2.5;obj.visible=true;}
+      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.9;obj.material.needsUpdate=true;}
+    });
+    if(_dsEnvGroup)_dsEnvGroup.traverse(function(obj){
+      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=2.5;obj.visible=true;}
+      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.9;obj.material.needsUpdate=true;}
+    });
+  } else {
+    if(_dsSunSphere)_dsSunSphere.visible=true;
+    if(_dsScene){_dsScene.fog.color.setHex(0x87a5b8);_dsScene.fog.density=0.004;}
+    if(_dsSunLight){_dsSunLight.intensity=1.8;_dsSunLight.color.setHex(0xfff0d0);}
+    if(_dsAmbLight){_dsAmbLight.intensity=0.38;}
+    if(_dsRenderer)_dsRenderer.toneMappingExposure=0.95;
+    if(btn){btn.textContent='☀ Day';btn.classList.remove('act');}
+    /* kill window glow + lights in day */
+    if(_dsBuildingGroup)_dsBuildingGroup.traverse(function(obj){
+      if(obj.isMesh&&obj.userData.isWindow&&obj.material){
+        obj.material.emissiveIntensity=0;
+        obj.material.needsUpdate=true;
+      }
+      if(obj.isLight&&obj.userData.isWindowLight){obj.intensity=0;obj.visible=false;}
+      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=0;obj.visible=false;}
+      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.3;obj.material.needsUpdate=true;}
+    });
+    if(_dsEnvGroup)_dsEnvGroup.traverse(function(obj){
+      if(obj.isLight&&obj.userData.isStreetLight){obj.intensity=0;obj.visible=false;}
+      if(obj.isMesh&&obj.userData.isStreetLight&&obj.material){obj.material.opacity=0.3;obj.material.needsUpdate=true;}
+    });
+  }
+}
+
+function _dsCapture(){if(!_dsRenderer||!_dsScene||!_dsCamera)return;_dsRenderer.render(_dsScene,_dsCamera);var a=document.createElement('a');a.download='design-studio-'+Date.now()+'.png';a.href=_dsRenderer.domElement.toDataURL('image/png');a.click();}
+
+function _dsToggleImgPanel(){var pnl=document.getElementById('dsImgPanel');if(!pnl)return;var show=pnl.style.display!=='block';pnl.style.display=show?'block':'none';var btn=document.getElementById('dsBtnImg');if(btn)btn.classList.toggle('act',show);}
+
+function _dsSetImage(src){
+  var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear'),drop=document.getElementById('dsImgDrop');
+  _dsRefImage=src;if(thumb){thumb.src=src;thumb.style.display='block';}if(clr)clr.style.display='block';if(drop)drop.style.display='none';
+  var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='block';
+  _dsApplyImageToModel(src);
+}
+function _dsApplyImageToModel(src){
+  if(!_dsBuildingGroup||!window.THREE)return;
+  var loader=new THREE.TextureLoader();
+  loader.crossOrigin='anonymous';
+  loader.load(src,function(tex){
+    tex.encoding=THREE.sRGBEncoding;
+    _dsBuildingGroup.traverse(function(obj){
+      if(!obj.isMesh)return;
+      var m=obj.material;
+      if(m&&!m.transparent){
+        m.map=tex;
+        m.color.setHex(0xffffff);
+        m.roughness=0.7;m.metalness=0.05;
+        m.needsUpdate=true;
+      }
+    });
+    
+    /* Auto-capture a transparent 3D render of the textured building so it looks like a real 3D pin on the map */
+    setTimeout(function(){
+      if(!_dsRenderer||!_dsScene||!_dsCamera)return;
+      var prevEnv = _dsScene.environment;
+      _dsScene.environment = null;
+      if(_dsScene._skyObjects) {
+        _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
+      }
+      if(_dsEnvGroup) { _dsEnvGroup.visible = false; }
+      
+      _dsRenderer.render(_dsScene,_dsCamera);
+      
+      try{
+        var dataUrl=_dsRenderer.domElement.toDataURL('image/png');
+        
+        _dsScene.environment = prevEnv;
+        if(_dsScene._skyObjects) {
+          _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
+        }
+        if(_dsEnvGroup) { _dsEnvGroup.visible = true; }
+        
+        _dsRefImage=dataUrl;
+        var thumb=document.getElementById('dsImgThumb');
+        if(thumb) thumb.src=dataUrl;
+        
+        /* Auto-update dialog preview if it's already open */
+        var asgnDlg = document.getElementById('dsAssignDlg');
+        if(asgnDlg) {
+           var imgTag = asgnDlg.querySelector('img');
+           if(imgTag) imgTag.src = dataUrl;
+        }
+      }catch(e){console.warn('Capture fail',e);}
+    }, 100);
+    
+  },undefined,function(e){console.warn('DS tex load fail:',e);});
+}
+function _dsClearImage(){
+  _dsRefImage=null;var thumb=document.getElementById('dsImgThumb'),clr=document.getElementById('dsImgClear'),drop=document.getElementById('dsImgDrop'),fi=document.getElementById('dsImgFile');
+  if(thumb){thumb.src='';thumb.style.display='none';}if(clr)clr.style.display='none';if(drop)drop.style.display='block';if(fi)fi.value='';
+  var asgn=document.getElementById('dsImgAssign');if(asgn)asgn.style.display='none';
+  var dlg=document.getElementById('dsAssignDlg');if(dlg)dlg.remove();
+}
+function _dsLoadImgUrl(){
+  var inp=document.getElementById('dsImgUrl'),url=inp?inp.value.trim():'';if(!url)return;
+  if(!url.match(/^https?:\/\//i)){_dsAIImageFromPrompt(url);return;}
+  _dsSetImage(url);if(inp)inp.value='';
+}
+function _dsAIImage(){
+  var type=(document.getElementById('dsBT')||{}).value||'tower',style=(document.getElementById('dsStyle')||{}).value||'modern';
+  var prompt='architectural concept design '+_TYPE_LABELS[type]+' '+_STYLE_LABELS[style]+' photorealistic sunny day high quality 4K';
+  _dsAIImageFromPrompt(prompt);
+}
+function _dsAIImageFromPrompt(prompt){
+  var btn=document.getElementById('dsBtnImg');
+  if(btn){btn.textContent='⏳ Generating…';btn.disabled=true;}
+  var url='https://image.pollinations.ai/prompt/'+encodeURIComponent(prompt)+'?width=512&height=384&nologo=true&seed='+Math.floor(Math.random()*99999)+'&model=flux';
+  var pnl=document.getElementById('dsImgPanel');if(pnl)pnl.style.display='block';
+  var drop=document.getElementById('dsImgDrop'),clr=document.getElementById('dsImgClear'),thumb=document.getElementById('dsImgThumb');
+  /* show pulsing placeholder while Pollinations generates (can take 5-30s) */
+  if(drop)drop.style.display='none';if(clr)clr.style.display='block';
+  if(thumb){thumb.style.display='block';thumb.style.opacity='0.25';thumb.style.filter='blur(4px)';thumb.src='';}
+  /* wait for actual image load, THEN apply texture */
+  var img=new Image();img.crossOrigin='anonymous';
+  img.onload=function(){
+    if(thumb){thumb.style.opacity='1';thumb.style.filter='none';}
+    _dsSetImage(url);
+    if(btn){btn.textContent='🖼 Image';btn.disabled=false;}
+  };
+  img.onerror=function(){
+    if(thumb){thumb.style.opacity='1';thumb.style.filter='none';thumb.style.display='none';}
+    if(drop)drop.style.display='block';if(clr)clr.style.display='none';
+    if(btn){btn.textContent='🖼 Image';btn.disabled=false;}
+    console.warn('Pollinations load failed');
+  };
+  img.src=url;
+}
+
+function _dsAssignToPlotUI(){
+  /* Capture the exact 360-degree angle the user has chosen in the viewport right now */
+  if(_dsRenderer && _dsScene && _dsCamera) {
+    var prevEnv = _dsScene.environment;
+    _dsScene.environment = null;
+    if(_dsScene._skyObjects) _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = false; });
+    if(_dsEnvGroup) _dsEnvGroup.visible = false;
+    
+    _dsRenderer.render(_dsScene,_dsCamera);
+    try {
+      _dsRefImage = _dsRenderer.domElement.toDataURL('image/png');
+    } catch(e){}
+    
+    _dsScene.environment = prevEnv;
+    if(_dsScene._skyObjects) _dsScene._skyObjects.forEach(function(o){ if(o) o.visible = true; });
+    if(_dsEnvGroup) _dsEnvGroup.visible = true;
+    
+    var thumb=document.getElementById('dsImgThumb');
+    if(thumb) thumb.src=_dsRefImage;
+  }
+
+  if(!_dsRefImage)return;
+  var m=document.getElementById('concept3dModal');if(!m)return;
+  var old=document.getElementById('dsAssignDlg');if(old)old.remove();
+  var curP=m._plotData;
+  var opts='';
+  (window.plots||[]).forEach(function(p){
+    var lbl='#'+(p.no||p.id)+(p.dev?' · '+p.dev:'')+(p.type?' ('+p.type+')':'');
+    opts+='<option value="'+p.id+'">Plot '+lbl+'</option>';
+  });
+  var dlg=document.createElement('div');dlg.id='dsAssignDlg';
+  dlg.style.cssText='position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:35;width:296px;background:rgba(6,9,14,0.97);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid rgba(0,229,255,0.28);border-radius:16px;padding:20px;box-shadow:0 28px 80px rgba(0,0,0,0.75);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;';
+  dlg.innerHTML=
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'+
+      '<div style="color:#e8eef4;font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;">'+
+        '<span style="background:rgba(0,229,255,0.1);border:1px solid rgba(0,229,255,0.2);border-radius:6px;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:13px;">📌</span>'+
+        'Assign Concept to Plot'+
+      '</div>'+
+      '<button onclick="document.getElementById(\'dsAssignDlg\').remove()" style="background:none;border:none;color:#3e5570;font-size:16px;cursor:pointer;line-height:1;padding:2px 4px;">×</button>'+
+    '</div>'+
+    '<img src="'+_dsRefImage+'" style="width:100%;aspect-ratio:16/9;object-fit:contain;background:radial-gradient(circle at 50% 50%,#0d2137,#040c16);border-radius:8px;margin-bottom:13px;border:1px solid rgba(255,255,255,0.08);">'+
+    '<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:11px;margin-bottom:13px;">'+
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-bottom:9px;border-bottom:1px solid rgba(255,255,255,0.05);margin-bottom:9px;">'+
+        '<input type="radio" name="dsAsgTo" id="dsAsgCur" value="cur" checked style="accent-color:#00e5ff;cursor:pointer;width:14px;height:14px;flex-shrink:0;">'+
+        '<div><div style="font-size:9px;color:#3e5570;font-weight:700;letter-spacing:.8px;text-transform:uppercase;">Current Plot</div>'+
+        '<div style="font-size:11px;color:#00e5ff;font-weight:700;margin-top:1px;">'+(curP?'#'+(curP.no||curP.id)+(curP.dev?' · '+curP.dev:'')+(curP.type?' ('+curP.type+')':''):'— none open —')+'</div></div>'+
+      '</label>'+
+      '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'+
+        '<input type="radio" name="dsAsgTo" id="dsAsgOth" value="other" style="accent-color:#00e5ff;cursor:pointer;width:14px;height:14px;flex-shrink:0;">'+
+        '<div style="font-size:9px;color:#3e5570;font-weight:700;letter-spacing:.8px;text-transform:uppercase;">Choose different plot</div>'+
+      '</label>'+
+      '<select id="dsAsgSel" style="width:100%;margin-top:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:6px 8px;color:#e8eef4;font-size:10px;outline:none;cursor:pointer;">'+opts+'</select>'+
+    '</div>'+
+    '<div style="display:flex;gap:7px;">'+
+      '<button onclick="document.getElementById(\'dsAssignDlg\').remove()" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;color:#7a96b0;padding:9px;font-size:11px;cursor:pointer;font-weight:600;">Cancel</button>'+
+      '<button onclick="_dsAssignConfirm()" style="flex:2;background:linear-gradient(135deg,#00e5ff,#00b8d4);border:none;border-radius:8px;color:#080b10;padding:9px;font-size:12px;font-weight:800;cursor:pointer;">✓ Assign to Plot</button>'+
+    '</div>';
+  m.appendChild(dlg);
+  /* clicking "other" radio auto-focuses select */
+  var selEl=dlg.querySelector('#dsAsgSel');
+  dlg.querySelector('#dsAsgOth').addEventListener('change',function(){if(selEl)selEl.focus();});
+  dlg.querySelector('#dsAsgSel').addEventListener('focus',function(){var r=dlg.querySelector('#dsAsgOth');if(r)r.checked=true;});
+}
+
+function _dsAssignConfirm(){
+  var m=document.getElementById('concept3dModal');if(!m)return;
+  var curP=m._plotData;
+  var isOther=false;
+  document.querySelectorAll('input[name="dsAsgTo"]').forEach(function(r){if(r.value==='other'&&r.checked)isOther=true;});
+  var targetId;
+  if(isOther){var sel=document.getElementById('dsAsgSel');targetId=sel?String(sel.value):null;}
+  else{targetId=curP?String(curP.id):null;}
+  if(!targetId)return;
+  var target=(window.plots||[]).find(function(p){return String(p.id)===String(targetId);});
+  if(target){
+    target.conceptImage=_dsRefImage;
+    if(typeof saveToLocalStorage==='function')saveToLocalStorage();
+    if(typeof populateTable==='function')populateTable();
+    if(typeof addPlotMarkers==='function')addPlotMarkers();
+  }
+  var dlg=document.getElementById('dsAssignDlg');
+  if(dlg){
+    var savedId=targetId;
+    dlg.innerHTML='<div style="text-align:center;padding:24px 16px;">'+
+      '<div style="font-size:34px;margin-bottom:8px;color:#00e5ff;">✓</div>'+
+      '<div style="color:#e8eef4;font-size:13px;font-weight:700;">Concept saved to</div>'+
+      '<div style="color:#00e5ff;font-size:16px;font-weight:800;margin-top:4px;">Plot #'+(target?target.no||target.id:targetId)+'</div>'+
+      '<div style="color:#3e5570;font-size:9px;margin-top:4px;">Saved to local storage &amp; Firebase</div>'+
+      '<button onclick="_dsGoToPlot(\''+savedId+'\')" style="margin-top:16px;width:100%;background:linear-gradient(135deg,#00e5ff,#0077ff);border:none;border-radius:10px;color:#080b10;padding:11px 12px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:0.3px;">📍 Go to Plot on Map</button>'+
+      '<div style="margin-top:8px;"><a href="#" onclick="document.getElementById(\'dsAssignDlg\').remove();return false;" style="color:#3e5570;font-size:10px;text-decoration:none;font-weight:600;">Stay in Design Studio</a></div>'+
+      '</div>';
+  }
+}
+
+function _dsGoToPlot(plotId){
+  /* Close DS → switch to map view → fly to plot → select it */
+  _close3DModal();
+  setTimeout(function(){
+    /* Ensure map view is active (user may have been in table view) */
+    if(typeof togglePlotView==='function'&&typeof currentView!=='undefined'&&currentView!=='map'){
+      togglePlotView('map');
+    }
+    if(typeof addPlotMarkers==='function')addPlotMarkers();
+    var p=(window.plots||[]).find(function(x){return String(x.id)===String(plotId);});
+    if(!p)return;
+    var lat=parseFloat(p.lat),lng=parseFloat(p.lng);
+    if(isNaN(lat)||isNaN(lng)||(lat===0&&lng===0))return;
+    if(typeof selectPlot==='function')selectPlot(p.id);
+    /* Wait for sidebar to open (300ms) then center and zoom to 20 */
+    setTimeout(function(){
+      if(typeof map!=='undefined'&&map){
+        map.setView([lat,lng],21,{animate:true,duration:0.5});
+      }
+    },350);
+  },300);
+}
+
+function _dsToggleAutoRotate(){
+  _dsAutoRotate=!_dsAutoRotate;
+  var btn=document.getElementById('dsBtnAR');
+  if(btn)btn.classList.toggle('act',_dsAutoRotate);
+}
+
+function _dsFPMouseMove(e){
+  if(!_dsFPMode)return;
+  _dsFPYaw-=(e.movementX||0)*0.0022;
+  _dsFPPitch=Math.max(-1.2,Math.min(1.2,_dsFPPitch-(e.movementY||0)*0.0022));
+}
+function _dsFPKeyDn(e){_dsFPKeys[e.code]=true;}
+function _dsFPKeyUp(e){_dsFPKeys[e.code]=false;}
+function _dsFPPLock(){
+  if(!document.pointerLockElement&&_dsFPMode)_dsFPToggle();
+}
+function _dsFPToggle(){
+  _dsFPMode=!_dsFPMode;
+  var btn=document.getElementById('dsBtnFP');
+  var vp=document.getElementById('dsVP');
+  if(_dsFPMode){
+    /* initialise camera at eye level facing the building */
+    if(_dsCamera){
+      _dsCamera.position.set(_dsCamTarget.x,1.8,_dsCamTarget.z+28);
+      _dsFPYaw=Math.PI;_dsFPPitch=0;
+      _dsCamera.rotation.order='YXZ';
+      _dsCamera.rotation.y=_dsFPYaw;
+      _dsCamera.rotation.x=0;
+    }
+    _dsAutoRotate=false;
+    if(vp)vp.requestPointerLock();
+    window.addEventListener('keydown',_dsFPKeyDn);
+    window.addEventListener('keyup',_dsFPKeyUp);
+    document.addEventListener('pointerlockchange',_dsFPPLock);
+    document.addEventListener('mousemove',_dsFPMouseMove);
+    if(btn){btn.classList.add('act');btn.textContent='🚶 EXIT';}
+    showToastNotification('Walk mode: WASD/arrows to move · Space/Shift up/down · ESC to exit','info');
+  } else {
+    document.exitPointerLock&&document.exitPointerLock();
+    window.removeEventListener('keydown',_dsFPKeyDn);
+    window.removeEventListener('keyup',_dsFPKeyUp);
+    document.removeEventListener('pointerlockchange',_dsFPPLock);
+    document.removeEventListener('mousemove',_dsFPMouseMove);
+    _dsFPKeys={};
+    /* restore orbit view */
+    _dsCamRadius=60;_dsCamTheta=Math.PI*0.25;_dsCamPhi=Math.PI*0.28;
+    _dsUpdateCam();
+    if(btn){btn.classList.remove('act');btn.textContent='🚶 Walk';}
+  }
+}
+
+function _dsTopView(){
+  /* Toggle between top-down plan view and perspective view */
+  var btn=document.getElementById('dsBtnPlan');
+  if(!_dsCamera||!_dsCamTarget)return;
+  var isPlan=Math.abs(_dsCamPhi-1.55)<0.05;
+  if(isPlan){
+    /* restore perspective */
+    _dsCamPhi=Math.PI*0.28;_dsCamTheta=Math.PI*0.25;_dsCamRadius=60;
+    if(btn)btn.classList.remove('act');
+  } else {
+    /* snap to top-down */
+    _dsCamPhi=1.55;_dsCamRadius=80;
+    if(btn)btn.classList.add('act');
+  }
+  _dsUpdateCam();
+}
+
+function _dsAddPeople(g,floors,bw,bd,fH){
+  /* Simple silhouette people on balconies — big visual realism boost */
+  var bodyMat=new THREE.MeshPhysicalMaterial({color:0x111118,roughness:0.9});
+  var skinMat=new THREE.MeshPhysicalMaterial({color:0xd4967a,roughness:0.8});
+  for(var f=1;f<floors;f++){
+    var nPpl=Math.floor(Math.random()*2)+(Math.random()>0.45?1:0);
+    for(var pi=0;pi<nPpl;pi++){
+      var pg=new THREE.Group();
+      /* body */
+      var body=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.14,0.95,6),bodyMat);
+      body.position.y=0.475;pg.add(body);
+      /* head */
+      var head=new THREE.Mesh(new THREE.SphereGeometry(0.13,6,5),skinMat);
+      head.position.y=1.04;pg.add(head);
+      /* arm out (random side) */
+      var arm=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.55,0.07),bodyMat);
+      arm.position.set(Math.random()>0.5?0.22:-0.22,0.75,0);arm.rotation.z=Math.random()>0.5?-0.5:0.5;pg.add(arm);
+      /* position: random spot on front balcony */
+      var bx=(Math.random()-0.5)*(bw*0.55);
+      pg.position.set(bx,f*fH+0.26,bd/2+0.5+Math.random()*0.6);
+      pg.rotation.y=(Math.random()-0.5)*0.8;
+      pg.castShadow=true;
+      g.add(pg);
+    }
+  }
+}
+
+function _dsAddWindowLights(g,floors,bd,fH){
+  /* Per-floor warm point lights inside windows — toggled on at night */
+  for(var f=0;f<floors;f++){
+    var pl=new THREE.PointLight(0xffcc55,0,10);
+    pl.position.set(0,f*fH+fH*0.55,bd/2-0.5);
+    pl.userData.isWindowLight=true;
+    pl.visible=false;
+    g.add(pl);
+  }
+}
+
+function _dsAddWindowBands(g,bw,bd,floors,mat){
+  /* per-floor window band on all 4 facades — tagged for night glow */
+  var fH=_FLOOR_H,wh=fH*0.54,th=0.07;
+  for(var f=0;f<floors;f++){
+    var fy=f*fH+fH*0.46;
+    var wMat=mat.glass.clone();
+    var wf=new THREE.Mesh(new THREE.BoxGeometry(bw*0.82,wh,th),wMat);
+    wf.position.set(0,fy,bd/2+th*0.6);wf.userData.isWindow=true;g.add(wf);
+    var wb=new THREE.Mesh(new THREE.BoxGeometry(bw*0.82,wh,th),wMat.clone());
+    wb.position.set(0,fy,-(bd/2+th*0.6));wb.userData.isWindow=true;g.add(wb);
+    var ws=new THREE.Mesh(new THREE.BoxGeometry(th,wh,bd*0.82),wMat.clone());
+    ws.position.set(bw/2+th*0.6,fy,0);ws.userData.isWindow=true;g.add(ws);
+    var we=new THREE.Mesh(new THREE.BoxGeometry(th,wh,bd*0.82),wMat.clone());
+    we.position.set(-(bw/2+th*0.6),fy,0);we.userData.isWindow=true;g.add(we);
+  }
+}
+function _close3DModal(){_dsCleanup();var m=document.getElementById('concept3dModal');if(m)m.remove();}
+function _dsCleanup(){
+  if(_dsAnimId){cancelAnimationFrame(_dsAnimId);_dsAnimId=null;}
+  if(_dsRenderer){_dsRenderer.dispose();_dsRenderer=null;}
+  try{window.removeEventListener('mousemove',_dsCamMove);window.removeEventListener('resize',_dsResize);}catch(e){}
+  if(_dsFPMode){_dsFPMode=false;_dsFPKeys={};document.exitPointerLock&&document.exitPointerLock();
+    window.removeEventListener('keydown',_dsFPKeyDn);window.removeEventListener('keyup',_dsFPKeyUp);
+    document.removeEventListener('pointerlockchange',_dsFPPLock);document.removeEventListener('mousemove',_dsFPMouseMove);}
+  _dsScene=null;_dsCamera=null;_dsBuildingGroup=null;_dsEnvGroup=null;_dsSunLight=null;_dsAmbLight=null;_dsSkyMesh=null;_dsComposer=null;_dsBloomPass=null;
+}
+/* ══════════════════════════════════════════════════════ */
+
+
+function _init3DScene(concept,plotData){
+  var canvas=document.getElementById('c3d-canvas');if(!canvas)return;
+  if(_3dAnimId){cancelAnimationFrame(_3dAnimId);_3dAnimId=null;}
+  if(_3dRenderer){_3dRenderer.dispose();_3dRenderer=null;}
+  var W=canvas.parentElement.clientWidth,H=canvas.parentElement.clientHeight;
+  canvas.width=W;canvas.height=H;
+  var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+  renderer.setSize(W,H);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.95;
+  _3dRenderer=renderer;
+  var scene=new THREE.Scene();
+  var bgC=_3dSkyColor(concept);
+  scene.background=new THREE.Color(bgC.sky);
+  scene.fog=new THREE.Fog(new THREE.Color(bgC.fog),70,180);
+  var floors=Math.max(1,concept.floors||5);
+  var camD=Math.max(28,floors*2.8+16);
+  var camera=new THREE.PerspectiveCamera(45,W/H,0.1,500);
+  camera.position.set(camD*0.65,camD*0.45,camD);
+  camera.lookAt(0,floors*1.5,0);
+  var controls=new THREE.OrbitControls(camera,renderer.domElement);
+  controls.target.set(0,floors*1.5,0);controls.enableDamping=true;controls.dampingFactor=0.07;
+  controls.minDistance=8;controls.maxDistance=140;controls.maxPolarAngle=Math.PI*0.47;controls.update();
+  _3dLighting(scene,concept);_3dGround(scene,concept,plotData);_3dRoad(scene);
+  _3dBuilding(scene,concept,plotData);_3dVegetation(scene,concept,plotData);
+  if(concept.hasPool)_3dPool(scene);
+  _3dInfoPanel(concept,plotData);
+  var ld=document.getElementById('c3d-loading'),hint=document.getElementById('c3d-hint');
+  if(ld)ld.style.display='none';if(hint)hint.style.display='block';
+  var ro=new ResizeObserver(function(){
+    var pw=canvas.parentElement.clientWidth,ph=canvas.parentElement.clientHeight;
+    renderer.setSize(pw,ph);camera.aspect=pw/ph;camera.updateProjectionMatrix();
+  });ro.observe(canvas.parentElement);
+  (function loop(){_3dAnimId=requestAnimationFrame(loop);controls.update();renderer.render(scene,camera);})();
+}
+
+function _3dSkyColor(c){
+  var m={modern:{sky:'#0d1929',fog:'#0d1929'},contemporary:{sky:'#111827',fog:'#111827'},
+    luxury:{sky:'#0f0f1e',fog:'#0f0f1e'},minimalist:{sky:'#d1d5db',fog:'#d1d5db'},
+    classical:{sky:'#0f1f44',fog:'#0f1f44'},industrial:{sky:'#111111',fog:'#111111'}};
+  return m[c.style]||m.modern;
+}
+
+function _3dLighting(scene,concept){
+  var hemi=new THREE.HemisphereLight(0x8899cc,0x334422,0.55);scene.add(hemi);
+  var sun=new THREE.DirectionalLight(0xfff8e7,1.5);
+  sun.position.set(50,70,40);sun.castShadow=true;
+  sun.shadow.mapSize.width=2048;sun.shadow.mapSize.height=2048;
+  sun.shadow.camera.near=1;sun.shadow.camera.far=220;
+  sun.shadow.camera.left=-65;sun.shadow.camera.right=65;
+  sun.shadow.camera.top=65;sun.shadow.camera.bottom=-65;sun.shadow.bias=-0.001;
+  scene.add(sun);
+  var fill=new THREE.DirectionalLight(0x4466bb,0.25);fill.position.set(-30,25,-20);scene.add(fill);
+  scene.add(new THREE.AmbientLight(0x0d1a33,0.5));
+}
+
+function _3dHex(h){return new THREE.Color(h||'#7a8fa6');}
+
+function _3dMat(mat,col,opts){
+  opts=opts||{};
+  var c=_3dHex(col);
+  if(mat==='glass')return new THREE.MeshPhysicalMaterial({color:c,metalness:0.05,roughness:0.05,transmission:0.35,transparent:true,opacity:0.82,envMapIntensity:1.2});
+  if(mat==='metal')return new THREE.MeshStandardMaterial({color:c,metalness:0.85,roughness:0.25});
+  if(mat==='concrete')return new THREE.MeshStandardMaterial({color:c,metalness:0,roughness:0.88});
+  if(mat==='brick')return new THREE.MeshStandardMaterial({color:new THREE.Color(col||'#9e6244'),metalness:0,roughness:0.92});
+  if(mat==='stone')return new THREE.MeshStandardMaterial({color:new THREE.Color(col||'#8a8880'),metalness:0,roughness:0.96});
+  return new THREE.MeshStandardMaterial({color:c,metalness:0.12,roughness:0.62});
+}
+
+function _3dGround(scene,concept,plotData){
+  var gc={lush:0x2a5224,minimal:0x404f38,urban:0x383838,desert:0x7a5e12,mediterranean:0x3a6230};
+  var gColor=gc[concept.landscapeStyle]||gc.lush;
+  var g=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshLambertMaterial({color:gColor}));
+  g.rotation.x=-Math.PI/2;g.receiveShadow=true;scene.add(g);
+  var plotW=Math.sqrt(parseFloat(plotData.size)||400)*0.7+4;
+  var pg=new THREE.Mesh(new THREE.PlaneGeometry(plotW,plotW),new THREE.MeshLambertMaterial({color:new THREE.Color(gColor).multiplyScalar(1.12)}));
+  pg.rotation.x=-Math.PI/2;pg.position.y=0.01;pg.receiveShadow=true;scene.add(pg);
+  var pv=new THREE.Mesh(new THREE.PlaneGeometry(plotW+8,5),new THREE.MeshLambertMaterial({color:0x9a9a96}));
+  pv.rotation.x=-Math.PI/2;pv.position.set(0,0.015,plotW/2+2.5);pv.receiveShadow=true;scene.add(pv);
+}
+
+function _3dRoad(scene){
+  var rd=new THREE.Mesh(new THREE.PlaneGeometry(120,11),new THREE.MeshLambertMaterial({color:0x222222}));
+  rd.rotation.x=-Math.PI/2;rd.position.set(0,0.005,28);scene.add(rd);
+  for(var i=-5;i<=5;i++){
+    var ln=new THREE.Mesh(new THREE.PlaneGeometry(0.18,2.2),new THREE.MeshLambertMaterial({color:0xffffff}));
+    ln.rotation.x=-Math.PI/2;ln.position.set(i*4.5,0.012,28);scene.add(ln);
+  }
+}
+
+function _3dBuilding(scene,concept,plotData){
+  var floors=Math.max(1,concept.floors||5),fH=3.2,totalH=floors*fH;
+  var pArea=parseFloat(plotData.size)||400;
+  var bW=Math.min(22,Math.max(7,Math.sqrt(pArea)*0.52));
+  var bD=bW*(concept.aspect||0.8);
+  var mainMat=_3dMat(concept.facadeMaterial,concept.primaryColor);
+  var accentMat=_3dMat(concept.facadeMaterial,concept.accentColor,{metalness:0.4,roughness:0.35});
+  if(concept.hasPodium&&floors>6){
+    var pF=Math.min(concept.podiumFloors||3,Math.floor(floors*0.28));
+    var pH=pF*fH,tF=floors-pF,tH=tF*fH;
+    var tW=bW*0.68*(1-(concept.towerTaper||0)),tD=bD*0.68*(1-(concept.towerTaper||0));
+    var pod=new THREE.Mesh(new THREE.BoxGeometry(bW,pH,bD),mainMat);
+    pod.position.y=pH/2;pod.castShadow=true;pod.receiveShadow=true;scene.add(pod);
+    var twr=new THREE.Mesh(new THREE.BoxGeometry(tW,tH,tD),mainMat.clone());
+    twr.position.y=pH+tH/2;twr.castShadow=true;scene.add(twr);
+    var ter=new THREE.Mesh(new THREE.BoxGeometry(bW+0.6,0.25,bD+0.6),new THREE.MeshStandardMaterial({color:0x78788a,roughness:0.75}));
+    ter.position.y=pH+0.12;scene.add(ter);
+    _3dWindows(scene,tW,tH,tD,tF,pH,concept);
+    _3dWindows(scene,bW,pH,bD,pF,0,concept);
+  }else{
+    var bld=new THREE.Mesh(new THREE.BoxGeometry(bW,totalH,bD),mainMat);
+    bld.position.y=totalH/2;bld.castShadow=true;bld.receiveShadow=true;scene.add(bld);
+    _3dWindows(scene,bW,totalH,bD,floors,0,concept);
+  }
+  _3dRoof(scene,bW,bD,totalH,concept);
+  _3dEntrance(scene,bW,bD,concept);
+}
+
+function _3dWindows(scene,bW,bH,bD,floors,yOff,concept){
+  var wc=_3dHex(concept.windowColor||'#88b8d4');
+  var wm=new THREE.MeshPhysicalMaterial({color:wc,metalness:0.05,roughness:0.04,transmission:0.45,transparent:true,opacity:0.82});
+  var fH=bH/floors,sH=fH*0.55,sW=bW-1.4,sDep=bD-1.4;
+  for(var f=0;f<floors;f++){
+    var y=yOff+f*fH+fH*0.3+sH/2;
+    var front=new THREE.Mesh(new THREE.PlaneGeometry(sW,sH),wm);
+    front.position.set(0,y,bD/2+0.02);scene.add(front);
+    var back=new THREE.Mesh(new THREE.PlaneGeometry(sW,sH),wm);
+    back.position.set(0,y,-bD/2-0.02);back.rotation.y=Math.PI;scene.add(back);
+    var left=new THREE.Mesh(new THREE.PlaneGeometry(sDep,sH),wm);
+    left.position.set(-bW/2-0.02,y,0);left.rotation.y=-Math.PI/2;scene.add(left);
+    var right=new THREE.Mesh(new THREE.PlaneGeometry(sDep,sH),wm);
+    right.position.set(bW/2+0.02,y,0);right.rotation.y=Math.PI/2;scene.add(right);
+  }
+}
+
+function _3dRoof(scene,bW,bD,totalH,concept){
+  var rm=new THREE.MeshStandardMaterial({color:_3dHex(concept.accentColor),metalness:0.15,roughness:0.65});
+  if(concept.roofStyle==='setback'){
+    var pb=new THREE.Mesh(new THREE.BoxGeometry(bW*0.58,3.8,bD*0.58),rm);
+    pb.position.y=totalH+1.9;pb.castShadow=true;scene.add(pb);
+  }else if(concept.roofStyle==='angled'){
+    var cone=new THREE.Mesh(new THREE.ConeGeometry(Math.max(bW,bD)*0.65,4.5,4),rm);
+    cone.position.y=totalH+2.25;cone.rotation.y=Math.PI/4;cone.castShadow=true;scene.add(cone);
+  }else if(concept.roofStyle==='green'){
+    var gr=new THREE.Mesh(new THREE.PlaneGeometry(bW-0.4,bD-0.4),new THREE.MeshLambertMaterial({color:0x3a7a40}));
+    gr.rotation.x=-Math.PI/2;gr.position.y=totalH+0.04;scene.add(gr);
+  }
+  var slab=new THREE.Mesh(new THREE.BoxGeometry(bW+0.5,0.4,bD+0.5),new THREE.MeshStandardMaterial({color:0x55556a,roughness:0.82}));
+  slab.position.y=totalH+0.2;slab.castShadow=true;scene.add(slab);
+  for(var i=0;i<3;i++){
+    var eq=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.55,0.7),new THREE.MeshStandardMaterial({color:0x777788,roughness:0.9}));
+    eq.position.set((Math.random()-0.5)*(bW-2),totalH+0.67,(Math.random()-0.5)*(bD-2));scene.add(eq);
+  }
+}
+
+function _3dEntrance(scene,bW,bD,concept){
+  var acM=new THREE.MeshPhysicalMaterial({color:_3dHex(concept.accentColor),metalness:0.75,roughness:0.15,transmission:0.2,transparent:true,opacity:0.92});
+  var can=new THREE.Mesh(new THREE.BoxGeometry(bW*0.38,0.14,2.2),acM);
+  can.position.set(0,3,bD/2+1.1);can.castShadow=true;scene.add(can);
+  for(var s=-1;s<=1;s+=2){
+    var col=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.07,3,8),new THREE.MeshStandardMaterial({color:0x8888a0,metalness:0.55,roughness:0.35}));
+    col.position.set(s*bW*0.17,1.5,bD/2+1.1);scene.add(col);
+  }
+  var door=new THREE.Mesh(new THREE.PlaneGeometry(bW*0.14,2.5),new THREE.MeshPhysicalMaterial({color:0x112233,transmission:0.65,transparent:true,opacity:0.9,roughness:0.02}));
+  door.position.set(0,1.25,bD/2+0.02);scene.add(door);
+}
+
+function _3dVegetation(scene,concept,plotData){
+  var tc={lush:[0x2b6428,0x356e32,0x27592a],minimal:[0x485e3a,0x526840,0x425838],
+    urban:[0x3c5a2e,0x456434,0x385228],desert:[0x7a7a22,0x888824,0x6a6a1e],
+    mediterranean:[0x3a6830,0x447838,0x30582a]};
+  var colors=tc[concept.landscapeStyle]||tc.lush;
+  var plotR=Math.sqrt(parseFloat(plotData.size)||400)*0.5+3;
+  var count=concept.landscapeStyle==='desert'?5:concept.landscapeStyle==='minimal'?4:10;
+  for(var i=0;i<count;i++){
+    var ang=(i/count)*Math.PI*2+Math.random()*0.6;
+    var dist=plotR+Math.random()*9;
+    var tx=Math.cos(ang)*dist,tz=Math.sin(ang)*dist;
+    if(tz>15)continue;
+    var th=3.5+Math.random()*5;
+    var trk=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.18,th*0.38,6),new THREE.MeshLambertMaterial({color:0x5c3a1e}));
+    trk.position.set(tx,th*0.19,tz);trk.castShadow=true;scene.add(trk);
+    var lc=colors[Math.floor(Math.random()*colors.length)];
+    var lm=new THREE.MeshLambertMaterial({color:lc});
+    for(var l=0;l<3;l++){
+      var lr=th*0.33*(1-l*0.2),lh=th*0.42;
+      var lf=new THREE.Mesh(new THREE.ConeGeometry(lr,lh,7),lm);
+      lf.position.set(tx,th*0.38+l*lh*0.32,tz);lf.castShadow=true;scene.add(lf);
+    }
+  }
+  if(concept.landscapeStyle==='mediterranean'||concept.landscapeStyle==='desert'){
+    [-9,-3,3,9].forEach(function(x){_3dPalm(scene,x,14);});
+  }
+}
+
+function _3dPalm(scene,x,z){
+  var trk=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.17,7,7),new THREE.MeshLambertMaterial({color:0x8b6914}));
+  trk.position.set(x,3.5,z);trk.rotation.z=(Math.random()-0.5)*0.18;trk.castShadow=true;scene.add(trk);
+  var fm=new THREE.MeshLambertMaterial({color:0x3d8b2a,side:THREE.DoubleSide});
+  for(var f=0;f<8;f++){
+    var fa=(f/8)*Math.PI*2;
+    var fr=new THREE.Mesh(new THREE.PlaneGeometry(0.35,3),fm);
+    fr.position.set(x+Math.cos(fa)*1.1,7.4,z+Math.sin(fa)*1.1);
+    fr.rotation.set(Math.PI*0.28,fa,0);scene.add(fr);
+  }
+}
+
+function _3dPool(scene){
+  var pm=new THREE.MeshPhysicalMaterial({color:0x1a9ab0,transmission:0.72,transparent:true,opacity:0.85,roughness:0.04});
+  var pool=new THREE.Mesh(new THREE.BoxGeometry(5.5,0.28,3.2),pm);
+  pool.position.set(13,0.1,-5);scene.add(pool);
+  var dk=new THREE.Mesh(new THREE.PlaneGeometry(10,7.5),new THREE.MeshLambertMaterial({color:0xd2c09a}));
+  dk.rotation.x=-Math.PI/2;dk.position.set(13,0.01,-5);dk.receiveShadow=true;scene.add(dk);
+}
+
+function _3dInfoPanel(concept,plotData){
+  var pnl=document.getElementById('c3d-panel'),body=document.getElementById('c3d-panel-body');
+  if(!pnl||!body)return;
+  var si={'modern':'🏙','contemporary':'🏗','luxury':'✨','minimalist':'⬜','classical':'🏛','industrial':'🏭'};
+  var icon=si[concept.style]||'🏢';
+  var feats=(concept.keyFeatures||[]).map(function(f){
+    return '<div style="display:flex;align-items:flex-start;gap:6px;padding:4px 0;border-bottom:1px solid #0f172a;">'+
+      '<span style="color:#34d399;margin-top:1px;flex-shrink:0;">✓</span>'+
+      '<span style="color:#94a3b8;font-size:10.5px;">'+esc(f)+'</span></div>';
+  }).join('');
+  body.innerHTML=
+    '<div style="text-align:center;padding:8px 0 14px;">'+
+      '<div style="font-size:28px;margin-bottom:6px;">'+icon+'</div>'+
+      '<div style="color:#f1f5f9;font-size:13px;font-weight:700;line-height:1.35;">'+esc(concept.conceptTitle||'AI Concept')+'</div>'+
+      '<span style="display:inline-block;background:#1e1b4b;color:#818cf8;font-size:9px;font-weight:700;border-radius:4px;padding:2px 8px;margin-top:6px;text-transform:uppercase;letter-spacing:.8px;">'+esc(concept.style||'modern')+'</span>'+
+    '</div>'+
+    '<div style="color:#64748b;font-size:10.5px;line-height:1.75;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #0f172a;">'+esc(concept.conceptDescription||'')+'</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">'+
+      _3dStatB('Floors',concept.floors||'—','#818cf8')+
+      _3dStatB('Facade',concept.facadeMaterial||'—','#34d399')+
+      _3dStatB('Roof',concept.roofStyle||'flat','#fbbf24')+
+      _3dStatB('Setting',concept.landscapeStyle||'—','#60a5fa')+
+    '</div>'+
+    (feats?'<div style="margin-bottom:14px;"><div style="color:#334155;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;">Features</div>'+feats+'</div>':'')+
+    '<div style="background:#030712;border-radius:8px;padding:10px 12px;">'+
+      '<div style="color:#334155;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;">Plot Data</div>'+
+      (plotData.size?'<div style="color:#64748b;font-size:10px;line-height:1.8;">Area: <b style="color:#94a3b8;">'+plotData.size+' sqm</b></div>':'')+
+      (plotData.gfa?'<div style="color:#64748b;font-size:10px;line-height:1.8;">GFA: <b style="color:#94a3b8;">'+plotData.gfa+' sqm</b></div>':'')+
+      (plotData.type?'<div style="color:#64748b;font-size:10px;line-height:1.8;">Type: <b style="color:#94a3b8;">'+plotData.type+'</b></div>':'')+
+      (plotData.price?'<div style="color:#64748b;font-size:10px;line-height:1.8;">Price: <b style="color:#34d399;">$'+Number(plotData.price).toLocaleString()+'</b></div>':'')+
+    '</div>';
+  pnl.style.display='block';
+}
+
+function _3dStatB(label,value,color){
+  return '<div style="background:#030712;border-radius:7px;padding:8px 10px;">'+
+    '<div style="color:'+color+';font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">'+label+'</div>'+
+    '<div style="color:#e2e8f0;font-size:12px;font-weight:600;margin-top:3px;">'+value+'</div></div>';
+}
+
+/* ══════════════════════════════════════════════════════ */
+
 /* ── Language picker dialog ── */
 function _askPrintLang(cb){
   var old=document.getElementById('_langPickerModal');if(old)old.remove();
@@ -3822,6 +5600,9 @@ const _firebaseConfig = {
     messagingSenderId: "723228647195",
     appId: "1:723228647195:web:00693e31e923014e1efdbe"
 };
+
+/* ── Fixed default room — all devices auto-join this room on login ── */
+var _DEFAULT_ROOM = 'xp-homes';
 
 var _fbDb = null;
 var _fbRoomRef = null;
@@ -4122,6 +5903,10 @@ function login(){
   var ub=document.getElementById('userBadge');
   if(ub)ub.innerHTML=user+(role==='admin'?' <span style="color:#c4b5fd;font-size:9px;">ADMIN</span>':'');
   showToastNotification('Welcome'+(role==='admin'?', Admin':'')+', '+user+'!','success');
+  /* Auto-connect to the shared room on login */
+  setTimeout(function(){
+    connectSync(_DEFAULT_ROOM);
+  }, 800);
   setTimeout(function(){showDashboard();},400);
 }
 
@@ -4132,6 +5917,8 @@ function continueAsGuest(){
   var ub=document.getElementById('userBadge');
   if(ub)ub.textContent='Guest';
   showToastNotification('Continuing as Guest.','info');
+  /* Guest also auto-joins shared room as viewer */
+  setTimeout(function(){connectSync(_DEFAULT_ROOM);},800);
 }
 
 function logout(){
@@ -4406,7 +6193,7 @@ function pricePerSqft(price,size){var pr=parseNum(price),sz=parseNum(size);if(is
 window.showSyncModal=showSyncModal;window.connectSync=connectSync;window.disconnectSync=disconnectSync;window.pushSync=pushSync;window.pullSync=pullSync;window.startAutoSync=startAutoSync;
 window.startSetOnMapMode=startSetOnMapMode;window.startSetOnMapModeForPlot=startSetOnMapModeForPlot;window.cancelSetOnMapMode=cancelSetOnMapMode;
 window.setOwnerCode=setOwnerCode;window.showOwnerCodeSetup=showOwnerCodeSetup;window.unlockOwner=unlockOwner;window.lockOwner=lockOwner;window.extractLatLngFromUrl=extractLatLngFromUrl;window.resolveMapsUrls=resolveMapsUrls;window.resolveGoogleMapsUrl=resolveGoogleMapsUrl;window.resolveAndPinPlot=resolveAndPinPlot;window.applyPastedGpsUrl=applyPastedGpsUrl;
-window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.startAreaMeasurement=startAreaMeasurement;window.finishAreaMeasurement=finishAreaMeasurement;window.cancelAreaMeasurement=cancelAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.openUNIDOFromPlotForm=openUNIDOFromPlotForm;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectFreeCalendar=connectFreeCalendar;window.connectGoogleCalendar=connectGoogleCalendar;window.showAISystemModal=showAISystemModal;window.askPortalAI=askPortalAI;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
+window.savePlot=savePlot;window.closeCard=closeCard;window.deletePlot=deletePlot;window.selectPlot=selectPlot;window.changePlotStatusFromCard=changePlotStatusFromCard;window.togglePlotView=togglePlotView;window.toggleSelection=toggleSelection;window.toggleSelectAll=toggleSelectAll;window.bulkDelete=bulkDelete;window.bulkExport=bulkExport;window.applyFilters=applyFilters;window.clearFilters=clearFilters;window.filterByStatus=filterByStatus;window.debounceSearch=debounceSearch;window.syncTableSearch=syncTableSearch;window.findDuplicatePlots=findDuplicatePlots;window.deleteSelectedDuplicates=deleteSelectedDuplicates;window.importPlots=importPlots;window.closeImportModal=closeImportModal;window.handleFileSelect=handleFileSelect;window.confirmImport=confirmImport;window.exportCSV=exportCSV;window.startDistanceCalculator=startDistanceCalculator;window.startBufferAnalysis=startBufferAnalysis;window.toggleHeatmap=toggleHeatmap;window.toggleProximityAmenities=toggleProximityAmenities;window.geocodeAddress=geocodeAddress;window.setMapStyle=setMapStyle;window.toggleBlockGrid=toggleBlockGrid;window.startAreaMeasurement=startAreaMeasurement;window.finishAreaMeasurement=finishAreaMeasurement;window.cancelAreaMeasurement=cancelAreaMeasurement;window.showFollowUpModal=showFollowUpModal;window.saveFollowUpEntry=saveFollowUpEntry;window.copyFollowUpMessage=copyFollowUpMessage;window.openUNIDOFromPlotForm=openUNIDOFromPlotForm;window.showUNIDOFeasibility=showUNIDOFeasibility;window.printUNIDOFeasibility=printUNIDOFeasibility;window.showCRMModal=showCRMModal;window.exportCRM=exportCRM;window.openCalendarForFollowUp=openCalendarForFollowUp;window.connectFreeCalendar=connectFreeCalendar;window.connectGoogleCalendar=connectGoogleCalendar;window.showAISystemModal=showAISystemModal;window.askPortalAI=askPortalAI;window.showOfflineSyncModal=showOfflineSyncModal;window.updateTotalPlotsBadge=updateTotalPlotsBadge;window.showToastNotification=showToastNotification;window.toggleSidebar=toggleSidebar;window.logout=logout;window.continueAsGuest=continueAsGuest;window.login=login;window.toggleOnlineSync=toggleOnlineSync;window.saveToLocalStorage=saveToLocalStorage;window.loadFromLocalStorage=loadFromLocalStorage;window.addPlotMarkers=addPlotMarkers;window.populateTable=populateTable;window.updateLegendCounts=updateLegendCounts;window._shareWhatsapp=_shareWhatsapp;window._shareEmail=_shareEmail;window._shareCopy=_shareCopy;window._sharePrint=_sharePrint;window._shareCall=_shareCall;
 
 
 function toggleQuick(t){
@@ -4470,7 +6257,7 @@ window.onload=function(){
     }
   });
   if(_syncedGps){filteredPlots=plots.slice();try{localStorage.setItem('aiplot_plots',JSON.stringify(plots));}catch(e){}}
-  _autoFitMap=true;/* always fit to all pins on fresh page load */
+  _autoFitMap=false;/* Stay in Dubai on fresh page load */
 
   initMap();populateTable();togglePlotView('map');updateTotalPlotsBadge();
   if(currentUser){var ub=document.getElementById('userBadge');if(ub)ub.textContent=currentUser.name;}
@@ -4948,6 +6735,7 @@ function _setLang(lang){
   _txOpt('mapStyleSelect','carto','nightStreets');
   _txOpt('mapStyleSelect','satellite','satellite');
   _txOpt('mapStyleSelect','topo','topo');
+  _txOpt('mapStyleSelect','2gis','🗺️ 2GIS Map');
 
   /* ── Filter bar labels ── */
   document.querySelectorAll('[data-lang-key]').forEach(function(el){ el.textContent=t(el.getAttribute('data-lang-key')); });
