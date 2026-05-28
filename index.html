@@ -848,7 +848,7 @@ body.rtl .acp-close{margin-left:0;margin-right:auto;}
       <button class="fbtn act" onclick="clearFilters()" style="white-space:nowrap;"><i class="fas fa-times"></i> Clear</button>
       <input class="fi" id="geocodeInput" placeholder="Jump to address…" style="flex:1;min-width:100px;" onkeydown="if(event.key==='Enter')geocodeAddress()">
       <button class="fbtn" onclick="geocodeAddress()" title="Geocode"><i class="fas fa-search-location"></i></button>
-      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="google">🌍 Google Maps</option><option value="2gis" selected>🗺️ 2GIS Map</option></select>
+      <select class="fi" id="mapStyleSelect" onchange="setMapStyle(this.value)" title="Map Style"><option value="osm">Street</option><option value="carto">Night Streets</option><option value="satellite">Satellite</option><option value="google" selected>🌍 Google Maps</option><option value="2gis">🗺️ 2GIS Map</option></select>
       <button class="fbtn" id="blockGridBtn" onclick="toggleBlockGrid()" title="Block Grid Overlay"><i class="fas fa-th"></i> Blocks</button>
       <button class="fbtn" id="bulkDeleteBtn" onclick="bulkDelete()" style="display:none;color:#ef4444;"><i class="fas fa-trash"></i> Delete</button>
       <button class="fbtn" id="bulkExportBtn" onclick="bulkExport()" style="display:none;"><i class="fas fa-file-export"></i> Export</button>
@@ -1760,7 +1760,7 @@ function parsePDFFile(file,prev,onRows){
 function initMap(){
   map=L.map('map',{zoomControl:true}).setView([25.2048,55.2708],10);
   markerCluster=L.markerClusterGroup({chunkedLoading:true,maxClusterRadius:60,spiderfyOnMaxZoom:true});
-  setMapStyle('2gis');
+  setMapStyle('google');
   map.addLayer(markerCluster);
   addPlotMarkers();
   _initSetOnMapClick();
@@ -4060,10 +4060,13 @@ function _dsOpen(p, autoRecord){
   var modal=document.createElement('div');modal.id='concept3dModal';
   modal.style.cssText='position:absolute;top:40px;bottom:40px;left:40px;right:40px;z-index:9500;background:#080b10;border-radius:16px;box-shadow:0 20px 80px rgba(0,0,0,0.8);border:1px solid rgba(255,255,255,0.1);overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;pointer-events:auto;';
   if(autoRecord){
-    modal.style.opacity='0';
+    modal.style.opacity='0.01';
+    modal.style.transform='translate(-9999px, -9999px)';
     modal.style.pointerEvents='none';
-    modal.style.zIndex='-9999';
     showToastNotification('🎥 Recording drone video in background...', 'info');
+    if (typeof proximityActive !== 'undefined' && !proximityActive) {
+      toggleProximityAmenities();
+    }
   }
   var pW=Math.min(200,Math.max(10,pSide)),pD=Math.min(200,Math.max(10,pSide));
   modal.innerHTML=
@@ -4078,7 +4081,7 @@ function _dsOpen(p, autoRecord){
         '<button class="ds-hbtn" id="dsBtnPlan" onclick="_dsTopView()">⬜ Plan</button>'+
         '<button class="ds-hbtn" id="dsBtnFP" onclick="_dsFPToggle()" title="WASD first-person walk">🚶 Walk</button>'+
         '<button class="ds-hbtn" onclick="_dsCapture()">📷 Capture</button>'+
-        '<button class="ds-hbtn" id="dsBtnImg" onclick="_dsToggleImgPanel()">🖼 Image</button>'+
+        '<button class="ds-hbtn" id="dsBtnImg" onclick="_dsToggleImgPanel()">📥 Import Image</button>'+
         '<button onclick="_close3DModal()" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;color:#3e5570;width:28px;height:28px;cursor:pointer;font-size:15px;line-height:1;">×</button>'+
       '</div>'+
     '</div>'+
@@ -4666,6 +4669,7 @@ function _dsRecordVideo(){
   if(btn) btn.innerHTML = '⏳ Recording...';
   
   try {
+    _dsRenderer.render(_dsScene, _dsCamera);
     var stream = _dsRenderer.domElement.captureStream(30);
     _dsVidRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
     _dsVidChunks = [];
